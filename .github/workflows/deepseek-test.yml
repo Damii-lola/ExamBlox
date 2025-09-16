@@ -1,0 +1,63 @@
+name: Test DeepSeek Connection
+
+on:
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  test-connection:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          
+      - name: Install dependencies
+        run: |
+          pip install requests
+          
+      - name: Test DeepSeek API connection
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          python -c "
+          import os
+          import requests
+          
+          api_key = os.environ.get('DEEPSEEK_API_KEY')
+          if not api_key:
+              print('❌ DEEPSEEK_API_KEY not found')
+              exit(1)
+              
+          print('Testing DeepSeek API connection...')
+          
+          try:
+              response = requests.post(
+                  'https://api.deepseek.com/v1/chat/completions',
+                  headers={
+                      'Authorization': f'Bearer {api_key}',
+                      'Content-Type': 'application/json'
+                  },
+                  json={
+                      'model': 'deepseek-chat',
+                      'messages': [{'role': 'user', 'content': 'Hello, are you working?'}],
+                      'temperature': 0.7,
+                      'max_tokens': 50
+                  }
+              )
+              
+              if response.status_code == 200:
+                  print('✅ DeepSeek API connection successful!')
+                  print('Response:', response.json())
+              else:
+                  print(f'❌ API returned status code: {response.status_code}')
+                  print('Response:', response.text)
+                  exit(1)
+                  
+          except Exception as e:
+              print(f'❌ Error connecting to DeepSeek API: {str(e)}')
+              exit(1)
+          "
