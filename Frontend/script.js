@@ -1,704 +1,517 @@
-// Initialize PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.12.313/pdf.worker.min.js';
+// script.js - File Upload and Text Reading Implementation
 
-// DOM Elements
-const uploadArea = document.getElementById('uploadArea');
-const fileInput = document.getElementById('fileInput');
-const browseBtn = document.getElementById('browseBtn');
-const fileInfo = document.getElementById('fileInfo');
-const fileName = document.getElementById('fileName');
-const fileSize = document.getElementById('fileSize');
-const removeFileBtn = document.getElementById('removeFileBtn');
-const generateBtn = document.getElementById('generateBtn');
-const questionRange = document.getElementById('questionRange');
-const questionCount = document.getElementById('questionCount');
+// Global variables
+let currentFile = null;
+let extractedText = '';
 
-// Backend API URL (update this with your actual backend URL when deployed)
-const API_BASE_URL = 'http://localhost:3000'; // Change this in production
-
-// Initialize the application when the DOM is loaded
+// Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('ExamBlox application initialized');
-    
-    // Set up event listeners
-    if (browseBtn) {
-        browseBtn.addEventListener('click', () => fileInput.click());
-    }
-    
-    if (fileInput) {
-        fileInput.addEventListener('change', handleFileSelect);
-    }
-    
-    if (removeFileBtn) {
-        removeFileBtn.addEventListener('click', resetFileInput);
-    }
-    
-    if (questionRange && questionCount) {
-        questionRange.addEventListener('input', updateQuestionCount);
-        // Initialize the question count display
-        updateQuestionCount();
-    }
-    
-    if (generateBtn) {
-        generateBtn.addEventListener('click', handleGenerateQuestions);
-    }
-    
-    // Set up drag and drop functionality
-    setupDragAndDrop();
-    
-    // Add AI test button
-    addAITestButton();
+    initializeFileUpload();
+    initializeStarsBackground();
+    initializeMobileNavigation();
 });
 
-// Drag and drop functionality
-function setupDragAndDrop() {
-    if (!uploadArea) return;
-    
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        uploadArea.addEventListener(eventName, preventDefaults, false);
+// Initialize file upload functionality
+function initializeFileUpload() {
+    const uploadArea = document.querySelector('.upload-area');
+    const browseBtn = document.querySelector('.btn-browse');
+    const generateBtn = document.querySelector('.btn-generate');
+    const questionTypeSelect = document.querySelector('.upload-options select');
+    const rangeInput = document.querySelector('.upload-options input[type="range"]');
+    const difficultySelect = document.querySelectorAll('.upload-options select')[1];
+
+    // Create hidden file input
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.ppt,.pptx';
+    fileInput.style.display = 'none';
+    document.body.appendChild(fileInput);
+
+    // Browse button click event
+    browseBtn.addEventListener('click', () => {
+        fileInput.click();
     });
 
-    ['dragenter', 'dragover'].forEach(eventName => {
-        uploadArea.addEventListener(eventName, highlight, false);
-    });
+    // Drag and drop events
+    uploadArea.addEventListener('dragover', handleDragOver);
+    uploadArea.addEventListener('dragleave', handleDragLeave);
+    uploadArea.addEventListener('drop', handleDrop);
+    uploadArea.addEventListener('click', () => fileInput.click());
 
-    ['dragleave', 'drop'].forEach(eventName => {
-        uploadArea.addEventListener(eventName, unhighlight, false);
-    });
+    // File input change event
+    fileInput.addEventListener('change', handleFileSelect);
 
-    uploadArea.addEventListener('drop', handleDrop, false);
+    // Generate button click event
+    generateBtn.addEventListener('click', handleGenerateQuestions);
 }
 
-function preventDefaults(e) {
+// Handle drag over event
+function handleDragOver(e) {
     e.preventDefault();
     e.stopPropagation();
+    e.currentTarget.classList.add('dragover');
 }
 
-function highlight() {
-    uploadArea.classList.add('dragover');
+// Handle drag leave event
+function handleDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.remove('dragover');
 }
 
-function unhighlight() {
-    uploadArea.classList.remove('dragover');
-}
-
+// Handle drop event
 function handleDrop(e) {
-    const dt = e.dataTransfer;
-    const files = dt.files;
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.remove('dragover');
     
-    if (files.length) {
-        fileInput.files = files;
-        handleFileSelect();
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        handleFileSelection(files[0]);
     }
 }
 
-// File handling functions
-function handleFileSelect() {
-    const file = fileInput.files[0];
-    
-    if (!file) return;
-    
+// Handle file select from input
+function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (file) {
+        handleFileSelection(file);
+    }
+}
+
+// Main file selection handler
+function handleFileSelection(file) {
     // Validate file type
     const validTypes = [
-        'application/pdf', 
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/pdf',
         'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'text/plain',
         'image/jpeg',
+        'image/jpg',
         'image/png',
         'application/vnd.ms-powerpoint',
         'application/vnd.openxmlformats-officedocument.presentationml.presentation'
     ];
-    
-    if (!validTypes.includes(file.type)) {
-        showNotification('Please select a valid file type (PDF, DOCX, TXT, JPG, PNG, PPT)', 'error');
-        resetFileInput();
+
+    const validExtensions = ['.pdf', '.doc', '.docx', '.txt', '.jpg', '.jpeg', '.png', '.ppt', '.pptx'];
+    const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+
+    if (!validTypes.includes(file.type) && !validExtensions.includes(fileExtension)) {
+        showNotification('Please select a valid file format (PDF, DOC, DOCX, TXT, JPG, PNG, PPT)', 'error');
         return;
     }
-    
-    // Validate file size (max 10MB)
+
+    // Check file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
         showNotification('File size must be less than 10MB', 'error');
-        resetFileInput();
         return;
     }
-    
-    // Display file info inside the upload area
-    fileName.textContent = file.name;
-    fileSize.textContent = formatFileSize(file.size);
-    
-    // Add has-file class to trigger CSS transitions
-    uploadArea.classList.add('has-file');
-    
-    // After transition, show file info
-    setTimeout(() => {
-        fileInfo.style.display = 'flex';
-        setTimeout(() => {
-            fileInfo.classList.add('visible');
-        }, 10);
-    }, 300);
-    
-    // Enable generate button
-    generateBtn.classList.add('active');
-    generateBtn.disabled = false;
-    
-    // Extract text from file (in background, no preview)
+
+    currentFile = file;
+    updateUploadUI(file);
     extractTextFromFile(file);
 }
 
-function resetFileInput() {
-    // Hide file info with animation
-    fileInfo.classList.remove('visible');
+// Update upload UI after file selection
+function updateUploadUI(file) {
+    const uploadArea = document.querySelector('.upload-area');
+    const uploadIcon = document.querySelector('.upload-icon');
+    const uploadTitle = document.querySelector('.upload-title');
+    const uploadSubtitle = document.querySelector('.upload-subtitle');
+    const browseBtn = document.querySelector('.btn-browse');
+
+    // Update upload area appearance
+    uploadArea.style.background = 'rgba(106, 75, 255, 0.1)';
+    uploadArea.style.borderColor = '#4dfff3';
     
-    // After animation completes, reset everything
-    setTimeout(() => {
-        fileInfo.style.display = 'none';
-        fileInput.value = '';
-        uploadArea.classList.remove('has-file');
-        
-        generateBtn.classList.remove('active');
-        generateBtn.disabled = true;
-    }, 300);
+    // Update content
+    uploadIcon.innerHTML = '<i class="fas fa-file-check"></i>';
+    uploadTitle.textContent = `File selected: ${file.name}`;
+    uploadSubtitle.textContent = `Size: ${formatFileSize(file.size)}`;
+    browseBtn.textContent = 'Change File';
+    browseBtn.style.background = 'linear-gradient(90deg, #4dfff3, #9b6aff)';
+
+    // Enable form controls
+    enableUploadControls();
 }
 
-function formatFileSize(bytes) {
-    if (bytes === 0) return '0 Bytes';
-    
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+// Enable upload form controls
+function enableUploadControls() {
+    const selects = document.querySelectorAll('.upload-options select');
+    const rangeInput = document.querySelector('.upload-options input[type="range"]');
+    const generateBtn = document.querySelector('.btn-generate');
+
+    selects.forEach(select => {
+        select.disabled = false;
+        select.style.opacity = '1';
+    });
+
+    rangeInput.disabled = false;
+    rangeInput.style.opacity = '1';
+
+    generateBtn.disabled = false;
+    generateBtn.classList.add('active');
+    generateBtn.style.opacity = '1';
+
+    // Update range display
+    updateRangeDisplay();
+    rangeInput.addEventListener('input', updateRangeDisplay);
 }
 
-function updateQuestionCount() {
-    questionCount.textContent = questionRange.value;
+// Update range display
+function updateRangeDisplay() {
+    const rangeInput = document.querySelector('.upload-options input[type="range"]');
+    const label = rangeInput.parentElement.querySelector('label');
+    label.textContent = `Number of Questions: ${rangeInput.value}`;
 }
 
-// Text extraction functions with cleaning
+// Extract text from different file types
 async function extractTextFromFile(file) {
-    showNotification('Processing your file...', 'info');
-    
     try {
-        let text = '';
+        showNotification('Processing file...', 'info');
         
-        switch (file.type) {
-            case 'application/pdf':
-                text = await extractTextFromPDF(file);
+        const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+        
+        switch (fileExtension) {
+            case '.txt':
+                extractedText = await extractTextFromTxt(file);
                 break;
-            case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-            case 'application/msword':
-                text = await extractTextFromDocx(file);
+            case '.pdf':
+                extractedText = await extractTextFromPdf(file);
                 break;
-            case 'text/plain':
-                text = await extractTextFromTxt(file);
+            case '.doc':
+            case '.docx':
+                extractedText = await extractTextFromDoc(file);
                 break;
-            case 'image/jpeg':
-            case 'image/png':
-                text = await extractTextFromImage(file);
+            case '.jpg':
+            case '.jpeg':
+            case '.png':
+                extractedText = await extractTextFromImage(file);
                 break;
-            case 'application/vnd.ms-powerpoint':
-            case 'application/vnd.openxmlformats-officedocument.presentationml.presentation':
-                text = await extractTextFromPPT(file);
+            case '.ppt':
+            case '.pptx':
+                extractedText = await extractTextFromPpt(file);
                 break;
             default:
                 throw new Error('Unsupported file type');
         }
-        
-        // Clean the extracted text
-        text = cleanExtractedText(text);
-        
-        if (text && text.length > 0) {
+
+        if (extractedText && extractedText.trim().length > 0) {
             showNotification('File processed successfully!', 'success');
+            console.log('Extracted text preview:', extractedText.substring(0, 500) + '...');
         } else {
-            showNotification('No text could be extracted from this file', 'warning');
+            showNotification('No readable text found in the file', 'error');
         }
-        
-        return text;
+
     } catch (error) {
-        console.error('Text extraction error:', error);
-        showNotification('Error processing file: ' + error.message, 'error');
-        return '';
+        console.error('Error extracting text:', error);
+        showNotification('Error processing file. Please try again.', 'error');
     }
 }
 
-// Text cleaning function
-function cleanExtractedText(text) {
-    if (!text) return '';
-    
-    let cleanedText = text;
-    
-    // Remove HTML tags
-    cleanedText = cleanedText.replace(/<[^>]*>/g, '');
-    
-    // Remove markdown-style formatting
-    cleanedText = cleanedText.replace(/(\*\*|__)(.*?)\1/g, '$2'); // Bold
-    cleanedText = cleanedText.replace(/(\*|_)(.*?)\1/g, '$2');     // Italic
-    
-    // Remove excessive whitespace
-    cleanedText = cleanedText.replace(/\s+/g, ' ');
-    
-    // Remove special characters that might be formatting artifacts
-    cleanedText = cleanedText.replace(/[●♦■▲▶▼➤➔►]/g, '');
-    
-    // Clean up bullet points and numbering
-    cleanedText = cleanedText.replace(/^(\d+[\.\)]|\-|\*)\s+/gm, ''); // Numbered lists and bullets
-    
-    // Trim and return
-    return cleanedText.trim();
-}
-
-async function extractTextFromPDF(file) {
-    return new Promise((resolve, reject) {
-        const fileReader = new FileReader();
-        
-        fileReader.onload = async function() {
-            try {
-                const typedArray = new Uint8Array(this.result);
-                const pdf = await pdfjsLib.getDocument(typedArray).promise;
-                
-                let text = '';
-                for (let i = 1; i <= pdf.numPages; i++) {
-                    const page = await pdf.getPage(i);
-                    const textContent = await page.getTextContent();
-                    
-                    // Improved text extraction with better spacing
-                    let lastY = null;
-                    let pageText = '';
-                    
-                    for (const item of textContent.items) {
-                        // Add line break when Y position changes significantly
-                        if (lastY !== null && Math.abs(lastY - item.transform[5]) > 5) {
-                            pageText += '\n';
-                        }
-                        pageText += item.str + ' ';
-                        lastY = item.transform[5];
-                    }
-                    
-                    text += pageText + '\n\n';
-                }
-                
-                resolve(text);
-            } catch (error) {
-                reject(error);
-            }
-        };
-        
-        fileReader.onerror = reject;
-        fileReader.readAsArrayBuffer(file);
-    });
-}
-
-async function extractTextFromDocx(file) {
+// Extract text from TXT files
+function extractTextFromTxt(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        
-        reader.onload = function(event) {
-            const arrayBuffer = event.target.result;
-            
-            // Enhanced conversion options for Mammoth
-            const options = {
-                includeEmbeddedStyleMap: false,
-                includeDefaultStyleMap: false,
-                styleMap: [
-                    "p[style-name='Heading 1'] => h1:fresh",
-                    "p[style-name='Heading 2'] => h2:fresh",
-                    "p[style-name='Heading 3'] => h3:fresh",
-                    "r[style-name='Strong'] => strong",
-                    "r[style-name='Emphasis'] => em",
-                    "r[style-name='Underline'] => u"
-                ]
-            };
-            
-            mammoth.extractRawText({ arrayBuffer }, options)
-                .then(result => resolve(result.value))
-                .catch(err => reject(err));
-        };
-        
-        reader.onerror = reject;
-        reader.readAsArrayBuffer(file);
-    });
-}
-
-async function extractTextFromTxt(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        
-        reader.onload = function(event) {
-            resolve(event.target.result);
-        };
-        
-        reader.onerror = reject;
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = (e) => reject(e);
         reader.readAsText(file);
     });
 }
 
-async function extractTextFromImage(file) {
-    try {
-        showNotification('Extracting text from image...', 'info');
-        
-        const { data: { text } } = await Tesseract.recognize(
-            file,
-            'eng',
-            { logger: m => console.log(m) }
-        );
-        
-        return text;
-    } catch (error) {
-        throw new Error('OCR failed: ' + error.message);
-    }
-}
+// Extract text from PDF files using PDF.js
+function extractTextFromPdf(file) {
+    return new Promise((resolve, reject) => {
+        // Load PDF.js library dynamically
+        if (!window.pdfjsLib) {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+            script.onload = () => {
+                window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                processPdf();
+            };
+            script.onerror = () => reject(new Error('Failed to load PDF.js'));
+            document.head.appendChild(script);
+        } else {
+            processPdf();
+        }
 
-async function extractTextFromPPT(file) {
-    // For PPT files, we'll convert to PDF first (simplified approach)
-    return new Promise((resolve) => {
-        // For demonstration purposes, we'll return a placeholder message
-        resolve("PPT file content extracted successfully.");
+        function processPdf() {
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const typedarray = new Uint8Array(e.target.result);
+                    const pdf = await window.pdfjsLib.getDocument(typedarray).promise;
+                    let fullText = '';
+
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const textContent = await page.getTextContent();
+                        const pageText = textContent.items.map(item => item.str).join(' ');
+                        fullText += pageText + '\n';
+                    }
+
+                    resolve(fullText);
+                } catch (error) {
+                    reject(error);
+                }
+            };
+            reader.onerror = (e) => reject(e);
+            reader.readAsArrayBuffer(file);
+        }
     });
 }
 
-// Generate questions button handler
-async function handleGenerateQuestions() {
-    const file = fileInput.files[0];
-    
-    if (!file) {
+// Extract text from DOC/DOCX files using mammoth.js
+function extractTextFromDoc(file) {
+    return new Promise((resolve, reject) => {
+        if (!window.mammoth) {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';
+            script.onload = () => processDoc();
+            script.onerror = () => reject(new Error('Failed to load mammoth.js'));
+            document.head.appendChild(script);
+        } else {
+            processDoc();
+        }
+
+        function processDoc() {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                window.mammoth.extractRawText({ arrayBuffer: e.target.result })
+                    .then(result => resolve(result.value))
+                    .catch(error => reject(error));
+            };
+            reader.onerror = (e) => reject(e);
+            reader.readAsArrayBuffer(file);
+        }
+    });
+}
+
+// Extract text from images using Tesseract.js OCR
+function extractTextFromImage(file) {
+    return new Promise((resolve, reject) => {
+        if (!window.Tesseract) {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js';
+            script.onload = () => processImage();
+            script.onerror = () => reject(new Error('Failed to load Tesseract.js'));
+            document.head.appendChild(script);
+        } else {
+            processImage();
+        }
+
+        function processImage() {
+            showNotification('Extracting text from image... This may take a moment.', 'info');
+            
+            window.Tesseract.recognize(file, 'eng', {
+                logger: m => {
+                    if (m.status === 'recognizing text') {
+                        console.log('OCR Progress:', Math.round(m.progress * 100) + '%');
+                    }
+                }
+            })
+            .then(({ data: { text } }) => resolve(text))
+            .catch(error => reject(error));
+        }
+    });
+}
+
+// Extract text from PPT/PPTX files (basic implementation)
+function extractTextFromPpt(file) {
+    return new Promise((resolve, reject) => {
+        // For PPT files, we'll try to extract basic text content
+        // This is a simplified implementation
+        showNotification('PPT support is limited. Consider converting to PDF for better results.', 'info');
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            // Basic text extraction from PPT files
+            // This is a simplified approach and may not work for all PPT files
+            try {
+                const content = e.target.result;
+                const text = extractBasicTextFromBinary(content);
+                resolve(text);
+            } catch (error) {
+                reject(new Error('Unable to extract text from PowerPoint file. Please convert to PDF or another supported format.'));
+            }
+        };
+        reader.onerror = (e) => reject(e);
+        reader.readAsText(file);
+    });
+}
+
+// Basic text extraction from binary content (fallback method)
+function extractBasicTextFromBinary(content) {
+    // Remove non-printable characters and extract readable text
+    return content.replace(/[^\x20-\x7E\n\r\t]/g, ' ')
+                 .replace(/\s+/g, ' ')
+                 .trim();
+}
+
+// Handle generate questions button click
+function handleGenerateQuestions() {
+    if (!currentFile || !extractedText) {
         showNotification('Please select a file first', 'error');
         return;
     }
-    
-    // Show loading state
-    const originalText = generateBtn.innerHTML;
-    generateBtn.innerHTML = '<div class="spinner"></div> Processing...';
-    generateBtn.disabled = true;
-    
-    try {
-        // Extract text from file
-        const text = await extractTextFromFile(file);
-        
-        if (!text || text.trim().length === 0) {
-            throw new Error('No text could be extracted from the file');
-        }
-        
-        // Get user options
-        const questionType = document.getElementById('questionType').value;
-        const numQuestions = document.getElementById('questionRange').value;
-        const difficulty = document.getElementById('difficultyLevel').value;
-        
-        // Send request to backend to generate questions
-        showNotification('Generating questions with AI...', 'info');
-        
-        const response = await fetch(`${API_BASE_URL}/api/generate-questions`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                text: text,
-                questionType: questionType,
-                numQuestions: parseInt(numQuestions),
-                difficulty: difficulty
-            })
-        });
-        
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || `Server returned ${response.status}: ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            showNotification(`Successfully generated ${data.questions.questions.length} questions!`, 'success');
-            // Display the questions
-            displayQuestions(data.questions);
-        } else {
-            throw new Error(data.message || 'Failed to generate questions');
-        }
-        
-    } catch (error) {
-        console.error('Error generating questions:', error);
-        showNotification('Error: ' + error.message, 'error');
-        
-        // For development, show mock questions if backend is not available
-        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-            showNotification('Using mock questions for development', 'info');
-            displayMockQuestions();
-        }
-    } finally {
-        // Reset button state
-        generateBtn.innerHTML = originalText;
-        generateBtn.disabled = false;
-    }
+
+    const questionType = document.querySelector('.upload-options select').value;
+    const numQuestions = document.querySelector('.upload-options input[type="range"]').value;
+    const difficulty = document.querySelectorAll('.upload-options select')[1].value;
+
+    // Show processing notification
+    showNotification('Generating questions... This may take a moment.', 'info');
+
+    // Here you would typically send the extracted text to your backend/AI service
+    // For now, we'll simulate the process
+    setTimeout(() => {
+        showGeneratedQuestions(questionType, numQuestions, difficulty);
+    }, 3000);
+
+    console.log('Generating questions with:', {
+        questionType,
+        numQuestions,
+        difficulty,
+        textLength: extractedText.length,
+        fileName: currentFile.name
+    });
 }
 
-// Display generated questions
-function displayQuestions(questionsData) {
-    // Create a modal to display the questions
-    const modal = document.createElement('div');
-    modal.className = 'questions-modal';
-    modal.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.8);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 10000;
-        padding: 20px;
-    `;
+// Show generated questions (placeholder)
+function showGeneratedQuestions(questionType, numQuestions, difficulty) {
+    showNotification('Questions generated successfully!', 'success');
     
-    const modalContent = document.createElement('div');
-    modalContent.className = 'modal-content';
-    modalContent.style.cssText = `
-        background: var(--card-bg);
-        padding: 30px;
-        border-radius: 15px;
-        max-width: 800px;
-        max-height: 80vh;
-        overflow-y: auto;
-        width: 100%;
-        position: relative;
-    `;
-    
-    const closeBtn = document.createElement('button');
-    closeBtn.innerHTML = '&times;';
-    closeBtn.style.cssText = `
-        position: absolute;
-        top: 15px;
-        right: 15px;
-        background: none;
-        border: none;
-        font-size: 24px;
-        color: var(--text);
-        cursor: pointer;
-    `;
-    closeBtn.onclick = () => modal.remove();
-    
-    const title = document.createElement('h2');
-    title.textContent = `Generated Questions (${questionsData.metadata?.question_type || 'multiple choice'})`;
-    title.style.marginBottom = '20px';
-    
-    const questionsContainer = document.createElement('div');
-    questionsContainer.className = 'questions-container';
-    
-    // Check if we have a proper questions array
-    if (questionsData.questions && Array.isArray(questionsData.questions)) {
-        questionsData.questions.forEach((q, index) => {
-            const questionElement = document.createElement('div');
-            questionElement.className = 'question';
-            questionElement.style.cssText = `
-                margin-bottom: 25px;
-                padding: 15px;
-                background: rgba(255, 255, 255, 0.05);
-                border-radius: 8px;
-            `;
-            
-            const questionText = document.createElement('h3');
-            questionText.textContent = `${index + 1}. ${q.question}`;
-            questionText.style.marginBottom = '15px';
-            
-            const optionsList = document.createElement('ul');
-            optionsList.style.marginBottom = '10px';
-            
-            if (q.options && Array.isArray(q.options)) {
-                q.options.forEach((option, optIndex) => {
-                    const optionItem = document.createElement('li');
-                    optionItem.textContent = option;
-                    optionItem.style.marginBottom = '5px';
-                    
-                    // Highlight correct answer
-                    if (option === q.correct_answer) {
-                        optionItem.style.color = 'var(--success)';
-                        optionItem.style.fontWeight = 'bold';
-                    }
-                    
-                    optionsList.appendChild(optionItem);
-                });
-            }
-            
-            const explanation = document.createElement('p');
-            explanation.textContent = q.explanation ? `Explanation: ${q.explanation}` : '';
-            explanation.style.fontSize = '0.9em';
-            explanation.style.color = 'var(--text-secondary)';
-            explanation.style.fontStyle = 'italic';
-            
-            questionElement.appendChild(questionText);
-            questionElement.appendChild(optionsList);
-            questionElement.appendChild(explanation);
-            
-            questionsContainer.appendChild(questionElement);
-        });
-    } else {
-        // Fallback if questions aren't in the expected format
-        const fallbackMessage = document.createElement('p');
-        fallbackMessage.textContent = 'Questions generated successfully! Check the console for details.';
-        fallbackMessage.style.color = 'var(--warning)';
-        questionsContainer.appendChild(fallbackMessage);
-        
-        console.log('Raw response:', questionsData);
-    }
-    
-    // Add note if it's a mock response
-    if (questionsData.metadata?.note) {
-        const note = document.createElement('p');
-        note.textContent = questionsData.metadata.note;
-        note.style.fontSize = '0.8em';
-        note.style.color = 'var(--text-secondary)';
-        note.style.marginTop = '20px';
-        note.style.fontStyle = 'italic';
-        questionsContainer.appendChild(note);
-    }
-    
-    modalContent.appendChild(closeBtn);
-    modalContent.appendChild(title);
-    modalContent.appendChild(questionsContainer);
-    modal.appendChild(modalContent);
-    
+    // Create and show modal with generated questions
+    const modal = createQuestionModal(questionType, numQuestions, difficulty);
     document.body.appendChild(modal);
-    
-    // Close modal when clicking outside
+}
+
+// Create question results modal
+function createQuestionModal(questionType, numQuestions, difficulty) {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Generated Questions</h2>
+            <div class="modal-subtitle">${questionType} • ${numQuestions} Questions • ${difficulty} Difficulty</div>
+            <div class="question-preview">
+                <p><strong>Sample Question:</strong></p>
+                <p>Based on your uploaded content, here's a preview of the generated questions. In the full version, you would see all ${numQuestions} questions with multiple choice options, explanations, and answer keys.</p>
+                <br>
+                <p><em>Note: This is a demo. The actual implementation would connect to an AI service to generate real questions from your extracted text.</em></p>
+            </div>
+            <button class="modal-btn">Download Questions</button>
+            <button class="modal-btn" style="background: #4dfff3; color: #0d0c1d; margin-top: 10px;">Start Practice Test</button>
+        </div>
+    `;
+
+    // Close modal functionality
+    const closeBtn = modal.querySelector('.close-modal');
+    closeBtn.addEventListener('click', () => {
+        document.body.removeChild(modal);
+    });
+
     modal.addEventListener('click', (e) => {
         if (e.target === modal) {
-            modal.remove();
+            document.body.removeChild(modal);
         }
     });
+
+    return modal;
 }
 
-// Display mock questions for development
-function displayMockQuestions() {
-    const mockData = {
-        questions: [
-            {
-                question: "What is the primary process plants use to convert sunlight into energy?",
-                options: ["Photosynthesis", "Respiration", "Fermentation", "Transpiration"],
-                correct_answer: "Photosynthesis",
-                explanation: "Photosynthesis is the process where plants convert light energy into chemical energy stored in glucose."
-            },
-            {
-                question: "Which organisms can perform photosynthesis?",
-                options: [
-                    "Only plants",
-                    "Plants and animals",
-                    "Plants, algae, and some bacteria",
-                    "All living organisms"
-                ],
-                correct_answer: "Plants, algae, and some bacteria",
-                explanation: "Photosynthesis is performed by plants, algae, and certain types of bacteria called cyanobacteria."
-            },
-            {
-                question: "What are the main products of photosynthesis?",
-                options: [
-                    "Oxygen and glucose",
-                    "Carbon dioxide and water",
-                    "Nitrogen and oxygen",
-                    "Glucose and carbon dioxide"
-                ],
-                correct_answer: "Oxygen and glucose",
-                explanation: "Photosynthesis produces oxygen (released into the atmosphere) and glucose (used by the plant for energy)."
-            }
-        ],
-        metadata: {
-            question_type: "multiple choice",
-            difficulty: "medium",
-            generated_at: new Date().toISOString(),
-            note: "Mock questions for development. Add HUGGINGFACE_API_KEY to GitHub Secrets for real AI questions."
-        }
-    };
-    
-    displayQuestions(mockData);
-}
-
-// Test AI connection using Hugging Face
-function testAIConnection() {
-    showNotification('Testing AI connection with Hugging Face...', 'info');
-    
-    // Get the current repository URL
-    const currentUrl = window.location.href;
-    
-    if (currentUrl.includes('github.io')) {
-        // Extract username and repo from GitHub Pages URL
-        const urlParts = currentUrl.split('/');
-        const username = urlParts[2].split('.')[0]; // Get username from "username.github.io"
-        const repoName = urlParts[3]; // Get repository name
-        
-        if (username && repoName) {
-            // Updated to point to the correct workflow file
-            window.open(`https://github.com/${username}/${repoName}/actions/workflows/ai-question-generator.yml`, '_blank');
-        } else {
-            showNotification('Could not determine repository information. Please manually go to your GitHub Actions tab.', 'error');
-        }
-    } else {
-        // For local development, show a message
-        showNotification('Please go to your GitHub repository → Actions → AI Question Generator workflow', 'info');
-    }
-}
-
-// Add a test button to your UI
-function addAITestButton() {
-    // Remove existing button if any
-    const existingBtn = document.getElementById('testAIBtn');
-    if (existingBtn) {
-        existingBtn.remove();
-    }
-    
-    const testBtn = document.createElement('button');
-    testBtn.textContent = 'Test AI Connection (Hugging Face)';
-    testBtn.id = 'testAIBtn';
-    testBtn.style.cssText = `
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        z-index: 1000;
-        padding: 10px 15px;
-        background: var(--primary);
-        color: white;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 12px;
-        opacity: 0.8;
-        transition: opacity 0.3s;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-    `;
-    
-    testBtn.addEventListener('mouseenter', () => {
-        testBtn.style.opacity = '1';
-        testBtn.style.transform = 'translateY(-2px)';
-    });
-    
-    testBtn.addEventListener('mouseleave', () => {
-        testBtn.style.opacity = '0.8';
-        testBtn.style.transform = 'translateY(0)';
-    };
-    
-    testBtn.addEventListener('click', testAIConnection);
-    document.body.appendChild(testBtn);
-}
-
-// Notification system
+// Show notification
 function showNotification(message, type = 'info') {
-    // Remove any existing notifications first
-    const existingNotifications = document.querySelectorAll('.notification');
-    existingNotifications.forEach(notification => notification.remove());
-    
-    // Create notification element
     const notification = document.createElement('div');
     notification.className = `notification notification-${type}`;
     notification.innerHTML = `
         <span>${message}</span>
-        <button onclick="this.parentElement.remove()">&times;</button>
+        <button>&times;</button>
     `;
-    
-    // Add to document
+
     document.body.appendChild(notification);
-    
+
     // Auto remove after 5 seconds
     setTimeout(() => {
-        if (notification.parentElement) {
-            notification.remove();
+        if (document.body.contains(notification)) {
+            document.body.removeChild(notification);
         }
     }, 5000);
+
+    // Manual close
+    notification.querySelector('button').addEventListener('click', () => {
+        if (document.body.contains(notification)) {
+            document.body.removeChild(notification);
+        }
+    });
 }
+
+// Format file size
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// Initialize stars background animation
+function initializeStarsBackground() {
+    const starsContainer = document.querySelector('.stars');
+    const numStars = 100;
+
+    for (let i = 0; i < numStars; i++) {
+        const star = document.createElement('span');
+        star.style.left = Math.random() * 100 + '%';
+        star.style.top = Math.random() * 100 + '%';
+        star.style.animationDelay = Math.random() * 4 + 's';
+        star.style.animationDuration = (Math.random() * 3 + 2) + 's';
+        starsContainer.appendChild(star);
+    }
+}
+
+// Initialize mobile navigation
+function initializeMobileNavigation() {
+    const hamburger = document.querySelector('.hamburger');
+    const navLinks = document.querySelector('.nav-links');
+
+    if (hamburger && navLinks) {
+        hamburger.addEventListener('click', () => {
+            hamburger.classList.toggle('active');
+            navLinks.classList.toggle('active');
+        });
+
+        // Close menu when clicking on a link
+        navLinks.addEventListener('click', (e) => {
+            if (e.target.tagName === 'A') {
+                hamburger.classList.remove('active');
+                navLinks.classList.remove('active');
+            }
+        });
+    }
+}
+
+// FAQ functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const faqItems = document.querySelectorAll('.faq-item');
+    
+    faqItems.forEach(item => {
+        const question = item.querySelector('.faq-question');
+        question.addEventListener('click', () => {
+            const isActive = item.classList.contains('active');
+            
+            // Close all other items
+            faqItems.forEach(otherItem => {
+                otherItem.classList.remove('active');
+            });
+            
+            // Toggle current item
+            if (!isActive) {
+                item.classList.add('active');
+            }
+        });
+    });
+});
