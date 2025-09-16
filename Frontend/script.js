@@ -43,8 +43,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Set up drag and drop functionality
     setupDragAndDrop();
     
-    // Add test button for DeepSeek connection
-    addTestButton();
+    // Add GitHub Actions test button
+    addGitHubActionsTestButton();
 });
 
 // Drag and drop functionality
@@ -364,9 +364,9 @@ async function handleGenerateQuestions() {
     }
     
     // Show loading state
-    const originalText = this.innerHTML;
-    this.innerHTML = '<div class="spinner"></div> Processing...';
-    this.disabled = true;
+    const originalText = generateBtn.innerHTML;
+    generateBtn.innerHTML = '<div class="spinner"></div> Processing...';
+    generateBtn.disabled = true;
     
     try {
         // Extract text from file
@@ -381,7 +381,7 @@ async function handleGenerateQuestions() {
         const numQuestions = document.getElementById('questionRange').value;
         const difficulty = document.getElementById('difficultyLevel').value;
         
-        // Store the data in localStorage to be accessed by GitHub Actions
+        // Store the data to simulate what would be sent to GitHub Actions
         const requestData = {
             text: text,
             questionType: questionType,
@@ -390,25 +390,23 @@ async function handleGenerateQuestions() {
             timestamp: new Date().getTime()
         };
         
-        localStorage.setItem('deepseekRequest', JSON.stringify(requestData));
-        
-        // Show message about GitHub Actions processing
-        showNotification('Question generation request prepared! The AI will process your request shortly.', 'info');
-        
         // In a real implementation, you would:
-        // 1. Create a GitHub issue with the request data
+        // 1. Create a GitHub issue with the request data using GitHub API
         // 2. Trigger a GitHub Actions workflow
         // 3. Have the workflow process the request using DeepSeek API
         // 4. Store the result in a GitHub Pages branch
         // 5. Poll for the result from the frontend
         
         // For now, we'll simulate the process
+        showNotification('Question generation request prepared! This would trigger a GitHub Actions workflow in a full implementation.', 'info');
+        
+        // Simulate API call delay
         setTimeout(() => {
-            this.innerHTML = originalText;
-            this.disabled = false;
+            generateBtn.innerHTML = originalText;
+            generateBtn.disabled = false;
             
             // Show a mock result
-            alert(`Question generation request submitted! In a full implementation, GitHub Actions would process this using the DeepSeek API and deliver the results.`);
+            alert(`Question generation request submitted! In a full implementation, GitHub Actions would process this using the DeepSeek API and deliver the results. Check your GitHub Actions tab to see the workflow runs.`);
         }, 2000);
         
     } catch (error) {
@@ -416,47 +414,53 @@ async function handleGenerateQuestions() {
         showNotification('Error: ' + error.message, 'error');
         
         // Reset button state
-        this.innerHTML = originalText;
-        this.disabled = false;
+        generateBtn.innerHTML = originalText;
+        generateBtn.disabled = false;
     }
 }
 
 // Test DeepSeek connection using GitHub Actions
-async function testDeepSeekConnection() {
-    try {
-        showNotification('Testing DeepSeek connection via GitHub Actions...', 'info');
-        
-        // This would trigger a GitHub Actions workflow in a real implementation
-        // For demonstration, we'll show a message about how it would work
-        showNotification('In a full implementation, this would trigger a GitHub Actions workflow that tests the DeepSeek API connection.', 'info');
-        
-        // Simulate API test
-        setTimeout(() => {
-            showNotification('✅ DeepSeek API connection test initiated! Check GitHub Actions for results.', 'success');
-        }, 1500);
-        
-    } catch (error) {
-        console.error('Connection test failed:', error);
-        showNotification('❌ Could not initiate connection test', 'error');
-    }
+function testDeepSeekConnection() {
+    showNotification('Redirecting to GitHub Actions to test DeepSeek connection...', 'info');
+    
+    // Open GitHub Actions in a new tab
+    const repoUrl = window.location.href.includes('github.io') 
+        ? `https://github.com/${window.location.pathname.split('/')[1]}/${window.location.pathname.split('/')[2]}`
+        : 'https://github.com/your-username/your-repository';
+    
+    setTimeout(() => {
+        window.open(`${repoUrl}/actions/workflows/deepseek-test.yml`, '_blank');
+    }, 1000);
 }
 
 // Add a test button to your UI
-function addTestButton() {
+function addGitHubActionsTestButton() {
     const testBtn = document.createElement('button');
     testBtn.textContent = 'Test DeepSeek Connection';
     testBtn.id = 'testDeepSeekBtn';
-    testBtn.style.position = 'fixed';
-    testBtn.style.bottom = '20px';
-    testBtn.style.right = '20px';
-    testBtn.style.zIndex = '1000';
-    testBtn.style.padding = '10px 15px';
-    testBtn.style.background = 'var(--primary)';
-    testBtn.style.color = 'white';
-    testBtn.style.border = 'none';
-    testBtn.style.borderRadius = '5px';
-    testBtn.style.cursor = 'pointer';
-    testBtn.style.fontSize = '12px';
+    testBtn.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 1000;
+        padding: 10px 15px;
+        background: var(--primary);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 12px;
+        opacity: 0.8;
+        transition: opacity 0.3s;
+    `;
+    
+    testBtn.addEventListener('mouseenter', () => {
+        testBtn.style.opacity = '1';
+    });
+    
+    testBtn.addEventListener('mouseleave', () => {
+        testBtn.style.opacity = '0.8';
+    });
     
     testBtn.addEventListener('click', testDeepSeekConnection);
     document.body.appendChild(testBtn);
