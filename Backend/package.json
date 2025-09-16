@@ -1,7 +1,7 @@
 {
   "name": "examblox-backend",
   "version": "1.0.0",
-  "description": "Backend for ExamBlox AI question generator",
+  "description": "Backend for ExamBlox AI question generator with Hugging Face",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -18,7 +18,13 @@
   "devDependencies": {
     "nodemon": "^3.0.1"
   },
-  "keywords": ["ai", "education", "question-generator"],
+  "keywords": [
+    "ai",
+    "education",
+    "question-generator",
+    "huggingface",
+    "free-ai"
+  ],
   "author": "ExamBlox Team",
   "license": "MIT"
 }
