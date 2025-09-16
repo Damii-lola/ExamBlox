@@ -249,7 +249,7 @@ function cleanExtractedText(text) {
 }
 
 async function extractTextFromPDF(file) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) {
         const fileReader = new FileReader();
         
         fileReader.onload = async function() {
@@ -615,13 +615,25 @@ function displayMockQuestions() {
 function testAIConnection() {
     showNotification('Testing AI connection with Hugging Face...', 'info');
     
-    // Open GitHub Actions in a new tab
-    const repoUrl = `https://github.com/${window.location.pathname.split('/')[1]}/${window.location.pathname.split('/')[2]}`;
+    // Get the current repository URL
+    const currentUrl = window.location.href;
     
-    setTimeout(() => {
-        window.open(`${repoUrl}/actions`, '_blank');
-        showNotification('Check your GitHub Actions tab for AI processing', 'info');
-    }, 1000);
+    if (currentUrl.includes('github.io')) {
+        // Extract username and repo from GitHub Pages URL
+        const urlParts = currentUrl.split('/');
+        const username = urlParts[2].split('.')[0]; // Get username from "username.github.io"
+        const repoName = urlParts[3]; // Get repository name
+        
+        if (username && repoName) {
+            // Updated to point to the correct workflow file
+            window.open(`https://github.com/${username}/${repoName}/actions/workflows/ai-question-generator.yml`, '_blank');
+        } else {
+            showNotification('Could not determine repository information. Please manually go to your GitHub Actions tab.', 'error');
+        }
+    } else {
+        // For local development, show a message
+        showNotification('Please go to your GitHub repository → Actions → AI Question Generator workflow', 'info');
+    }
 }
 
 // Add a test button to your UI
@@ -660,7 +672,7 @@ function addAITestButton() {
     testBtn.addEventListener('mouseleave', () => {
         testBtn.style.opacity = '0.8';
         testBtn.style.transform = 'translateY(0)';
-    });
+    };
     
     testBtn.addEventListener('click', testAIConnection);
     document.body.appendChild(testBtn);
