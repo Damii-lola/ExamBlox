@@ -34,39 +34,33 @@ def call_deepseek_api(prompt):
     return response.json()
 
 def main():
-    # Check if we have input data (in a real implementation, this would come from the frontend)
-    try:
-        # This would typically come from the workflow trigger or a file
-        # For now, we'll use sample data
-        sample_text = """
-        Photosynthesis is the process used by plants, algae and certain bacteria to harness energy from sunlight and turn it into chemical energy. 
-        There are two types of photosynthetic processes: oxygenic photosynthesis and anoxygenic photosynthesis. 
-        The general principles of anoxygenic and oxygenic photosynthesis are very similar, but oxygenic photosynthesis is the most common and is seen in plants, algae and cyanobacteria.
-        """
-        
-        question_type = "multiple choice"
-        num_questions = 5
-        difficulty = "medium"
-        
-        prompt = f"""
-        Based on the following text, generate {num_questions} {question_type} questions with 4 options each and indicate the correct answer.
-        Difficulty level: {difficulty}
-        
-        Text: {sample_text}
-        
-        Format the response as JSON with the following structure:
+    # In a real implementation, you would get this data from the workflow trigger
+    # For demonstration, we'll use a sample prompt
+    sample_text = """
+    Photosynthesis is the process used by plants, algae and certain bacteria to harness energy from sunlight and turn it into chemical energy. 
+    There are two types of photosynthetic processes: oxygenic photosynthesis and anoxygenic photosynthesis. 
+    The general principles of anoxygenic and oxygenic photosynthesis are very similar, but oxygenic photosynthesis is the most common and is seen in plants, algae and cyanobacteria.
+    """
+    
+    prompt = f"""
+    Based on the following text, generate 5 multiple choice questions with 4 options each and indicate the correct answer.
+    
+    Text: {sample_text}
+    
+    Format the response as JSON with the following structure:
+    {{
+      "questions": [
         {{
-          "questions": [
-            {{
-              "question": "question text",
-              "options": ["option1", "option2", "option3", "option4"],
-              "correct_answer": "option1",
-              "explanation": "brief explanation of why this is correct"
-            }}
-          ]
+          "question": "question text",
+          "options": ["option1", "option2", "option3", "option4"],
+          "correct_answer": "option1",
+          "explanation": "brief explanation of why this is correct"
         }}
-        """
-        
+      ]
+    }}
+    """
+    
+    try:
         print("Calling DeepSeek API...")
         result = call_deepseek_api(prompt)
         
@@ -78,4 +72,28 @@ def main():
             # Extract JSON from the response (the API might return text with JSON in it)
             if "```json" in generated_content:
                 # Extract JSON from code block
-                json
+                json_start = generated_content.find("```json") + 7
+                json_end = generated_content.find("```", json_start)
+                json_str = generated_content[json_start:json_end].strip()
+                questions_data = json.loads(json_str)
+            else:
+                # Try to parse the entire response as JSON
+                questions_data = json.loads(generated_content)
+        except json.JSONDecodeError:
+            # If it's not valid JSON, just save the raw text
+            questions_data = {"raw_response": generated_content}
+        
+        # Save results
+        with open("results.json", "w") as f:
+            json.dump(questions_data, f, indent=2)
+            
+        print("Successfully generated questions!")
+        
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        # Save error information
+        with open("results.json", "w") as f:
+            json.dump({"error": str(e)}, f, indent=2)
+
+if __name__ == "__main__":
+    main()
