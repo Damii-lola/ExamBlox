@@ -9,86 +9,115 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+      
+      - name: Debug - List files in repository
+        run: |
+          echo "Repository structure:"
+          ls -la
+          echo "Workflows directory:"
+          ls -la .github/workflows/
+      
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-          
-      - name: Install dependencies
-        run: |
-          pip install requests
-          
+      
+      - name: Install requests library
+        run: pip install requests
+      
       - name: Test DeepSeek API connection
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: |
-          # Create a Python script to test the connection
-          cat > test_deepseek.py << 'EOF'
+          # Create a simple Python test script
+          cat > test_api.py << 'EOL'
           import os
           import requests
           import json
+          import sys
           
-          def test_connection():
+          def main():
+              # Get API key from environment
               api_key = os.environ.get('DEEPSEEK_API_KEY')
+              
               if not api_key:
-                  print('❌ ERROR: DEEPSEEK_API_KEY not found in environment variables')
-                  print('Please make sure you have added DEEPSEEK_API_KEY to your GitHub Secrets')
+                  print("❌ ERROR: DEEPSEEK_API_KEY environment variable is not set")
+                  print("Please make sure you've added the secret to GitHub Secrets")
                   return False
               
-              print('🔑 API Key found (first few characters):', api_key[:8] + '...')
-              print('🌐 Testing DeepSeek API connection...')
+              print(f"🔑 API Key found: {api_key[:8]}... (truncated for security)")
+              
+              # Test the API endpoint
+              url = "https://api.deepseek.com/v1/chat/completions"
+              headers = {
+                  "Authorization": f"Bearer {api_key}",
+                  "Content-Type": "application/json"
+              }
+              data = {
+                  "model": "deepseek-chat",
+                  "messages": [
+                      {
+                          "role": "user",
+                          "content": "Hello! Please respond with 'API connection successful' if you can read this."
+                      }
+                  ],
+                  "temperature": 0.7,
+                  "max_tokens": 50
+              }
+              
+              print("🌐 Sending request to DeepSeek API...")
               
               try:
-                  response = requests.post(
-                      'https://api.deepseek.com/v1/chat/completions',
-                      headers={
-                          'Authorization': f'Bearer {api_key}',
-                          'Content-Type': 'application/json'
-                      },
-                      json={
-                          'model': 'deepseek-chat',
-                          'messages': [{'role': 'user', 'content': 'Hello, are you working?'}],
-                          'temperature': 0.7,
-                          'max_tokens': 50
-                      },
-                      timeout=30  # 30 second timeout
-                  )
+                  response = requests.post(url, headers=headers, json=data, timeout=30)
+                  print(f"📊 Status Code: {response.status_code}")
                   
                   if response.status_code == 200:
-                      print('✅ SUCCESS: DeepSeek API connection successful!')
-                      print('Response:', json.dumps(response.json(), indent=2))
+                      result = response.json()
+                      print("✅ SUCCESS: DeepSeek API connection working!")
+                      print(f"🤖 Response: {result['choices'][0]['message']['content']}")
                       return True
                   else:
-                      print(f'❌ FAILED: API returned status code: {response.status_code}')
-                      print('Response:', response.text)
+                      print(f"❌ ERROR: API returned status {response.status_code}")
+                      print(f"Response text: {response.text}")
                       
-                      # Provide specific error guidance
+                      # Provide specific error messages
                       if response.status_code == 401:
-                          print('\n🔒 AUTHENTICATION ERROR: Your API key may be invalid or expired')
-                          print('Please check your DeepSeek API key in GitHub Secrets')
+                          print("🔒 This usually means your API key is invalid or expired")
                       elif response.status_code == 429:
-                          print('\n⏰ RATE LIMIT ERROR: You have exceeded your API rate limits')
+                          print("⏰ Rate limit exceeded - try again later")
                       elif response.status_code >= 500:
-                          print('\n🔧 SERVER ERROR: DeepSeek API may be experiencing issues')
+                          print("🔧 Server error - DeepSeek API might be down")
                       
                       return False
                       
-              except requests.exceptions.Timeout:
-                  print('❌ TIMEOUT: The request took too long and timed out')
-                  return False
               except requests.exceptions.ConnectionError:
-                  print('❌ CONNECTION ERROR: Could not connect to DeepSeek API')
-                  print('Please check your internet connection or try again later')
+                  print("❌ CONNECTION ERROR: Could not connect to DeepSeek API")
+                  return False
+              except requests.exceptions.Timeout:
+                  print("❌ TIMEOUT: Request took too long")
                   return False
               except Exception as e:
-                  print(f'❌ UNEXPECTED ERROR: {str(e)}')
+                  print(f"❌ UNEXPECTED ERROR: {str(e)}")
                   return False
           
-          if __name__ == '__main__':
-              success = test_connection()
-              exit(0 if success else 1)
-          EOF
+          if __name__ == "__main__":
+              success = main()
+              sys.exit(0 if success else 1)
+          EOL
           
           # Run the test script
-          python test_deepseek.py
+          python test_api.py
+      
+      - name: Success message
+        if: success()
+        run: |
+          echo "🎉 DeepSeek API test completed successfully!"
+          echo "Your GitHub Actions and API key are working correctly."
+      
+      - name: Failure message
+        if: failure()
+        run: |
+          echo "💥 The test failed. Please check:"
+          echo "1. Your DEEPSEEK_API_KEY secret in GitHub Settings → Secrets → Actions"
+          echo "2. That your API key is valid and has credits"
+          echo "3. That the DeepSeek API is operational"
