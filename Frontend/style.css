@@ -258,35 +258,15 @@ body {
   font-size: 0.9rem;
 }
 
-/* Fix for upload area transitions */
 .upload-area {
   border: 2px dashed var(--primary);
   border-radius: 10px;
   padding: 40px 20px;
   text-align: center;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.3s;
   margin-bottom: 20px;
   background: rgba(21, 19, 32, 0.5);
-  min-height: 200px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  overflow: hidden; /* Prevents content from overflowing during transition */
-}
-
-.upload-area.has-file {
-  padding: 20px;
-  transition: all 0.3s ease;
-}
-
-.upload-area-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
 }
 
 .upload-area:hover, .upload-area.dragover {
@@ -299,19 +279,16 @@ body {
   font-size: 3rem;
   color: var(--primary);
   margin-bottom: 15px;
-  transition: all 0.3s ease;
 }
 
 .upload-title {
   font-weight: 600;
   margin-bottom: 5px;
-  transition: all 0.3s ease;
 }
 
 .upload-subtitle {
   color: var(--text-secondary);
   margin: 10px 0;
-  transition: all 0.3s ease;
 }
 
 .btn-browse {
@@ -322,111 +299,13 @@ body {
   border-radius: 25px;
   cursor: pointer;
   font-weight: 600;
-  transition: all 0.3s ease;
+  transition: all 0.3s;
   margin: 10px 0;
 }
 
 .btn-browse:hover {
   transform: translateY(-2px);
   box-shadow: 0 5px 15px rgba(106, 75, 255, 0.4);
-}
-
-/* File info styles */
-.file-info {
-  display: none;
-  width: 100%;
-  background: rgba(106, 75, 255, 0.1);
-  border-radius: 8px;
-  padding: 15px;
-  align-items: center;
-  border: 1px solid rgba(106, 75, 255, 0.3);
-  margin-top: 15px;
-  justify-content: center;
-  text-align: center;
-  flex-direction: column;
-  opacity: 0;
-  transform: scale(0.9);
-  transition: all 0.3s ease;
-}
-
-.file-info.visible {
-  display: flex;
-  opacity: 1;
-  transform: scale(1);
-}
-
-.file-info-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-}
-
-.file-icon {
-  font-size: 2rem;
-  color: var(--primary);
-  margin-bottom: 10px;
-}
-
-.file-details {
-  text-align: center;
-  margin-bottom: 10px;
-}
-
-.file-name {
-  font-weight: 600;
-  margin-bottom: 5px;
-  color: var(--text);
-  word-break: break-word;
-}
-
-.file-size {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-}
-
-.btn-remove {
-  background: rgba(244, 67, 54, 0.2);
-  border: none;
-  color: var(--error);
-  padding: 8px 15px;
-  border-radius: 20px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
-  font-size: 0.9rem;
-}
-
-.btn-remove:hover {
-  background: rgba(244, 67, 54, 0.3);
-  transform: scale(1.05);
-}
-
-.btn-remove i {
-  margin-right: 5px;
-}
-
-/* Upload elements container */
-.upload-elements {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
-}
-
-.upload-area.has-file .upload-elements {
-  opacity: 0;
-  transform: translateY(-10px);
-  height: 0;
-  overflow: hidden;
-}
-
-#fileInput {
-  display: none;
 }
 
 .upload-options {
@@ -450,7 +329,6 @@ body {
   background: rgba(21, 19, 32, 0.7);
   color: var(--text);
   font-family: inherit;
-  transition: all 0.3s ease;
 }
 
 .option input[type="range"] {
@@ -467,7 +345,7 @@ body {
   font-weight: 600;
   font-size: 1.1rem;
   width: 100%;
-  transition: all 0.3s ease;
+  transition: all 0.3s;
   margin-bottom: 15px;
   opacity: 0.7;
 }
@@ -864,7 +742,7 @@ h2 {
   transition: max-height 0.3s, padding 0.3s;
 }
 
-.faq-item.active .fa-answer {
+.faq-item.active .faq-answer {
   padding: 0 20px 20px;
   max-height: 200px;
 }
@@ -1188,37 +1066,4 @@ footer {
   pointer-events: none;
   max-width: 200px;
   text-align: center;
-}
-
-/* Loading spinner */
-.spinner {
-  border: 3px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  border-top: 3px solid var(--primary-light);
-  width: 20px;
-  height: 20px;
-  animation: spin 1s linear infinite;
-  display: inline-block;
-  margin-right: 10px;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-/* Progress bar */
-.progress-bar {
-  width: 100%;
-  background-color: rgba(255, 255, 255, 0.1);
-  border-radius: 5px;
-  margin: 10px 0;
-}
-
-.progress {
-  height: 10px;
-  background: linear-gradient(90deg, var(--primary-light), var(--primary));
-  border-radius: 5px;
-  width: 0%;
-  transition: width 0.3s ease;
 }
