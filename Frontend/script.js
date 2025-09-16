@@ -421,16 +421,24 @@ async function handleGenerateQuestions() {
 
 // Test DeepSeek connection using GitHub Actions
 function testDeepSeekConnection() {
-    showNotification('Redirecting to GitHub Actions to test DeepSeek connection...', 'info');
+    // Get the current repository URL
+    const currentUrl = window.location.href;
     
-    // Open GitHub Actions in a new tab
-    const repoUrl = window.location.href.includes('github.io') 
-        ? `https://github.com/${window.location.pathname.split('/')[1]}/${window.location.pathname.split('/')[2]}`
-        : 'https://github.com/your-username/your-repository';
-    
-    setTimeout(() => {
-        window.open(`${repoUrl}/actions/workflows/deepseek-test.yml`, '_blank');
-    }, 1000);
+    if (currentUrl.includes('github.io')) {
+        // Extract username and repo from GitHub Pages URL
+        const urlParts = currentUrl.split('/');
+        const username = urlParts[2].split('.')[0]; // Get username from "username.github.io"
+        const repoName = urlParts[3]; // Get repository name
+        
+        if (username && repoName) {
+            window.open(`https://github.com/${username}/${repoName}/actions/workflows/deepseek-test.yml`, '_blank');
+        } else {
+            showNotification('Could not determine repository information. Please manually go to your GitHub Actions tab.', 'error');
+        }
+    } else {
+        // For local development, show a message
+        showNotification('Please go to your GitHub repository → Actions → Test DeepSeek Connection workflow', 'info');
+    }
 }
 
 // Add a test button to your UI
