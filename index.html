@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ExamBlox - AI-Powered Study Question Generator</title>
   <link rel="icon" type="image/png" href="images/favicon.png">
-  <link rel="stylesheet" href="Frontend/style.css">
+  <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
@@ -66,52 +66,35 @@
             <p>Supported formats: PDF, DOCX, PPT, TXT, JPG, PNG</p>
           </div>
           
-          <div class="upload-area" id="uploadArea">
-            <div class="upload-elements">
-              <div class="upload-icon">
-                <i class="fas fa-file-upload"></i>
-              </div>
-              <p class="upload-title">Drag & drop your file here</p>
-              <p class="upload-subtitle">or</p>
-              <button class="btn-browse" id="browseBtn">Browse Files</button>
-              <input type="file" id="fileInput" accept=".pdf,.docx,.doc,.txt,.jpg,.jpeg,.png,.ppt,.pptx" style="display: none;">
+          <div class="upload-area">
+            <div class="upload-icon">
+              <i class="fas fa-file-upload"></i>
             </div>
-            
-            <!-- File info will appear inside the upload area -->
-            <div class="file-info" id="fileInfo">
-              <div class="file-icon">
-                <i class="fas fa-file"></i>
-              </div>
-              <div class="file-details">
-                <p class="file-name" id="fileName"></p>
-                <p class="file-size" id="fileSize"></p>
-              </div>
-              <button class="btn-remove" id="removeFileBtn">
-                <i class="fas fa-times"></i> Remove File
-              </button>
-            </div>
+            <p class="upload-title">Drag & drop your file here</p>
+            <p class="upload-subtitle">or</p>
+            <button class="btn-browse">Browse Files</button>
           </div>
           
           <div class="upload-options">
             <div class="option">
               <label>Question Type</label>
-              <select id="questionType">
+              <select disabled>
                 <option>Multiple Choice</option>
                 <option>True/False</option>
                 <option>Short Answer</option>
                 <option>Flashcards</option>
-                <option selected>Mixed (Recommended)</option>
+                <option>Mixed (Recommended)</option>
               </select>
             </div>
             
             <div class="option">
-              <label>Number of Questions: <span id="questionCount">10</span></label>
-              <input type="range" id="questionRange" min="5" max="50" value="10">
+              <label>Number of Questions: 10</label>
+              <input type="range" min="5" max="50" value="10" disabled>
             </div>
             
             <div class="option">
               <label>Difficulty Level</label>
-              <select id="difficultyLevel">
+              <select disabled>
                 <option>Easy</option>
                 <option selected>Medium</option>
                 <option>Hard</option>
@@ -120,7 +103,7 @@
             </div>
           </div>
           
-          <button class="btn-generate" id="generateBtn">
+          <button class="btn-generate" disabled>
             <i class="fas fa-robot"></i>
             Generate Questions
           </button>
@@ -439,12 +422,7 @@
     </div>
   </footer>
 
-  <!-- External Libraries -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.12.313/pdf.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.17/mammoth.browser.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
-  
-  <!-- Main Script -->
-  <script src="Frontend/script.js"></script>
+  <!-- Include the JavaScript file -->
+  <script src="script.js"></script>
 </body>
 </html>
