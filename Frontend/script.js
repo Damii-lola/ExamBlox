@@ -138,16 +138,275 @@ function updateRangeDisplay() {
 
 function extractTextFromFile(file) {
     showNotification('Processing file...', 'info');
+    console.log('Starting text extraction for:', file.name, 'Type:', file.type);
     
     const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
     
-    // Demo text extraction
-    setTimeout(function() {
-        extractedText = 'Demo text extracted from ' + file.name + '. This is sample content that would normally be extracted from your ' + fileExtension + ' file. In a real implementation, this would contain the actual text content from your uploaded file.';
+    // Extract text based on file type
+    if (fileExtension === '.txt') {
+        extractTextFromTxt(file);
+    } else if (fileExtension === '.pdf') {
+        extractTextFromPdf(file);
+    } else if (fileExtension === '.doc' || fileExtension === '.docx') {
+        extractTextFromDoc(file);
+    } else if (fileExtension === '.jpg' || fileExtension === '.jpeg' || fileExtension === '.png') {
+        extractTextFromImage(file);
+    } else if (fileExtension === '.ppt' || fileExtension === '.pptx') {
+        extractTextFromPpt(file);
+    } else {
+        extractedText = 'Unsupported file type: ' + fileExtension;
+        console.log('❌ Unsupported file type:', fileExtension);
+        showNotification('Unsupported file type', 'error');
+    }
+}
+
+function extractTextFromTxt(file) {
+    console.log('📄 Extracting text from TXT file...');
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        extractedText = e.target.result;
+        console.log('✅ TXT extraction successful!');
+        console.log('📝 EXTRACTED TEXT:');
+        console.log('---START OF TEXT---');
+        console.log(extractedText);
+        console.log('---END OF TEXT---');
+        console.log('📊 Text length:', extractedText.length, 'characters');
+        console.log('📊 Word count (approx):', extractedText.split(/\s+/).length);
         
-        showNotification('File processed successfully!', 'success');
-        console.log('Text extracted, length:', extractedText.length);
-    }, 1000);
+        showNotification('Text file processed successfully!', 'success');
+    };
+    
+    reader.onerror = function(e) {
+        console.error('❌ Error reading TXT file:', e);
+        showNotification('Error reading text file', 'error');
+    };
+    
+    reader.readAsText(file);
+}
+
+function extractTextFromPdf(file) {
+    console.log('📄 Attempting PDF text extraction...');
+    
+    // Try to load PDF.js dynamically
+    if (typeof pdfjsLib === 'undefined') {
+        console.log('📦 Loading PDF.js library...');
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        script.onload = function() {
+            console.log('✅ PDF.js loaded successfully');
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            processPdfFile(file);
+        };
+        script.onerror = function() {
+            console.error('❌ Failed to load PDF.js, using fallback method');
+            extractTextFromPdfFallback(file);
+        };
+        document.head.appendChild(script);
+    } else {
+        processPdfFile(file);
+    }
+}
+
+function processPdfFile(file) {
+    console.log('🔄 Processing PDF with PDF.js...');
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        const typedarray = new Uint8Array(e.target.result);
+        
+        pdfjsLib.getDocument(typedarray).promise.then(function(pdf) {
+            console.log('📖 PDF loaded, pages:', pdf.numPages);
+            extractedText = '';
+            let processedPages = 0;
+            
+            for (let i = 1; i <= pdf.numPages; i++) {
+                pdf.getPage(i).then(function(page) {
+                    console.log('📑 Processing page', i);
+                    return page.getTextContent();
+                }).then(function(textContent) {
+                    const pageText = textContent.items.map(function(item) {
+                        return item.str;
+                    }).join(' ');
+                    
+                    extractedText += 'PAGE ' + (processedPages + 1) + ':\n' + pageText + '\n\n';
+                    processedPages++;
+                    
+                    console.log('📝 Page', processedPages, 'text length:', pageText.length);
+                    
+                    if (processedPages === pdf.numPages) {
+                        console.log('✅ PDF extraction completed!');
+                        console.log('📝 FULL EXTRACTED TEXT:');
+                        console.log('---START OF PDF TEXT---');
+                        console.log(extractedText);
+                        console.log('---END OF PDF TEXT---');
+                        console.log('📊 Total text length:', extractedText.length, 'characters');
+                        console.log('📊 Total pages processed:', processedPages);
+                        
+                        showNotification('PDF processed successfully! Check console for extracted text.', 'success');
+                    }
+                });
+            }
+        }).catch(function(error) {
+            console.error('❌ Error processing PDF:', error);
+            extractTextFromPdfFallback(file);
+        });
+    };
+    
+    reader.readAsArrayBuffer(file);
+}
+
+function extractTextFromPdfFallback(file) {
+    console.log('⚠️ Using PDF fallback method...');
+    extractedText = 'PDF TEXT EXTRACTION (Fallback Method)\n\nFile: ' + file.name + '\nSize: ' + formatFileSize(file.size) + '\n\nNote: This is a fallback method. For full PDF text extraction, PDF.js library is required.\n\nIn a production environment, this would contain the actual extracted text from your PDF file.';
+    
+    console.log('📝 FALLBACK PDF TEXT:');
+    console.log('---START OF FALLBACK TEXT---');
+    console.log(extractedText);
+    console.log('---END OF FALLBACK TEXT---');
+    
+    showNotification('PDF processed with fallback method. Check console.', 'info');
+}
+
+function extractTextFromDoc(file) {
+    console.log('📄 Attempting Word document extraction...');
+    
+    // Try to load mammoth.js for proper DOC/DOCX extraction
+    if (typeof mammoth === 'undefined') {
+        console.log('📦 Loading mammoth.js library...');
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';
+        script.onload = function() {
+            console.log('✅ Mammoth.js loaded successfully');
+            processDocFile(file);
+        };
+        script.onerror = function() {
+            console.error('❌ Failed to load mammoth.js, using fallback');
+            extractTextFromDocFallback(file);
+        };
+        document.head.appendChild(script);
+    } else {
+        processDocFile(file);
+    }
+}
+
+function processDocFile(file) {
+    console.log('🔄 Processing Word document with mammoth.js...');
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        mammoth.extractRawText({arrayBuffer: e.target.result}).then(function(result) {
+            extractedText = result.value;
+            
+            console.log('✅ Word document extraction successful!');
+            console.log('📝 EXTRACTED WORD TEXT:');
+            console.log('---START OF WORD TEXT---');
+            console.log(extractedText);
+            console.log('---END OF WORD TEXT---');
+            console.log('📊 Text length:', extractedText.length, 'characters');
+            console.log('📊 Word count (approx):', extractedText.split(/\s+/).length);
+            
+            if (result.messages.length > 0) {
+                console.log('⚠️ Extraction messages:', result.messages);
+            }
+            
+            showNotification('Word document processed successfully! Check console.', 'success');
+        }).catch(function(error) {
+            console.error('❌ Error extracting from Word document:', error);
+            extractTextFromDocFallback(file);
+        });
+    };
+    
+    reader.readAsArrayBuffer(file);
+}
+
+function extractTextFromDocFallback(file) {
+    console.log('⚠️ Using Word document fallback method...');
+    extractedText = 'WORD DOCUMENT TEXT EXTRACTION (Fallback Method)\n\nFile: ' + file.name + '\nSize: ' + formatFileSize(file.size) + '\n\nNote: This is a fallback method. For full Word document text extraction, mammoth.js library is required.\n\nIn a production environment, this would contain the actual extracted text from your Word document.';
+    
+    console.log('📝 FALLBACK WORD TEXT:');
+    console.log('---START OF FALLBACK TEXT---');
+    console.log(extractedText);
+    console.log('---END OF FALLBACK TEXT---');
+    
+    showNotification('Word document processed with fallback method. Check console.', 'info');
+}
+
+function extractTextFromImage(file) {
+    console.log('🖼️ Attempting image OCR extraction...');
+    
+    // Try to load Tesseract.js for OCR
+    if (typeof Tesseract === 'undefined') {
+        console.log('📦 Loading Tesseract.js for OCR...');
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js';
+        script.onload = function() {
+            console.log('✅ Tesseract.js loaded successfully');
+            processImageFile(file);
+        };
+        script.onerror = function() {
+            console.error('❌ Failed to load Tesseract.js, using fallback');
+            extractTextFromImageFallback(file);
+        };
+        document.head.appendChild(script);
+    } else {
+        processImageFile(file);
+    }
+}
+
+function processImageFile(file) {
+    console.log('🔄 Processing image with OCR...');
+    showNotification('Extracting text from image... This may take a moment.', 'info');
+    
+    Tesseract.recognize(file, 'eng', {
+        logger: function(m) {
+            if (m.status === 'recognizing text') {
+                const progress = Math.round(m.progress * 100);
+                console.log('🔄 OCR Progress:', progress + '%');
+            }
+        }
+    }).then(function(result) {
+        extractedText = result.data.text;
+        
+        console.log('✅ Image OCR extraction completed!');
+        console.log('📝 EXTRACTED IMAGE TEXT:');
+        console.log('---START OF OCR TEXT---');
+        console.log(extractedText);
+        console.log('---END OF OCR TEXT---');
+        console.log('📊 Text length:', extractedText.length, 'characters');
+        console.log('📊 Confidence:', result.data.confidence + '%');
+        
+        showNotification('Image OCR completed! Check console for extracted text.', 'success');
+    }).catch(function(error) {
+        console.error('❌ OCR extraction failed:', error);
+        extractTextFromImageFallback(file);
+    });
+}
+
+function extractTextFromImageFallback(file) {
+    console.log('⚠️ Using image fallback method...');
+    extractedText = 'IMAGE TEXT EXTRACTION (Fallback Method)\n\nFile: ' + file.name + '\nSize: ' + formatFileSize(file.size) + '\n\nNote: This is a fallback method. For actual OCR text extraction from images, Tesseract.js library is required.\n\nIn a production environment, this would contain the actual text extracted from your image using OCR technology.';
+    
+    console.log('📝 FALLBACK IMAGE TEXT:');
+    console.log('---START OF FALLBACK TEXT---');
+    console.log(extractedText);
+    console.log('---END OF FALLBACK TEXT---');
+    
+    showNotification('Image processed with fallback method. Check console.', 'info');
+}
+
+function extractTextFromPpt(file) {
+    console.log('📊 PowerPoint text extraction...');
+    console.log('⚠️ PowerPoint extraction has limited support');
+    
+    extractedText = 'POWERPOINT TEXT EXTRACTION\n\nFile: ' + file.name + '\nSize: ' + formatFileSize(file.size) + '\n\nNote: PowerPoint files require specialized libraries for full text extraction.\nFor better results, consider converting your PowerPoint to PDF format.\n\nThis is a placeholder for PowerPoint text extraction functionality.';
+    
+    console.log('📝 POWERPOINT TEXT:');
+    console.log('---START OF PPT TEXT---');
+    console.log(extractedText);
+    console.log('---END OF PPT TEXT---');
+    
+    showNotification('PowerPoint processed. For better extraction, convert to PDF.', 'info');
 }
 
 function handleGenerateQuestions() {
