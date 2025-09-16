@@ -13,6 +13,9 @@ const generateBtn = document.getElementById('generateBtn');
 const questionRange = document.getElementById('questionRange');
 const questionCount = document.getElementById('questionCount');
 
+// Backend API URL (update this with your actual backend URL when deployed)
+const API_BASE_URL = 'http://localhost:3000'; // Change this in production
+
 // Initialize the application when the DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     console.log('ExamBlox application initialized');
@@ -43,8 +46,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Set up drag and drop functionality
     setupDragAndDrop();
     
-    // Add GitHub Actions test button
-    addGitHubActionsTestButton();
+    // Add AI test button
+    addAITestButton();
 });
 
 // Drag and drop functionality
@@ -381,71 +384,257 @@ async function handleGenerateQuestions() {
         const numQuestions = document.getElementById('questionRange').value;
         const difficulty = document.getElementById('difficultyLevel').value;
         
-        // Store the data to simulate what would be sent to GitHub Actions
-        const requestData = {
-            text: text,
-            questionType: questionType,
-            numQuestions: parseInt(numQuestions),
-            difficulty: difficulty,
-            timestamp: new Date().getTime()
-        };
+        // Send request to backend to generate questions
+        showNotification('Generating questions with AI...', 'info');
         
-        // In a real implementation, you would:
-        // 1. Create a GitHub issue with the request data using GitHub API
-        // 2. Trigger a GitHub Actions workflow
-        // 3. Have the workflow process the request using DeepSeek API
-        // 4. Store the result in a GitHub Pages branch
-        // 5. Poll for the result from the frontend
+        const response = await fetch(`${API_BASE_URL}/api/generate-questions`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                text: text,
+                questionType: questionType,
+                numQuestions: parseInt(numQuestions),
+                difficulty: difficulty
+            })
+        });
         
-        // For now, we'll simulate the process
-        showNotification('Question generation request prepared! This would trigger a GitHub Actions workflow in a full implementation.', 'info');
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || `Server returned ${response.status}: ${response.statusText}`);
+        }
         
-        // Simulate API call delay
-        setTimeout(() => {
-            generateBtn.innerHTML = originalText;
-            generateBtn.disabled = false;
-            
-            // Show a mock result
-            alert(`Question generation request submitted! In a full implementation, GitHub Actions would process this using the DeepSeek API and deliver the results. Check your GitHub Actions tab to see the workflow runs.`);
-        }, 2000);
+        const data = await response.json();
+        
+        if (data.success) {
+            showNotification(`Successfully generated ${data.questions.questions.length} questions!`, 'success');
+            // Display the questions
+            displayQuestions(data.questions);
+        } else {
+            throw new Error(data.message || 'Failed to generate questions');
+        }
         
     } catch (error) {
         console.error('Error generating questions:', error);
         showNotification('Error: ' + error.message, 'error');
         
+        // For development, show mock questions if backend is not available
+        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+            showNotification('Using mock questions for development', 'info');
+            displayMockQuestions();
+        }
+    } finally {
         // Reset button state
         generateBtn.innerHTML = originalText;
         generateBtn.disabled = false;
     }
 }
 
-// Test DeepSeek connection using GitHub Actions
-function testDeepSeekConnection() {
-    // Get the current repository URL
-    const currentUrl = window.location.href;
+// Display generated questions
+function displayQuestions(questionsData) {
+    // Create a modal to display the questions
+    const modal = document.createElement('div');
+    modal.className = 'questions-modal';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10000;
+        padding: 20px;
+    `;
     
-    if (currentUrl.includes('github.io')) {
-        // Extract username and repo from GitHub Pages URL
-        const urlParts = currentUrl.split('/');
-        const username = urlParts[2].split('.')[0]; // Get username from "username.github.io"
-        const repoName = urlParts[3]; // Get repository name
-        
-        if (username && repoName) {
-            window.open(`https://github.com/${username}/${repoName}/actions/workflows/deepseek-test.yml`, '_blank');
-        } else {
-            showNotification('Could not determine repository information. Please manually go to your GitHub Actions tab.', 'error');
-        }
+    const modalContent = document.createElement('div');
+    modalContent.className = 'modal-content';
+    modalContent.style.cssText = `
+        background: var(--card-bg);
+        padding: 30px;
+        border-radius: 15px;
+        max-width: 800px;
+        max-height: 80vh;
+        overflow-y: auto;
+        width: 100%;
+        position: relative;
+    `;
+    
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '&times;';
+    closeBtn.style.cssText = `
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        background: none;
+        border: none;
+        font-size: 24px;
+        color: var(--text);
+        cursor: pointer;
+    `;
+    closeBtn.onclick = () => modal.remove();
+    
+    const title = document.createElement('h2');
+    title.textContent = `Generated Questions (${questionsData.metadata?.question_type || 'multiple choice'})`;
+    title.style.marginBottom = '20px';
+    
+    const questionsContainer = document.createElement('div');
+    questionsContainer.className = 'questions-container';
+    
+    // Check if we have a proper questions array
+    if (questionsData.questions && Array.isArray(questionsData.questions)) {
+        questionsData.questions.forEach((q, index) => {
+            const questionElement = document.createElement('div');
+            questionElement.className = 'question';
+            questionElement.style.cssText = `
+                margin-bottom: 25px;
+                padding: 15px;
+                background: rgba(255, 255, 255, 0.05);
+                border-radius: 8px;
+            `;
+            
+            const questionText = document.createElement('h3');
+            questionText.textContent = `${index + 1}. ${q.question}`;
+            questionText.style.marginBottom = '15px';
+            
+            const optionsList = document.createElement('ul');
+            optionsList.style.marginBottom = '10px';
+            
+            if (q.options && Array.isArray(q.options)) {
+                q.options.forEach((option, optIndex) => {
+                    const optionItem = document.createElement('li');
+                    optionItem.textContent = option;
+                    optionItem.style.marginBottom = '5px';
+                    
+                    // Highlight correct answer
+                    if (option === q.correct_answer) {
+                        optionItem.style.color = 'var(--success)';
+                        optionItem.style.fontWeight = 'bold';
+                    }
+                    
+                    optionsList.appendChild(optionItem);
+                });
+            }
+            
+            const explanation = document.createElement('p');
+            explanation.textContent = q.explanation ? `Explanation: ${q.explanation}` : '';
+            explanation.style.fontSize = '0.9em';
+            explanation.style.color = 'var(--text-secondary)';
+            explanation.style.fontStyle = 'italic';
+            
+            questionElement.appendChild(questionText);
+            questionElement.appendChild(optionsList);
+            questionElement.appendChild(explanation);
+            
+            questionsContainer.appendChild(questionElement);
+        });
     } else {
-        // For local development, show a message
-        showNotification('Please go to your GitHub repository → Actions → Test DeepSeek Connection workflow', 'info');
+        // Fallback if questions aren't in the expected format
+        const fallbackMessage = document.createElement('p');
+        fallbackMessage.textContent = 'Questions generated successfully! Check the console for details.';
+        fallbackMessage.style.color = 'var(--warning)';
+        questionsContainer.appendChild(fallbackMessage);
+        
+        console.log('Raw response:', questionsData);
     }
+    
+    // Add note if it's a mock response
+    if (questionsData.metadata?.note) {
+        const note = document.createElement('p');
+        note.textContent = questionsData.metadata.note;
+        note.style.fontSize = '0.8em';
+        note.style.color = 'var(--text-secondary)';
+        note.style.marginTop = '20px';
+        note.style.fontStyle = 'italic';
+        questionsContainer.appendChild(note);
+    }
+    
+    modalContent.appendChild(closeBtn);
+    modalContent.appendChild(title);
+    modalContent.appendChild(questionsContainer);
+    modal.appendChild(modalContent);
+    
+    document.body.appendChild(modal);
+    
+    // Close modal when clicking outside
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
+
+// Display mock questions for development
+function displayMockQuestions() {
+    const mockData = {
+        questions: [
+            {
+                question: "What is the primary process plants use to convert sunlight into energy?",
+                options: ["Photosynthesis", "Respiration", "Fermentation", "Transpiration"],
+                correct_answer: "Photosynthesis",
+                explanation: "Photosynthesis is the process where plants convert light energy into chemical energy stored in glucose."
+            },
+            {
+                question: "Which organisms can perform photosynthesis?",
+                options: [
+                    "Only plants",
+                    "Plants and animals",
+                    "Plants, algae, and some bacteria",
+                    "All living organisms"
+                ],
+                correct_answer: "Plants, algae, and some bacteria",
+                explanation: "Photosynthesis is performed by plants, algae, and certain types of bacteria called cyanobacteria."
+            },
+            {
+                question: "What are the main products of photosynthesis?",
+                options: [
+                    "Oxygen and glucose",
+                    "Carbon dioxide and water",
+                    "Nitrogen and oxygen",
+                    "Glucose and carbon dioxide"
+                ],
+                correct_answer: "Oxygen and glucose",
+                explanation: "Photosynthesis produces oxygen (released into the atmosphere) and glucose (used by the plant for energy)."
+            }
+        ],
+        metadata: {
+            question_type: "multiple choice",
+            difficulty: "medium",
+            generated_at: new Date().toISOString(),
+            note: "Mock questions for development. Add HUGGINGFACE_API_KEY to GitHub Secrets for real AI questions."
+        }
+    };
+    
+    displayQuestions(mockData);
+}
+
+// Test AI connection using Hugging Face
+function testAIConnection() {
+    showNotification('Testing AI connection with Hugging Face...', 'info');
+    
+    // Open GitHub Actions in a new tab
+    const repoUrl = `https://github.com/${window.location.pathname.split('/')[1]}/${window.location.pathname.split('/')[2]}`;
+    
+    setTimeout(() => {
+        window.open(`${repoUrl}/actions`, '_blank');
+        showNotification('Check your GitHub Actions tab for AI processing', 'info');
+    }, 1000);
 }
 
 // Add a test button to your UI
-function addGitHubActionsTestButton() {
+function addAITestButton() {
+    // Remove existing button if any
+    const existingBtn = document.getElementById('testAIBtn');
+    if (existingBtn) {
+        existingBtn.remove();
+    }
+    
     const testBtn = document.createElement('button');
-    testBtn.textContent = 'Test DeepSeek Connection';
-    testBtn.id = 'testDeepSeekBtn';
+    testBtn.textContent = 'Test AI Connection (Hugging Face)';
+    testBtn.id = 'testAIBtn';
     testBtn.style.cssText = `
         position: fixed;
         bottom: 20px;
@@ -460,17 +649,20 @@ function addGitHubActionsTestButton() {
         font-size: 12px;
         opacity: 0.8;
         transition: opacity 0.3s;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
     `;
     
     testBtn.addEventListener('mouseenter', () => {
         testBtn.style.opacity = '1';
+        testBtn.style.transform = 'translateY(-2px)';
     });
     
     testBtn.addEventListener('mouseleave', () => {
         testBtn.style.opacity = '0.8';
+        testBtn.style.transform = 'translateY(0)';
     });
     
-    testBtn.addEventListener('click', testDeepSeekConnection);
+    testBtn.addEventListener('click', testAIConnection);
     document.body.appendChild(testBtn);
 }
 
