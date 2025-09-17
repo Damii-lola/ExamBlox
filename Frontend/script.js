@@ -420,33 +420,354 @@ function handleGenerateQuestions() {
     const difficultySelects = document.querySelectorAll('.upload-options select');
     const difficulty = difficultySelects.length > 1 ? difficultySelects[1].value : 'Medium';
 
-    console.log('🤖 Generate button clicked!');
-    console.log('👋 Hi there! Hugging Face integration coming soon...');
-    console.log('📋 Question Generation Parameters:');
-    console.log('   • Question Type:', questionType);
-    console.log('   • Number of Questions:', numQuestions);
-    console.log('   • Difficulty:', difficulty);
-    console.log('   • File:', currentFile.name);
-    console.log('   • Text Length:', extractedText.length, 'characters');
-    console.log('🚀 Ready for Hugging Face API integration!');
+    // This should work now
+    console.log('Generate button clicked!');
+    console.log('Hi there! Generate button is working!');
+    console.log('Question Type:', questionType);
+    console.log('Number of Questions:', numQuestions);
+    console.log('Difficulty:', difficulty);
+    console.log('File:', currentFile.name);
+    console.log('Text Length:', extractedText.length, 'characters');
 
-    showNotification('Hi! Check console - Hugging Face integration ready!', 'info');
+    showNotification('Hi! Check console - Generate button working!', 'success');
 
-    // Call Hugging Face API function (placeholder for now)
-    generateQuestionsWithHuggingFace(extractedText, questionType, numQuestions, difficulty);
+    // Show progress and generate questions
+    showProcessingProgress();
 }
 
-// Hugging Face Integration Function (placeholder)
-function generateQuestionsWithHuggingFace(text, questionType, numQuestions, difficulty) {
-    console.log('🤗 Hugging Face API call would happen here...');
-    console.log('📝 Text to process:', text.substring(0, 200) + '...');
-    console.log('⚙️ Processing with Hugging Face models...');
-    
-    // Simulate API delay
-    setTimeout(function() {
-        console.log('✅ Hugging Face API response received!');
-        showQuestionModal(questionType, numQuestions, difficulty);
-    }, 2000);
+function showProcessingProgress() {
+    // Create progress modal
+    const progressModal = document.createElement('div');
+    progressModal.className = 'modal';
+    progressModal.id = 'progress-modal';
+    progressModal.innerHTML = 
+        '<div class="modal-content" style="max-width: 500px;">' +
+            '<h2>Generating Questions</h2>' +
+            '<div class="progress-container">' +
+                '<div class="progress-bar">' +
+                    '<div class="progress-fill" id="progress-fill"></div>' +
+                '</div>' +
+                '<div class="progress-text" id="progress-text">Processing file... 0%</div>' +
+            '</div>' +
+            '<div class="progress-steps">' +
+                '<div class="step-item active" id="step-1">📄 Analyzing text</div>' +
+                '<div class="step-item" id="step-2">🤖 Generating questions</div>' +
+                '<div class="step-item" id="step-3">✅ Finalizing</div>' +
+            '</div>' +
+        '</div>';
+
+    document.body.appendChild(progressModal);
+
+    // Simulate progress
+    let progress = 0;
+    const progressFill = document.getElementById('progress-fill');
+    const progressText = document.getElementById('progress-text');
+
+    const progressInterval = setInterval(function() {
+        progress += Math.random() * 15;
+        if (progress > 100) progress = 100;
+
+        progressFill.style.width = progress + '%';
+        
+        if (progress < 30) {
+            progressText.textContent = 'Analyzing text... ' + Math.round(progress) + '%';
+        } else if (progress < 80) {
+            progressText.textContent = 'Generating questions... ' + Math.round(progress) + '%';
+            document.getElementById('step-1').classList.remove('active');
+            document.getElementById('step-2').classList.add('active');
+        } else {
+            progressText.textContent = 'Finalizing... ' + Math.round(progress) + '%';
+            document.getElementById('step-2').classList.remove('active');
+            document.getElementById('step-3').classList.add('active');
+        }
+
+        if (progress >= 100) {
+            clearInterval(progressInterval);
+            setTimeout(function() {
+                document.body.removeChild(progressModal);
+                showEnhancedQuestionModal();
+            }, 1000);
+        }
+    }, 200);
+}
+
+function showEnhancedQuestionModal() {
+    const questionType = document.querySelector('.upload-options select').value || 'Multiple Choice';
+    const numQuestions = document.querySelector('.upload-options input[type="range"]').value || '10';
+    const difficultySelects = document.querySelectorAll('.upload-options select');
+    const difficulty = difficultySelects.length > 1 ? difficultySelects[1].value : 'Medium';
+
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = 
+        '<div class="modal-content enhanced-modal">' +
+            '<span class="close-modal">&times;</span>' +
+            '<div class="modal-header">' +
+                '<h2>🎯 Questions Generated Successfully!</h2>' +
+                '<div class="modal-subtitle">' + questionType + ' • ' + numQuestions + ' Questions • ' + difficulty + ' Difficulty</div>' +
+            '</div>' +
+            '<div class="modal-body">' +
+                '<div class="file-info">' +
+                    '<div class="info-item">' +
+                        '<i class="fas fa-file"></i>' +
+                        '<span><strong>Source:</strong> ' + currentFile.name + '</span>' +
+                    '</div>' +
+                    '<div class="info-item">' +
+                        '<i class="fas fa-text-width"></i>' +
+                        '<span><strong>Text Length:</strong> ' + extractedText.length + ' characters</span>' +
+                    '</div>' +
+                    '<div class="info-item">' +
+                        '<i class="fas fa-clock"></i>' +
+                        '<span><strong>Generated:</strong> ' + new Date().toLocaleTimeString() + '</span>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="question-preview">' +
+                    '<h3>📝 Sample Question Preview:</h3>' +
+                    '<div class="sample-question">' +
+                        '<p><strong>Question 1:</strong> Based on the content from "' + currentFile.name + '", what is the main topic discussed?</p>' +
+                        '<div class="options">' +
+                            '<label><input type="radio" name="sample" disabled> A) Technology and Innovation</label>' +
+                            '<label><input type="radio" name="sample" disabled> B) Business Strategy</label>' +
+                            '<label><input type="radio" name="sample" disabled> C) Educational Methods</label>' +
+                            '<label><input type="radio" name="sample" disabled> D) Research Methodology</label>' +
+                        '</div>' +
+                        '<div class="correct-answer">✅ <strong>Correct Answer:</strong> Based on your document content</div>' +
+                    '</div>' +
+                    '<div class="demo-note">' +
+                        '<p><em>📋 This is a demo preview. In the full version, you would see all ' + numQuestions + ' questions with detailed explanations, answer keys, and references to your source material.</em></p>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div class="modal-actions">' +
+                '<button class="action-btn primary-btn">📊 Start Practice Test</button>' +
+                '<button class="action-btn secondary-btn">📥 Download PDF</button>' +
+                '<button class="action-btn secondary-btn">📧 Email Questions</button>' +
+            '</div>' +
+        '</div>';
+
+    document.body.appendChild(modal);
+
+    // Add enhanced modal styles
+    addEnhancedModalStyles();
+
+    // Close functionality
+    const closeBtn = modal.querySelector('.close-modal');
+    closeBtn.addEventListener('click', function() {
+        document.body.removeChild(modal);
+    });
+
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    });
+
+    // Button functionality
+    const buttons = modal.querySelectorAll('.action-btn');
+    buttons.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const text = btn.textContent;
+            if (text.includes('Practice Test')) {
+                showNotification('Practice test feature coming soon!', 'info');
+                console.log('Practice test clicked - feature coming soon');
+            } else if (text.includes('Download')) {
+                showNotification('Download feature coming soon!', 'info');
+                console.log('Download clicked - feature coming soon');
+            } else if (text.includes('Email')) {
+                showNotification('Email feature coming soon!', 'info');
+                console.log('Email clicked - feature coming soon');
+            }
+        });
+    });
+
+    showNotification('Questions generated successfully!', 'success');
+    console.log('Enhanced modal displayed with sample questions');
+}
+
+function addEnhancedModalStyles() {
+    // Check if styles already added
+    if (document.getElementById('enhanced-modal-styles')) return;
+
+    const style = document.createElement('style');
+    style.id = 'enhanced-modal-styles';
+    style.textContent = `
+        .enhanced-modal {
+            max-width: 600px !important;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            text-align: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-body {
+            margin-bottom: 25px;
+        }
+
+        .file-info {
+            background: rgba(106, 75, 255, 0.1);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            color: #eee;
+        }
+
+        .info-item i {
+            margin-right: 10px;
+            color: #9b6aff;
+            width: 16px;
+        }
+
+        .question-preview {
+            background: rgba(77, 255, 243, 0.05);
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid rgba(77, 255, 243, 0.2);
+        }
+
+        .question-preview h3 {
+            margin-bottom: 15px;
+            color: #4dfff3;
+        }
+
+        .sample-question {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .options {
+            margin: 10px 0;
+        }
+
+        .options label {
+            display: block;
+            margin-bottom: 8px;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .options label:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .correct-answer {
+            margin-top: 10px;
+            padding: 8px;
+            background: rgba(76, 175, 80, 0.2);
+            border-radius: 4px;
+            color: #4CAF50;
+            font-size: 0.9rem;
+        }
+
+        .demo-note {
+            background: rgba(255, 152, 0, 0.1);
+            border-radius: 6px;
+            padding: 12px;
+            border-left: 3px solid #ff9800;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            min-width: 140px;
+        }
+
+        .primary-btn {
+            background: linear-gradient(90deg, #6a4bff, #9b6aff);
+            color: white;
+        }
+
+        .primary-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(106, 75, 255, 0.4);
+        }
+
+        .secondary-btn {
+            background: rgba(77, 255, 243, 0.1);
+            color: #4dfff3;
+            border: 1px solid rgba(77, 255, 243, 0.3);
+        }
+
+        .secondary-btn:hover {
+            background: rgba(77, 255, 243, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .progress-container {
+            margin: 20px 0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #6a4bff, #4dfff3);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            text-align: center;
+            color: #eee;
+            font-weight: 500;
+            margin-bottom: 20px;
+        }
+
+        .progress-steps {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+        }
+
+        .step-item {
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            font-size: 0.85rem;
+            opacity: 0.5;
+            transition: all 0.3s;
+        }
+
+        .step-item.active {
+            opacity: 1;
+            background: rgba(106, 75, 255, 0.3);
+            color: #9b6aff;
+        }
+    `;
+    document.head.appendChild(style);
 }
 
 function showQuestionModal(questionType, numQuestions, difficulty) {
