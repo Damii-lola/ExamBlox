@@ -420,7 +420,6 @@ function handleGenerateQuestions() {
     const difficultySelects = document.querySelectorAll('.upload-options select');
     const difficulty = difficultySelects.length > 1 ? difficultySelects[1].value : 'Medium';
 
-    // This should work now
     console.log('Generate button clicked!');
     console.log('Hi there! Generate button is working!');
     console.log('Question Type:', questionType);
@@ -429,10 +428,56 @@ function handleGenerateQuestions() {
     console.log('File:', currentFile.name);
     console.log('Text Length:', extractedText.length, 'characters');
 
-    showNotification('Hi! Check console - Generate button working!', 'success');
+    showNotification('Connecting to backend...', 'info');
 
-    // Show progress and generate questions
+    // Show progress and call backend
     showProcessingProgress();
+    callBackendAPI(extractedText, questionType, numQuestions, difficulty);
+}
+
+async function callBackendAPI(text, questionType, numQuestions, difficulty) {
+    try {
+        // Your Vercel backend URL (we'll update this after deployment)
+        const BACKEND_URL = 'http://localhost:3000'; // Change this after Vercel deployment
+        
+        console.log('Calling backend API...');
+        
+        const response = await fetch(`${BACKEND_URL}/api/generate-questions`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                text: text,
+                questionType: questionType,
+                numQuestions: parseInt(numQuestions),
+                difficulty: difficulty
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        
+        console.log('Backend response received!');
+        console.log('Backend says:', result.message);
+        console.log('Full response:', result);
+
+        // Continue with existing progress simulation while API processes
+        // The enhanced modal will show after progress completes
+        
+    } catch (error) {
+        console.error('Error calling backend:', error);
+        showNotification('Error connecting to backend: ' + error.message, 'error');
+        
+        // Close progress modal if it exists
+        const progressModal = document.getElementById('progress-modal');
+        if (progressModal) {
+            document.body.removeChild(progressModal);
+        }
+    }
 }
 
 function showProcessingProgress() {
