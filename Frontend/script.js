@@ -420,9 +420,31 @@ function handleGenerateQuestions() {
     const difficultySelects = document.querySelectorAll('.upload-options select');
     const difficulty = difficultySelects.length > 1 ? difficultySelects[1].value : 'Medium';
 
-    showNotification('Generating questions...', 'info');
+    console.log('🤖 Generate button clicked!');
+    console.log('👋 Hi there! Hugging Face integration coming soon...');
+    console.log('📋 Question Generation Parameters:');
+    console.log('   • Question Type:', questionType);
+    console.log('   • Number of Questions:', numQuestions);
+    console.log('   • Difficulty:', difficulty);
+    console.log('   • File:', currentFile.name);
+    console.log('   • Text Length:', extractedText.length, 'characters');
+    console.log('🚀 Ready for Hugging Face API integration!');
 
+    showNotification('Hi! Check console - Hugging Face integration ready!', 'info');
+
+    // Call Hugging Face API function (placeholder for now)
+    generateQuestionsWithHuggingFace(extractedText, questionType, numQuestions, difficulty);
+}
+
+// Hugging Face Integration Function (placeholder)
+function generateQuestionsWithHuggingFace(text, questionType, numQuestions, difficulty) {
+    console.log('🤗 Hugging Face API call would happen here...');
+    console.log('📝 Text to process:', text.substring(0, 200) + '...');
+    console.log('⚙️ Processing with Hugging Face models...');
+    
+    // Simulate API delay
     setTimeout(function() {
+        console.log('✅ Hugging Face API response received!');
         showQuestionModal(questionType, numQuestions, difficulty);
     }, 2000);
 }
