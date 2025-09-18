@@ -466,10 +466,64 @@ async function callBackendAPI(text, questionType, numQuestions, difficulty) {
         const result = await response.json();
         
         console.log('Backend response received!');
-        console.log('Backend says:', result.message);
-        console.log('Full response:', result);
+        console.log('Backend message:', result.message);
+        
+        // Display the actual AI-generated questions in console
+        if (result.data && result.data.questions) {
+            console.log('=== AI GENERATED QUESTIONS FROM BACKEND ===');
+            result.data.questions.forEach((question, index) => {
+                console.log(`\n--- QUESTION ${index + 1} ---`);
+                console.log(`Type: ${question.type}`);
+                console.log(`Question: ${question.question}`);
+                
+                if (question.options && question.options.length > 0) {
+                    console.log('Options:');
+                    question.options.forEach((option, i) => {
+                        const letter = String.fromCharCode(65 + i); // A, B, C, D
+                        console.log(`  ${letter}) ${option}`);
+                    });
+                    
+                    const correctAnswer = typeof question.correctAnswer === 'number' 
+                        ? String.fromCharCode(65 + question.correctAnswer) 
+                        : question.correctAnswer;
+                    console.log(`Correct Answer: ${correctAnswer}`);
+                }
+                
+                if (question.explanation) {
+                    console.log(`Explanation: ${question.explanation}`);
+                }
+                
+                if (question.sourceText) {
+                    console.log(`Source: ${question.sourceText}`);
+                }
+                
+                if (question.generatedFromKeyword) {
+                    console.log(`Generated from keyword: "${question.generatedFromKeyword}"`);
+                }
+            });
+            console.log('\n=== END OF AI QUESTIONS ===');
+            
+            // Show summary
+            if (result.data.summary) {
+                console.log('\n=== GENERATION SUMMARY ===');
+                console.log(`Method: ${result.data.summary.method || 'AI generation'}`);
+                console.log(`Total questions: ${result.data.summary.totalQuestions}`);
+                console.log(`Difficulty: ${result.data.summary.difficulty}`);
+                console.log(`Question type: ${result.data.summary.type}`);
+                console.log(`Source text length: ${result.data.summary.sourceTextLength} characters`);
+            }
+            
+            // Show extracted keywords if available
+            if (result.data.extractedKeywords) {
+                console.log('\n=== EXTRACTED KEYWORDS ===');
+                console.log('Keywords from your text:', result.data.extractedKeywords.join(', '));
+            }
+        } else {
+            console.log('No questions found in response');
+            console.log('Full response:', result);
+        }
 
-        showNotification('Backend connected successfully!', 'success');
+        showNotification('Questions generated successfully! Check console for details.', 'success');
         
     } catch (error) {
         console.error('Error calling backend:', error);
