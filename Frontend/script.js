@@ -438,7 +438,7 @@ function handleGenerateQuestions() {
 async function callBackendAPI(text, questionType, numQuestions, difficulty) {
     try {
         // Your Vercel backend URL (we'll update this after deployment)
-        const BACKEND_URL = 'http://localhost:3000'; // Change this after Vercel deployment
+        const BACKEND_URL = 'https://exam-blox.vercel.app/'; // Change this after Vercel deployment
         
         console.log('Calling backend API...');
         
