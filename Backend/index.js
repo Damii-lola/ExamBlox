@@ -113,8 +113,8 @@ async function callHuggingFaceAPI(text, questionType, numQuestions, difficulty) 
   console.log('📝 Text length:', text.length, 'characters');
 
   try {
-    // Use a better text generation model - GPT-2 or FLAN-T5
-    const MODEL_URL = 'https://api-inference.huggingface.co/models/google/flan-t5-large';
+    // Use a reliable text generation model that actually exists
+    const MODEL_URL = 'https://api-inference.huggingface.co/models/gpt2';
     
     // Create a better prompt for question generation
     const prompt = createBetterQuestionPrompt(text, questionType, numQuestions, difficulty);
@@ -132,11 +132,12 @@ async function callHuggingFaceAPI(text, questionType, numQuestions, difficulty) 
       body: JSON.stringify({
         inputs: prompt,
         parameters: {
-          max_new_tokens: 1000,
-          temperature: 0.7,
+          max_new_tokens: 500,
+          temperature: 0.8,
           do_sample: true,
           top_p: 0.9,
-          repetition_penalty: 1.1
+          repetition_penalty: 1.2,
+          return_full_text: false
         }
       })
     });
