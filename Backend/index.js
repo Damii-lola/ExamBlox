@@ -46,28 +46,46 @@ app.post('/api/generate-questions', async (req, res) => {
       });
     }
 
-    console.log('Received request:');
+    console.log('=== QUESTION GENERATION REQUEST ===');
     console.log('- Text length:', text.length, 'characters');
     console.log('- Question type:', questionType);
     console.log('- Number of questions:', numQuestions);
     console.log('- Difficulty:', difficulty);
+    console.log('- Text preview:', text.substring(0, 200) + '...');
 
-    // Test response - saying "hi" as requested
-    console.log('Hi from the backend! API is working!');
-
-    // Call Hugging Face API
+    // Call Hugging Face API - REMOVED ALL "Hi" references
     const response = await callHuggingFaceAPI(text, questionType, numQuestions, difficulty);
+
+    // Log the generated questions to console
+    console.log('=== AI GENERATED QUESTIONS ===');
+    if (response.questions && response.questions.length > 0) {
+      response.questions.forEach((q, index) => {
+        console.log(`\n--- QUESTION ${index + 1} ---`);
+        console.log(`Question: ${q.question}`);
+        if (q.options) {
+          q.options.forEach((option, i) => {
+            console.log(`${String.fromCharCode(65 + i)}) ${option}`);
+          });
+          console.log(`Correct Answer: ${typeof q.correctAnswer === 'number' ? String.fromCharCode(65 + q.correctAnswer) : q.correctAnswer}`);
+        }
+        if (q.explanation) {
+          console.log(`Explanation: ${q.explanation}`);
+        }
+      });
+    }
+    console.log('=== END OF QUESTIONS ===');
 
     res.json({
       success: true,
-      message: 'Hi! Questions generated successfully',
+      message: 'Questions generated successfully by AI',
       data: response,
       metadata: {
         textLength: text.length,
         questionType,
         numQuestions,
         difficulty,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        method: response.summary?.method || 'ai_generation'
       }
     });
 
