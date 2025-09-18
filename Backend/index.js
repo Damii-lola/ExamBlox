@@ -104,20 +104,24 @@ async function callHuggingFaceAPI(text, questionType, numQuestions, difficulty) 
   const API_KEY = process.env.HUGGINGFACE_API_KEY;
   
   if (!API_KEY) {
+    console.error('❌ HUGGINGFACE_API_KEY is not configured');
     throw new Error('HUGGINGFACE_API_KEY is not configured');
   }
 
-  console.log('Calling Hugging Face API...');
-  console.log('API Key exists:', !!API_KEY);
-  console.log('Text length:', text.length, 'characters');
+  console.log('🤖 Starting Hugging Face API call...');
+  console.log('📊 API Key exists:', !!API_KEY);
+  console.log('📝 Text length:', text.length, 'characters');
 
   try {
-    // Use Hugging Face's text generation model
-    const MODEL_URL = 'https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium';
+    // Use a better text generation model - GPT-2 or FLAN-T5
+    const MODEL_URL = 'https://api-inference.huggingface.co/models/google/flan-t5-large';
     
-    // Create a prompt for question generation
-    const prompt = createQuestionPrompt(text, questionType, numQuestions, difficulty);
-    console.log('Generated prompt:', prompt.substring(0, 200) + '...');
+    // Create a better prompt for question generation
+    const prompt = createBetterQuestionPrompt(text, questionType, numQuestions, difficulty);
+    console.log('📋 Generated prompt length:', prompt.length);
+    console.log('📋 Prompt preview:', prompt.substring(0, 300) + '...');
+    
+    console.log('🔄 Making API request to:', MODEL_URL);
     
     const response = await fetch(MODEL_URL, {
       method: 'POST',
@@ -128,43 +132,180 @@ async function callHuggingFaceAPI(text, questionType, numQuestions, difficulty) 
       body: JSON.stringify({
         inputs: prompt,
         parameters: {
-          max_length: 1000,
+          max_new_tokens: 1000,
           temperature: 0.7,
           do_sample: true,
-          top_p: 0.9
+          top_p: 0.9,
+          repetition_penalty: 1.1
         }
       })
     });
 
+    console.log('📡 API response status:', response.status);
+    console.log('📡 API response ok:', response.ok);
+
     if (!response.ok) {
-      throw new Error(`Hugging Face API error: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('❌ Hugging Face API error:', response.status, response.statusText);
+      console.error('❌ Error details:', errorText);
+      throw new Error(`Hugging Face API error: ${response.status} - ${errorText}`);
     }
 
     const result = await response.json();
-    console.log('Raw Hugging Face response:', result);
+    console.log('✅ Raw Hugging Face API response:');
+    console.log(JSON.stringify(result, null, 2));
 
     // Process the AI response into structured questions
     const processedQuestions = processAIResponse(result, questionType, numQuestions);
     
+    if (processedQuestions.length === 0) {
+      console.log('⚠️ No questions could be parsed from AI response, using text analysis');
+      return generateQuestionsFromText(text, questionType, numQuestions, difficulty);
+    }
+    
+    console.log(`✅ Successfully processed ${processedQuestions.length} questions from AI`);
+    
     return {
-      message: 'Questions generated successfully by AI',
+      message: 'Questions generated successfully by Hugging Face AI',
       questions: processedQuestions,
       rawAIResponse: result,
       summary: {
         totalQuestions: processedQuestions.length,
         difficulty: difficulty,
         type: questionType,
-        sourceTextLength: text.length
+        sourceTextLength: text.length,
+        method: 'hugging_face_api'
       }
     };
 
   } catch (error) {
-    console.error('Hugging Face API call failed:', error);
+    console.error('💥 Hugging Face API call failed:', error.message);
+    console.error('💥 Full error:', error);
     
-    // Fallback: Create questions using text analysis
-    console.log('Falling back to text analysis method...');
-    return generateQuestionsFromText(text, questionType, numQuestions, difficulty);
+    // Don't fallback immediately - let's see the actual error
+    throw error;
   }
+}
+
+function createBetterQuestionPrompt(text, questionType, numQuestions, difficulty) {
+  // Truncate text if too long (keep first 1500 characters for context)
+  const truncatedText = text.length > 1500 ? text.substring(0, 1500) + '...' : text;
+  
+  let prompt = `Read the following text and generate ${numQuestions} ${questionType.toLowerCase()} questions based on the content. The questions should be at ${difficulty.toLowerCase()} difficulty level.
+
+Text to analyze:
+"""
+${truncatedText}
+"""
+
+Create ${numQuestions} ${questionType} questions about the main concepts, key points, and important details from this text. Each question should test understanding of the actual content.
+
+Format your response as follows:`;
+  
+  if (questionType === 'Multiple Choice') {
+    prompt += `
+
+Q1: [Question about the text content]
+A) [Option 1]
+B) [Option 2]
+C) [Option 3]
+D) [Option 4]
+Answer: [A/B/C/D]
+
+Q2: [Next question about the text content]
+A) [Option 1]
+B) [Option 2]
+C) [Option 3]
+D) [Option 4]
+Answer: [A/B/C/D]
+
+Continue this pattern for all ${numQuestions} questions.`;
+  } else if (questionType === 'True/False') {
+    prompt += `
+
+Q1: [Statement about the text content]
+Answer: [True/False]
+
+Q2: [Another statement about the text content]
+Answer: [True/False]
+
+Continue this pattern for all ${numQuestions} questions.`;
+  }
+  
+  return prompt;
+}
+
+function processAIResponse(aiResponse, questionType, numQuestions) {
+  console.log('🔄 Processing AI response into structured questions...');
+  
+  // Handle different response formats from Hugging Face
+  let responseText = '';
+  if (Array.isArray(aiResponse) && aiResponse.length > 0) {
+    responseText = aiResponse[0].generated_text || '';
+  } else if (aiResponse.generated_text) {
+    responseText = aiResponse.generated_text;
+  } else if (typeof aiResponse === 'string') {
+    responseText = aiResponse;
+  } else {
+    console.log('⚠️ Unexpected AI response format:', aiResponse);
+    responseText = JSON.stringify(aiResponse);
+  }
+  
+  console.log('📝 AI generated text to parse:');
+  console.log(responseText);
+  
+  const questions = [];
+  
+  if (questionType === 'Multiple Choice') {
+    // Enhanced parsing for multiple choice questions
+    const questionBlocks = responseText.split(/Q\d+:/).slice(1); // Split by Q1:, Q2: etc.
+    
+    questionBlocks.forEach((block, index) => {
+      try {
+        const lines = block.trim().split('\n').filter(line => line.trim());
+        
+        if (lines.length < 5) return; // Need at least question + 4 options + answer
+        
+        const questionText = lines[0].trim();
+        const options = [];
+        let answerLine = '';
+        
+        for (let line of lines.slice(1)) {
+          line = line.trim();
+          if (/^[A-D]\)/.test(line)) {
+            options.push(line.substring(2).trim());
+          } else if (line.toLowerCase().startsWith('answer:')) {
+            answerLine = line;
+            break;
+          }
+        }
+        
+        if (questionText && options.length >= 4) {
+          const correctLetter = answerLine.toLowerCase().includes('answer:') 
+            ? answerLine.split(':')[1].trim().toUpperCase() 
+            : 'A';
+          const correctIndex = correctLetter.charCodeAt(0) - 65; // A=0, B=1, etc.
+          
+          questions.push({
+            id: index + 1,
+            type: questionType,
+            question: questionText,
+            options: options.slice(0, 4), // Ensure exactly 4 options
+            correctAnswer: Math.max(0, Math.min(3, correctIndex)), // Ensure valid index
+            explanation: `This question was generated by AI analysis of your document content.`,
+            aiGenerated: true
+          });
+          
+          console.log(`✅ Parsed question ${index + 1}:`, questionText);
+        }
+      } catch (error) {
+        console.log(`⚠️ Failed to parse question ${index + 1}:`, error.message);
+      }
+    });
+  }
+  
+  console.log(`📊 Successfully parsed ${questions.length} questions from AI response`);
+  return questions.slice(0, numQuestions);
 }
 
 function createQuestionPrompt(text, questionType, numQuestions, difficulty) {
