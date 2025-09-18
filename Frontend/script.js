@@ -437,16 +437,19 @@ function handleGenerateQuestions() {
 
 async function callBackendAPI(text, questionType, numQuestions, difficulty) {
     try {
-        // Fixed URL - removed double slash
+        // Fixed URL - ensure no trailing slash
         const BACKEND_URL = 'https://exam-blox.vercel.app';
+        const endpoint = '/api/generate-questions';
+        const fullURL = BACKEND_URL + endpoint;
         
         console.log('Calling backend API...');
-        console.log('URL:', `${BACKEND_URL}/api/generate-questions`);
+        console.log('Full URL:', fullURL);
         
-        const response = await fetch(`${BACKEND_URL}/api/generate-questions`, {
+        const response = await fetch(fullURL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'application/json',
             },
             body: JSON.stringify({
                 text: text,
@@ -466,18 +469,51 @@ async function callBackendAPI(text, questionType, numQuestions, difficulty) {
         console.log('Backend says:', result.message);
         console.log('Full response:', result);
 
-        // Continue with existing progress simulation while API processes
-        // The enhanced modal will show after progress completes
+        showNotification('Backend connected successfully!', 'success');
         
     } catch (error) {
         console.error('Error calling backend:', error);
-        showNotification('Error connecting to backend: ' + error.message, 'error');
+        
+        // Check if it's a specific error type
+        if (error.message.includes('Failed to fetch') || error.message.includes('CONNECTION_RESET')) {
+            console.log('Backend connection failed. Checking if your Vercel deployment is running...');
+            showNotification('Backend connection failed. Please check if your Vercel app is deployed and running.', 'error');
+            
+            // Try to test the root endpoint
+            testBackendConnection();
+        } else {
+            showNotification('Error: ' + error.message, 'error');
+        }
         
         // Close progress modal if it exists
         const progressModal = document.getElementById('progress-modal');
-        if (progressModal) {
+        if (progressModal && document.body.contains(progressModal)) {
             document.body.removeChild(progressModal);
         }
+    }
+}
+
+// Test function to check if backend is alive
+async function testBackendConnection() {
+    try {
+        const response = await fetch('https://exam-blox.vercel.app/', {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+            }
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            console.log('Backend root endpoint works:', result);
+            showNotification('Backend is running, but API call failed. Check Vercel logs.', 'info');
+        } else {
+            console.log('Backend root endpoint failed with status:', response.status);
+            showNotification('Backend is not responding. Please check your Vercel deployment.', 'error');
+        }
+    } catch (error) {
+        console.error('Backend connection test failed:', error);
+        showNotification('Backend is completely unreachable. Check your Vercel deployment URL.', 'error');
     }
 }
 
