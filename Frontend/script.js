@@ -437,10 +437,11 @@ function handleGenerateQuestions() {
 
 async function callBackendAPI(text, questionType, numQuestions, difficulty) {
     try {
-        // Your Vercel backend URL (we'll update this after deployment)
-        const BACKEND_URL = 'https://exam-blox.vercel.app/'; // Change this after Vercel deployment
+        // Fixed URL - removed double slash
+        const BACKEND_URL = 'https://exam-blox.vercel.app';
         
         console.log('Calling backend API...');
+        console.log('URL:', `${BACKEND_URL}/api/generate-questions`);
         
         const response = await fetch(`${BACKEND_URL}/api/generate-questions`, {
             method: 'POST',
@@ -505,31 +506,41 @@ function showProcessingProgress() {
 
     // Simulate progress
     let progress = 0;
-    const progressFill = document.getElementById('progress-fill');
-    const progressText = document.getElementById('progress-text');
-
+    
     const progressInterval = setInterval(function() {
         progress += Math.random() * 15;
         if (progress > 100) progress = 100;
 
-        progressFill.style.width = progress + '%';
+        const progressFill = document.getElementById('progress-fill');
+        const progressText = document.getElementById('progress-text');
+        const step1 = document.getElementById('step-1');
+        const step2 = document.getElementById('step-2');
+        const step3 = document.getElementById('step-3');
+
+        // Only update if elements exist
+        if (progressFill) progressFill.style.width = progress + '%';
         
-        if (progress < 30) {
-            progressText.textContent = 'Analyzing text... ' + Math.round(progress) + '%';
-        } else if (progress < 80) {
-            progressText.textContent = 'Generating questions... ' + Math.round(progress) + '%';
-            document.getElementById('step-1').classList.remove('active');
-            document.getElementById('step-2').classList.add('active');
-        } else {
-            progressText.textContent = 'Finalizing... ' + Math.round(progress) + '%';
-            document.getElementById('step-2').classList.remove('active');
-            document.getElementById('step-3').classList.add('active');
+        if (progressText) {
+            if (progress < 30) {
+                progressText.textContent = 'Analyzing text... ' + Math.round(progress) + '%';
+            } else if (progress < 80) {
+                progressText.textContent = 'Generating questions... ' + Math.round(progress) + '%';
+                if (step1) step1.classList.remove('active');
+                if (step2) step2.classList.add('active');
+            } else {
+                progressText.textContent = 'Finalizing... ' + Math.round(progress) + '%';
+                if (step2) step2.classList.remove('active');
+                if (step3) step3.classList.add('active');
+            }
         }
 
         if (progress >= 100) {
             clearInterval(progressInterval);
             setTimeout(function() {
-                document.body.removeChild(progressModal);
+                const modal = document.getElementById('progress-modal');
+                if (modal && document.body.contains(modal)) {
+                    document.body.removeChild(modal);
+                }
                 showEnhancedQuestionModal();
             }, 1000);
         }
