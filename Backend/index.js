@@ -99,93 +99,283 @@ app.post('/api/generate-questions', async (req, res) => {
   }
 });
 
-// Hugging Face API integration
+// Google Gemini API integration
 async function callHuggingFaceAPI(text, questionType, numQuestions, difficulty) {
-  const API_KEY = process.env.HUGGINGFACE_API_KEY;
+  const API_KEY = process.env.GEMINI_API_KEY;
   
   if (!API_KEY) {
-    console.error('❌ HUGGINGFACE_API_KEY is not configured');
-    throw new Error('HUGGINGFACE_API_KEY is not configured');
+    console.error('GEMINI_API_KEY is not configured');
+    throw new Error('GEMINI_API_KEY is not configured');
   }
 
-  console.log('🤖 Starting Hugging Face API call...');
-  console.log('📊 API Key exists:', !!API_KEY);
-  console.log('📝 Text length:', text.length, 'characters');
+  console.log('Starting Google Gemini API call...');
+  console.log('API Key exists:', !!API_KEY);
+  console.log('Text length:', text.length, 'characters');
 
   try {
-    // Use a reliable text generation model that actually exists
-    const MODEL_URL = 'https://api-inference.huggingface.co/models/gpt2';
+    // Google Gemini API endpoint
+    const MODEL_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`;
     
-    // Create a better prompt for question generation
-    const prompt = createBetterQuestionPrompt(text, questionType, numQuestions, difficulty);
-    console.log('📋 Generated prompt length:', prompt.length);
-    console.log('📋 Prompt preview:', prompt.substring(0, 300) + '...');
+    // Create a focused prompt for question generation
+    const prompt = createGeminiQuestionPrompt(text, questionType, numQuestions, difficulty);
+    console.log('Generated prompt length:', prompt.length);
+    console.log('Prompt preview:', prompt.substring(0, 300) + '...');
     
-    console.log('🔄 Making API request to:', MODEL_URL);
+    console.log('Making API request to Google Gemini...');
     
     const response = await fetch(MODEL_URL, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        inputs: prompt,
-        parameters: {
-          max_new_tokens: 500,
-          temperature: 0.8,
-          do_sample: true,
-          top_p: 0.9,
-          repetition_penalty: 1.2,
-          return_full_text: false
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 1024,
         }
       })
     });
 
-    console.log('📡 API response status:', response.status);
-    console.log('📡 API response ok:', response.ok);
+    console.log('API response status:', response.status);
+    console.log('API response ok:', response.ok);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Hugging Face API error:', response.status, response.statusText);
-      console.error('❌ Error details:', errorText);
-      throw new Error(`Hugging Face API error: ${response.status} - ${errorText}`);
+      console.error('Google Gemini API error:', response.status, response.statusText);
+      console.error('Error details:', errorText);
+      throw new Error(`Google Gemini API error: ${response.status} - ${errorText}`);
     }
 
     const result = await response.json();
-    console.log('✅ Raw Hugging Face API response:');
+    console.log('Raw Google Gemini API response:');
     console.log(JSON.stringify(result, null, 2));
 
+    // Extract the generated text from Gemini response
+    let generatedText = '';
+    if (result.candidates && result.candidates[0] && result.candidates[0].content && result.candidates[0].content.parts) {
+      generatedText = result.candidates[0].content.parts[0].text;
+    }
+
+    console.log('Generated text from Gemini:');
+    console.log(generatedText);
+
     // Process the AI response into structured questions
-    const processedQuestions = processAIResponse(result, questionType, numQuestions);
+    const processedQuestions = processGeminiResponse(generatedText, questionType, numQuestions);
     
     if (processedQuestions.length === 0) {
-      console.log('⚠️ No questions could be parsed from AI response, using text analysis');
+      console.log('No questions could be parsed from Gemini response, using text analysis');
       return generateQuestionsFromText(text, questionType, numQuestions, difficulty);
     }
     
-    console.log(`✅ Successfully processed ${processedQuestions.length} questions from AI`);
+    console.log(`Successfully processed ${processedQuestions.length} questions from Gemini`);
     
     return {
-      message: 'Questions generated successfully by Hugging Face AI',
+      message: 'Questions generated successfully by Google Gemini AI',
       questions: processedQuestions,
       rawAIResponse: result,
+      generatedText: generatedText,
       summary: {
         totalQuestions: processedQuestions.length,
         difficulty: difficulty,
         type: questionType,
         sourceTextLength: text.length,
-        method: 'hugging_face_api'
+        method: 'google_gemini_api'
       }
     };
 
   } catch (error) {
-    console.error('💥 Hugging Face API call failed:', error.message);
-    console.error('💥 Full error:', error);
-    
-    // Don't fallback immediately - let's see the actual error
+    console.error('Google Gemini API call failed:', error.message);
+    console.error('Full error:', error);
     throw error;
   }
+}
+
+function createGeminiQuestionPrompt(text, questionType, numQuestions, difficulty) {
+  // Truncate text if too long (keep first 2000 characters for context)
+  const truncatedText = text.length > 2000 ? text.substring(0, 2000) + '...' : text;
+  
+  let prompt = `You are an expert educator. Based on the following text, create ${numQuestions} high-quality ${questionType.toLowerCase()} questions at ${difficulty.toLowerCase()} difficulty level.
+
+TEXT TO ANALYZE:
+"""
+${truncatedText}
+"""
+
+INSTRUCTIONS:
+- Create questions that test understanding of the main concepts, key points, and important details from this specific text
+- Each question should be directly related to the content provided
+- Make the questions challenging but fair for ${difficulty.toLowerCase()} level
+- Ensure questions test comprehension, not just memorization
+
+FORMAT YOUR RESPONSE EXACTLY AS FOLLOWS:`;
+  
+  if (questionType === 'Multiple Choice') {
+    prompt += `
+
+Q1: [Your question based on the text content]
+A) [Option 1]
+B) [Option 2]  
+C) [Option 3]
+D) [Option 4]
+ANSWER: [A/B/C/D]
+
+Q2: [Your next question based on the text content]
+A) [Option 1]
+B) [Option 2]
+C) [Option 3] 
+D) [Option 4]
+ANSWER: [A/B/C/D]
+
+Continue this exact format for all ${numQuestions} questions.`;
+  } else if (questionType === 'True/False') {
+    prompt += `
+
+Q1: [Statement based on the text content]
+ANSWER: [True/False]
+
+Q2: [Another statement based on the text content]
+ANSWER: [True/False]
+
+Continue this exact format for all ${numQuestions} questions.`;
+  }
+  
+  return prompt;
+}
+
+function processGeminiResponse(generatedText, questionType, numQuestions) {
+  console.log('Processing Gemini response into structured questions...');
+  
+  if (!generatedText) {
+    console.log('No generated text to process');
+    return [];
+  }
+  
+  const questions = [];
+  
+  if (questionType === 'Multiple Choice') {
+    // Parse multiple choice questions from Gemini response
+    const questionBlocks = generatedText.split(/Q\d+:/).slice(1);
+    
+    questionBlocks.forEach((block, index) => {
+      try {
+        const lines = block.trim().split('\n').filter(line => line.trim());
+        
+        if (lines.length < 5) return;
+        
+        const questionText = lines[0].trim();
+        const options = [];
+        let answerLine = '';
+        
+        for (let line of lines) {
+          line = line.trim();
+          if (/^[A-D]\)/.test(line)) {
+            options.push(line.substring(2).trim());
+          } else if (line.toUpperCase().includes('ANSWER:')) {
+            answerLine = line;
+          }
+        }
+        
+        if (questionText && options.length >= 4) {
+          const correctLetter = answerLine.toUpperCase().includes('ANSWER:') 
+            ? answerLine.split(':')[1].trim().charAt(0)
+            : 'A';
+          const correctIndex = correctLetter.charCodeAt(0) - 65;
+          
+          questions.push({
+            id: index + 1,
+            type: questionType,
+            question: questionText,
+            options: options.slice(0, 4),
+            correctAnswer: Math.max(0, Math.min(3, correctIndex)),
+            explanation: `Generated by Google Gemini AI from your document content.`,
+            aiGenerated: true,
+            source: 'google_gemini'
+          });
+          
+          console.log(`Parsed Gemini question ${index + 1}: ${questionText}`);
+        }
+      } catch (error) {
+        console.log(`Failed to parse Gemini question ${index + 1}:`, error.message);
+      }
+    });
+  }
+  
+  console.log(`Successfully parsed ${questions.length} questions from Gemini response`);
+  return questions.slice(0, numQuestions);
+}
+
+function generateQuestionsFromText(text, questionType, numQuestions, difficulty) {
+  console.log('Generating questions using text analysis fallback...');
+  
+  // Simple text analysis to create questions
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 20);
+  const keywords = extractKeywords(text);
+  
+  console.log('Extracted keywords:', keywords);
+  console.log('Available sentences:', sentences.length);
+  
+  const questions = [];
+  
+  for (let i = 1; i <= Math.min(numQuestions, 5); i++) {
+    const randomSentence = sentences[Math.floor(Math.random() * sentences.length)];
+    const randomKeyword = keywords[Math.floor(Math.random() * keywords.length)];
+    
+    questions.push({
+      id: i,
+      type: questionType,
+      question: `Based on the text, what is the significance of "${randomKeyword}" in the context discussed?`,
+      options: [
+        `It relates to ${randomKeyword} as a primary concept`,
+        `It serves as a supporting detail for the main argument`,
+        `It provides background information`,
+        `It contradicts the main thesis`
+      ],
+      correctAnswer: 0,
+      explanation: `This question focuses on the key concept "${randomKeyword}" found in your text.`,
+      sourceText: randomSentence.substring(0, 100) + '...',
+      generatedFromKeyword: randomKeyword
+    });
+  }
+  
+  return {
+    message: 'Questions generated using text analysis',
+    questions: questions,
+    extractedKeywords: keywords,
+    summary: {
+      totalQuestions: questions.length,
+      difficulty: difficulty,
+      type: questionType,
+      sourceTextLength: text.length,
+      method: 'text_analysis_fallback'
+    }
+  };
+}
+
+function extractKeywords(text) {
+  // Simple keyword extraction
+  const words = text.toLowerCase()
+    .replace(/[^\w\s]/g, ' ')
+    .split(/\s+/)
+    .filter(word => word.length > 4);
+  
+  // Count word frequency
+  const wordCount = {};
+  words.forEach(word => {
+    wordCount[word] = (wordCount[word] || 0) + 1;
+  });
+  
+  // Get top 10 most frequent words
+  return Object.entries(wordCount)
+    .sort(([,a], [,b]) => b - a)
+    .slice(0, 10)
+    .map(([word]) => word);
 }
 
 function createBetterQuestionPrompt(text, questionType, numQuestions, difficulty) {
