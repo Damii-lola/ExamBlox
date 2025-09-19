@@ -524,9 +524,9 @@ async function callBackendAPI(text, questionType, numQuestions, difficulty) {
 }
 
 // Test function to check if backend is alive
-async function testBackendConnection() {
+async function testRailwayConnection() {
     try {
-        const response = await fetch('https://exam-blox.vercel.app/', {
+        const response = await fetch('https://examblox-production.up.railway.app/', {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
@@ -535,15 +535,15 @@ async function testBackendConnection() {
         
         if (response.ok) {
             const result = await response.json();
-            console.log('Backend root endpoint works:', result);
-            showNotification('Backend is running, but API call failed. Check Vercel logs.', 'info');
+            console.log('Railway backend root endpoint works:', result);
+            showNotification('Railway backend is running, but API call failed. Check Railway logs.', 'info');
         } else {
-            console.log('Backend root endpoint failed with status:', response.status);
-            showNotification('Backend is not responding. Please check your Vercel deployment.', 'error');
+            console.log('Railway backend root endpoint failed with status:', response.status);
+            showNotification('Railway backend is not responding. Please check your Railway deployment.', 'error');
         }
     } catch (error) {
-        console.error('Backend connection test failed:', error);
-        showNotification('Backend is completely unreachable. Check your Vercel deployment URL.', 'error');
+        console.error('Railway backend connection test failed:', error);
+        showNotification('Railway backend is completely unreachable. Check your Railway deployment URL.', 'error');
     }
 }
 
