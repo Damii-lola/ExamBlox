@@ -29,8 +29,31 @@ app.get('/', (req, res) => {
     platform: 'railway',
     endpoints: {
       test: 'GET /',
+      simpleTest: 'GET /test',
       generate: 'POST /api/generate-questions'
     }
+  });
+});
+
+// Simple test endpoint - just to verify Railway works
+app.get('/test', (req, res) => {
+  console.log('Test endpoint called');
+  res.json({
+    message: 'Test endpoint works!',
+    timestamp: new Date().toISOString(),
+    platform: 'railway',
+    status: 'success'
+  });
+});
+
+// Another test endpoint that accepts both GET and POST
+app.all('/simple', (req, res) => {
+  console.log('Simple endpoint called with method:', req.method);
+  res.json({
+    message: 'Simple endpoint responding',
+    method: req.method,
+    working: true,
+    timestamp: new Date().toISOString()
   });
 });
 
