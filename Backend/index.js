@@ -77,12 +77,31 @@ app.post('/api/generate-questions', async (req, res) => {
     console.log('- Difficulty:', difficulty);
     console.log('- Platform: Railway');
 
-    // Call Groq API to say "Hi" for now
+    // Call Groq API to generate real questions
     const response = await callGroqAPI(text, questionType, numQuestions, difficulty);
 
-    console.log('=== GROQ RESPONSE ===');
-    console.log('Groq says:', response.message);
-    console.log('=== END RESPONSE ===');
+    console.log('=== GROQ GENERATED QUESTIONS ===');
+    if (response.questions && response.questions.length > 0) {
+      response.questions.forEach((q, index) => {
+        console.log(`\n--- QUESTION ${index + 1} ---`);
+        console.log(`Question: ${q.question}`);
+        if (q.options) {
+          q.options.forEach((option, i) => {
+            console.log(`${String.fromCharCode(65 + i)}) ${option}`);
+          });
+          console.log(`Correct Answer: ${q.correctLetter || String.fromCharCode(65 + q.correctAnswer)}`);
+        } else if (q.correctAnswer) {
+          console.log(`Answer: ${q.correctAnswer}`);
+        }
+        if (q.explanation) {
+          console.log(`Explanation: ${q.explanation}`);
+        }
+      });
+    } else {
+      console.log('No questions were generated from Groq response');
+      console.log('Raw Groq response:', response.groqRawResponse);
+    }
+    console.log('=== END OF GROQ QUESTIONS ===');
 
     res.json({
       success: true,
