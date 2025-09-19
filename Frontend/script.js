@@ -438,7 +438,7 @@ function handleGenerateQuestions() {
 async function callBackendAPI(text, questionType, numQuestions, difficulty) {
     try {
         // Fixed URL - ensure no trailing slash
-        const BACKEND_URL = 'https://examblox-production.up.railway.app';
+        const BACKEND_URL = 'https://exam-blox.vercel.app';
         const endpoint = '/api/generate-questions';
         const fullURL = BACKEND_URL + endpoint;
         
