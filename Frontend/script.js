@@ -437,13 +437,47 @@ function handleGenerateQuestions() {
 
 async function callBackendAPI(text, questionType, numQuestions, difficulty) {
     try {
-        // Fixed URL - ensure no trailing slash
-        const BACKEND_URL = 'https://exam-blox.vercel.app';
+        // Railway backend URL
+        const BACKEND_URL = 'https://examblox-production.up.railway.app';
+        
+        // FIRST: Test if POST requests work at all
+        console.log('Testing POST request capability...');
+        const testResponse = await fetch(`${BACKEND_URL}/simple`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+                test: 'POST test data',
+                message: 'Testing if Railway accepts POST requests' 
+            })
+        });
+
+        if (testResponse.ok) {
+            const testResult = await testResponse.json();
+            console.log('POST Test Result:', testResult);
+            console.log('POST Method Confirmed:', testResult.method);
+            
+            if (testResult.method === 'POST') {
+                console.log('✅ POST requests work on Railway!');
+                showNotification('POST requests work! Now testing main API...', 'success');
+            } else {
+                console.log('❌ POST request failed - method shows:', testResult.method);
+                showNotification('POST request issue detected', 'error');
+                return;
+            }
+        } else {
+            console.log('❌ POST test failed with status:', testResponse.status);
+            showNotification('POST test failed with status: ' + testResponse.status, 'error');
+            return;
+        }
+
+        // SECOND: If POST works, test the actual API endpoint
+        console.log('POST confirmed working. Testing main API endpoint...');
         const endpoint = '/api/generate-questions';
         const fullURL = BACKEND_URL + endpoint;
         
-        console.log('Calling backend API...');
-        console.log('Full URL:', fullURL);
+        console.log('Calling main API:', fullURL);
         
         const response = await fetch(fullURL, {
             method: 'POST',
@@ -459,85 +493,27 @@ async function callBackendAPI(text, questionType, numQuestions, difficulty) {
             })
         });
 
+        console.log('Main API Response Status:', response.status);
+        console.log('Main API Response OK:', response.ok);
+
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errorText = await response.text();
+            console.log('Main API Error Details:', errorText);
+            throw new Error(`Main API error! status: ${response.status} - ${errorText}`);
         }
 
         const result = await response.json();
         
-        console.log('Backend response received!');
+        console.log('✅ Railway backend response received!');
         console.log('Backend message:', result.message);
-        
-        // Display the actual AI-generated questions in console
-        if (result.data && result.data.questions) {
-            console.log('=== AI GENERATED QUESTIONS FROM BACKEND ===');
-            result.data.questions.forEach((question, index) => {
-                console.log(`\n--- QUESTION ${index + 1} ---`);
-                console.log(`Type: ${question.type}`);
-                console.log(`Question: ${question.question}`);
-                
-                if (question.options && question.options.length > 0) {
-                    console.log('Options:');
-                    question.options.forEach((option, i) => {
-                        const letter = String.fromCharCode(65 + i); // A, B, C, D
-                        console.log(`  ${letter}) ${option}`);
-                    });
-                    
-                    const correctAnswer = typeof question.correctAnswer === 'number' 
-                        ? String.fromCharCode(65 + question.correctAnswer) 
-                        : question.correctAnswer;
-                    console.log(`Correct Answer: ${correctAnswer}`);
-                }
-                
-                if (question.explanation) {
-                    console.log(`Explanation: ${question.explanation}`);
-                }
-                
-                if (question.sourceText) {
-                    console.log(`Source: ${question.sourceText}`);
-                }
-                
-                if (question.generatedFromKeyword) {
-                    console.log(`Generated from keyword: "${question.generatedFromKeyword}"`);
-                }
-            });
-            console.log('\n=== END OF AI QUESTIONS ===');
-            
-            // Show summary
-            if (result.data.summary) {
-                console.log('\n=== GENERATION SUMMARY ===');
-                console.log(`Method: ${result.data.summary.method || 'AI generation'}`);
-                console.log(`Total questions: ${result.data.summary.totalQuestions}`);
-                console.log(`Difficulty: ${result.data.summary.difficulty}`);
-                console.log(`Question type: ${result.data.summary.type}`);
-                console.log(`Source text length: ${result.data.summary.sourceTextLength} characters`);
-            }
-            
-            // Show extracted keywords if available
-            if (result.data.extractedKeywords) {
-                console.log('\n=== EXTRACTED KEYWORDS ===');
-                console.log('Keywords from your text:', result.data.extractedKeywords.join(', '));
-            }
-        } else {
-            console.log('No questions found in response');
-            console.log('Full response:', result);
-        }
+        console.log('Groq AI says:', result.data?.message || 'No message from Groq');
+        console.log('Full response:', result);
 
-        showNotification('Questions generated successfully! Check console for details.', 'success');
+        showNotification('Groq AI connected via Railway! Check console.', 'success');
         
     } catch (error) {
-        console.error('Error calling backend:', error);
-        
-        // Check if it's a specific error type
-        if (error.message.includes('Failed to fetch') || error.message.includes('CONNECTION_RESET')) {
-            console.log('Backend connection failed. Checking if your Vercel deployment is running...');
-            showNotification('Backend connection failed. Please check if your Vercel app is deployed and running.', 'error');
-            
-            // Try to test the root endpoint
-            testBackendConnection();
-        } else {
-            showNotification('Error: ' + error.message, 'error');
-        }
+        console.error('Error in API call chain:', error);
+        showNotification('Error: ' + error.message, 'error');
         
         // Close progress modal if it exists
         const progressModal = document.getElementById('progress-modal');
