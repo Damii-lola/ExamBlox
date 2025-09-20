@@ -199,12 +199,19 @@ async function generateQuestionsWithGroq(text, questionType, numQuestions, diffi
 async function generateQuestionBatch(text, questionType, numQuestions, difficulty, existingQuestions, API_KEY) {
   const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
   
-  // Get random text sections instead of sequential
-  const textSections = getRandomTextSections(text, numQuestions);
+  // Use a more manageable text section instead of random sections
+  const maxTextLength = 15000;
+  const startPos = existingQuestions.length > 0 
+    ? Math.floor(Math.random() * (text.length - maxTextLength))
+    : 0;
+  const textSection = text.length > maxTextLength 
+    ? text.substring(startPos, startPos + maxTextLength)
+    : text;
   
-  const prompt = createAdvancedQuestionPrompt(textSections, questionType, numQuestions, difficulty, existingQuestions);
+  const prompt = createSimpleQuestionPrompt(textSection, questionType, numQuestions, difficulty, existingQuestions);
   
-  console.log(`Making API request for ${numQuestions} questions...`);
+  console.log(`Making API request for ${numQuestions} questions from position ${startPos}...`);
+  console.log(`Prompt length: ${prompt.length} characters`);
   
   const response = await fetch(GROQ_URL, {
     method: 'POST',
@@ -217,130 +224,121 @@ async function generateQuestionBatch(text, questionType, numQuestions, difficult
       messages: [
         {
           role: "system",
-          content: "You are an expert educator creating challenging questions that test deep comprehension of content. Focus on what the student learned from reading, not on author analysis."
+          content: "You are an expert educator. Create questions that test deep understanding of the content provided. Always follow the exact format requested."
         },
         {
           role: "user",
           content: prompt
         }
       ],
-      temperature: 0.8,
-      max_tokens: 3000
+      temperature: 0.7,
+      max_tokens: 2500
     })
   });
 
   if (!response.ok) {
     const errorText = await response.text();
+    console.error('Groq API error:', response.status, errorText);
     throw new Error(`Groq API error: ${response.status} - ${errorText}`);
   }
 
   const result = await response.json();
   const groqGeneratedText = result.choices[0]?.message?.content || '';
   
-  console.log('Groq response received, parsing questions...');
+  console.log('Raw Groq response:');
+  console.log('='.repeat(50));
+  console.log(groqGeneratedText);
+  console.log('='.repeat(50));
   
   const parsedQuestions = parseGroqQuestionsResponse(groqGeneratedText, questionType, numQuestions);
+  console.log(`Parsed ${parsedQuestions.length} questions from this batch`);
+  
   return parsedQuestions;
 }
 
-// GET RANDOM TEXT SECTIONS FROM DIFFERENT PARTS
-function getRandomTextSections(text, numQuestions) {
-  // Split text into chunks and select random sections
-  const chunkSize = Math.floor(text.length / Math.max(numQuestions, 10));
-  const sections = [];
-  
-  for (let i = 0; i < numQuestions; i++) {
-    const randomStart = Math.floor(Math.random() * (text.length - chunkSize));
-    const section = text.substring(randomStart, randomStart + chunkSize);
-    sections.push(section);
-  }
-  
-  return sections.join('\n\n--- SECTION BREAK ---\n\n');
-}
-
-// CREATE IMPROVED QUESTION PROMPT
-function createAdvancedQuestionPrompt(textSections, questionType, numQuestions, difficulty, existingQuestions) {
-  const difficultyLevel = {
+// SIMPLIFIED QUESTION PROMPT
+function createSimpleQuestionPrompt(textSection, questionType, numQuestions, difficulty, existingQuestions) {
+  const difficultyMap = {
     'easy': 'medium-challenging',
     'medium': 'hard-analytical', 
     'hard': 'expert-level',
-    'exam level': 'extremely difficult requiring mastery'
-  }[difficulty.toLowerCase()] || 'challenging';
+    'exam level': 'extremely difficult'
+  };
+  
+  const difficultyLevel = difficultyMap[difficulty.toLowerCase()] || 'challenging';
 
-  let prompt = `Create exactly ${numQuestions} unique ${questionType.toLowerCase()} questions at ${difficultyLevel} difficulty based on these text sections:
+  let prompt = `Based on this text, create exactly ${numQuestions} ${questionType.toLowerCase()} questions at ${difficultyLevel} difficulty:
 
-TEXT SECTIONS (from random parts of the content):
+TEXT:
 """
-${textSections}
+${textSection}
 """
 
-CRITICAL REQUIREMENTS:
-- Test comprehension of CONTENT and CONCEPTS, not author intentions
-- Focus on what students learned from reading: facts, processes, relationships, applications
-- Each question must test different concepts and use varied phrasing
-- Questions should test understanding across different topics/chapters
-- Make questions challenging but focused on material comprehension
-- AVOID repetitive question patterns or similar concepts`;
+REQUIREMENTS:
+- Test understanding of concepts, facts, and processes from the text
+- Focus on what students learned from reading
+- Make questions challenging but fair
+- Each question should test different concepts
+- Avoid repetitive patterns`;
 
-  // Add uniqueness check if there are existing questions
   if (existingQuestions.length > 0) {
-    const existingTopics = existingQuestions.map(q => q.question.substring(0, 100)).join('\n- ');
-    prompt += `\n\nIMPORTANT - AVOID THESE EXISTING QUESTION TOPICS:\n- ${existingTopics}\n\nCreate questions on completely different topics/concepts.`;
+    const existingConcepts = existingQuestions.slice(-5).map(q => 
+      q.question.split(' ').slice(0, 8).join(' ')
+    ).join('; ');
+    prompt += `\n\nAVOID these recent topics: ${existingConcepts}\nCreate questions on completely different concepts.`;
   }
 
   if (questionType === 'Multiple Choice') {
-    prompt += `\n\nFORMAT EXACTLY (create ALL ${numQuestions} questions):
+    prompt += `\n\nCreate exactly ${numQuestions} questions in this format:
 
-Q1: [Question testing specific concept from the text - focus on WHAT was explained, not WHY author wrote it]
-A) [Detailed option based on content]
-B) [Alternative based on different aspect]
-C) [Plausible but incorrect option]
-D) [Another content-based option]
+Q1: [Specific question about concept from text]
+A) [Detailed correct answer based on text]
+B) [Plausible but incorrect option]
+C) [Another plausible but incorrect option] 
+D) [Fourth plausible but incorrect option]
 ANSWER: A
 
-Q2: [Completely different topic/concept question with varied structure]
-A) [Different style of option]
-B) [Alternative approach]
-C) [Different type of distractor]
-D) [Varied content option]
-ANSWER: C
+Q2: [Different concept question]
+A) [Option based on text content]
+B) [Alternative option]
+C) [Different incorrect option]
+D) [Fourth option]
+ANSWER: B
 
-[Continue for ALL ${numQuestions} questions with distinct topics and varied question styles]`;
+Continue for all ${numQuestions} questions.`;
 
   } else if (questionType === 'True/False') {
-    prompt += `\n\nFORMAT EXACTLY (create ALL ${numQuestions} questions):
+    prompt += `\n\nCreate exactly ${numQuestions} questions in this format:
 
-Q1: [Statement about specific content/concept from text]
+Q1: [Statement based on text content]
 ANSWER: True
 
-Q2: [Different statement about unrelated concept]
+Q2: [Different statement about text]
 ANSWER: False
 
-[Continue for ALL ${numQuestions} questions on different topics]`;
+Continue for all ${numQuestions} questions.`;
 
   } else if (questionType === 'Short Answer') {
-    prompt += `\n\nFORMAT EXACTLY (create ALL ${numQuestions} questions):
+    prompt += `\n\nCreate exactly ${numQuestions} questions in this format:
 
-Q1: [Question requiring explanation of concept/process from text]
+Q1: [Question requiring explanation based on text]
 
-Q2: [Question about different topic requiring analysis]
+Q2: [Different question requiring analysis]
 
-[Continue for ALL ${numQuestions} questions on varied topics]`;
+Continue for all ${numQuestions} questions.`;
 
   } else if (questionType === 'Flashcards') {
-    prompt += `\n\nFORMAT EXACTLY (create ALL ${numQuestions} flashcards):
+    prompt += `\n\nCreate exactly ${numQuestions} flashcards in this format:
 
-Q1: [Concept/term from text]
-ANSWER: [Comprehensive explanation based on content]
+Q1: [Term or concept from text]
+ANSWER: [Definition/explanation from text]
 
-Q2: [Different concept/process]
-ANSWER: [Detailed explanation]
+Q2: [Different term or concept]
+ANSWER: [Different definition/explanation]
 
-[Continue for ALL ${numQuestions} flashcards on different concepts]`;
+Continue for all ${numQuestions} flashcards.`;
   }
 
-  prompt += `\n\nREMEMBER: Generate EXACTLY ${numQuestions} unique questions testing content comprehension, not author analysis.`;
-  
   return prompt;
 }
 
