@@ -131,235 +131,254 @@ app.post('/api/generate-questions', async (req, res) => {
   }
 });
 
-// MAIN QUESTION GENERATION FUNCTION
+// MAIN QUESTION GENERATION FUNCTION WITH MULTI-BATCH SUPPORT
 async function generateQuestionsWithGroq(text, questionType, numQuestions, difficulty) {
   const API_KEY = process.env.GROQ_API_KEY;
   
   if (!API_KEY) {
-    console.error('❌ GROQ_API_KEY is not configured');
+    console.error('GROQ_API_KEY is not configured');
     throw new Error('GROQ_API_KEY is not configured');
   }
 
-  console.log('🤖 Starting Groq question generation...');
-  console.log('📊 API Key exists:', !!API_KEY);
-  console.log('📝 Processing text length:', text.length, 'characters');
+  console.log('Starting multi-batch Groq question generation...');
+  console.log('Processing text length:', text.length, 'characters');
+  console.log('Target questions:', numQuestions);
 
-  try {
-    // Groq API endpoint
-    const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
-    
-    // Create the question generation prompt
-    const prompt = createQuestionGenerationPrompt(text, questionType, numQuestions, difficulty);
-    
-    console.log('📋 Sending question generation prompt to Groq...');
-    console.log('🎯 Requesting:', numQuestions, questionType, 'questions at', difficulty, 'level');
-    
-    const response = await fetch(GROQ_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          {
-            role: "system",
-            content: "You are an expert educator who creates high-quality educational questions. Always follow the exact format requested and generate questions that test comprehension of the provided text."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 2000
-      })
-    });
+  let allQuestions = [];
+  let attempt = 1;
+  const maxAttempts = 5;
 
-    console.log('📡 Groq API response status:', response.status);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ Groq API error:', response.status, response.statusText);
-      console.error('❌ Error details:', errorText);
-      throw new Error(`Groq API error: ${response.status} - ${errorText}`);
+  while (allQuestions.length < numQuestions && attempt <= maxAttempts) {
+    const remaining = numQuestions - allQuestions.length;
+    console.log(`\n=== BATCH ${attempt} ===`);
+    console.log(`Need ${remaining} more questions (have ${allQuestions.length}/${numQuestions})`);
+
+    try {
+      // Generate questions for this batch
+      const batchQuestions = await generateQuestionBatch(text, questionType, remaining, difficulty, allQuestions, API_KEY);
+      
+      // Add unique questions only
+      const uniqueQuestions = filterUniqueQuestions(batchQuestions, allQuestions);
+      allQuestions = allQuestions.concat(uniqueQuestions);
+      
+      console.log(`Batch ${attempt} added ${uniqueQuestions.length} unique questions`);
+      console.log(`Total progress: ${allQuestions.length}/${numQuestions}`);
+
+      if (allQuestions.length >= numQuestions) {
+        console.log(`SUCCESS: Generated ${allQuestions.length} questions!`);
+        break;
+      }
+
+    } catch (error) {
+      console.error(`Batch ${attempt} failed:`, error.message);
     }
 
-    const result = await response.json();
-    console.log('✅ Raw Groq API response received');
-
-    const groqGeneratedText = result.choices[0]?.message?.content || 'No response from Groq';
-    
-    console.log('📝 Groq Generated Content:');
-    console.log('='.repeat(80));
-    console.log(groqGeneratedText);
-    console.log('='.repeat(80));
-
-    // Parse the questions from Groq's response
-    const parsedQuestions = parseGroqQuestionsResponse(groqGeneratedText, questionType, numQuestions);
-
-    console.log(`✅ Successfully parsed ${parsedQuestions.length} questions from Groq response`);
-
-    return {
-      message: `Successfully generated ${parsedQuestions.length} questions using Groq AI`,
-      groqRawResponse: groqGeneratedText,
-      questions: parsedQuestions,
-      provider: 'groq',
-      model: 'llama-3.3-70b-versatile',
-      textLength: text.length,
-      requestParams: {
-        questionType,
-        numQuestions,
-        difficulty
-      }
-    };
-
-  } catch (error) {
-    console.error('💥 Groq API call failed:', error.message);
-    throw error;
+    attempt++;
   }
+
+  // Limit to exact number requested
+  const finalQuestions = allQuestions.slice(0, numQuestions);
+
+  return {
+    message: `Generated ${finalQuestions.length} unique questions using ${attempt - 1} API calls`,
+    groqRawResponse: `Multi-batch generation completed`,
+    questions: finalQuestions,
+    provider: 'groq',
+    model: 'llama-3.3-70b-versatile',
+    textLength: text.length,
+    batchesUsed: attempt - 1,
+    requestParams: {
+      questionType,
+      numQuestions,
+      difficulty
+    }
+  };
+}
+
+// GENERATE SINGLE BATCH OF QUESTIONS
+async function generateQuestionBatch(text, questionType, numQuestions, difficulty, existingQuestions, API_KEY) {
+  const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+  
+  // Get random text sections instead of sequential
+  const textSections = getRandomTextSections(text, numQuestions);
+  
+  const prompt = createAdvancedQuestionPrompt(textSections, questionType, numQuestions, difficulty, existingQuestions);
+  
+  console.log(`Making API request for ${numQuestions} questions...`);
+  
+  const response = await fetch(GROQ_URL, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert educator creating challenging questions that test deep comprehension of content. Focus on what the student learned from reading, not on author analysis."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.8,
+      max_tokens: 3000
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Groq API error: ${response.status} - ${errorText}`);
+  }
+
+  const result = await response.json();
+  const groqGeneratedText = result.choices[0]?.message?.content || '';
+  
+  console.log('Groq response received, parsing questions...');
+  
+  const parsedQuestions = parseGroqQuestionsResponse(groqGeneratedText, questionType, numQuestions);
+  return parsedQuestions;
+}
+
+// GET RANDOM TEXT SECTIONS FROM DIFFERENT PARTS
+function getRandomTextSections(text, numQuestions) {
+  // Split text into chunks and select random sections
+  const chunkSize = Math.floor(text.length / Math.max(numQuestions, 10));
+  const sections = [];
+  
+  for (let i = 0; i < numQuestions; i++) {
+    const randomStart = Math.floor(Math.random() * (text.length - chunkSize));
+    const section = text.substring(randomStart, randomStart + chunkSize);
+    sections.push(section);
+  }
+  
+  return sections.join('\n\n--- SECTION BREAK ---\n\n');
+}
+
+// CREATE IMPROVED QUESTION PROMPT
+function createAdvancedQuestionPrompt(textSections, questionType, numQuestions, difficulty, existingQuestions) {
+  const difficultyLevel = {
+    'easy': 'medium-challenging',
+    'medium': 'hard-analytical', 
+    'hard': 'expert-level',
+    'exam level': 'extremely difficult requiring mastery'
+  }[difficulty.toLowerCase()] || 'challenging';
+
+  let prompt = `Create exactly ${numQuestions} unique ${questionType.toLowerCase()} questions at ${difficultyLevel} difficulty based on these text sections:
+
+TEXT SECTIONS (from random parts of the content):
+"""
+${textSections}
+"""
+
+CRITICAL REQUIREMENTS:
+- Test comprehension of CONTENT and CONCEPTS, not author intentions
+- Focus on what students learned from reading: facts, processes, relationships, applications
+- Each question must test different concepts and use varied phrasing
+- Questions should test understanding across different topics/chapters
+- Make questions challenging but focused on material comprehension
+- AVOID repetitive question patterns or similar concepts`;
+
+  // Add uniqueness check if there are existing questions
+  if (existingQuestions.length > 0) {
+    const existingTopics = existingQuestions.map(q => q.question.substring(0, 100)).join('\n- ');
+    prompt += `\n\nIMPORTANT - AVOID THESE EXISTING QUESTION TOPICS:\n- ${existingTopics}\n\nCreate questions on completely different topics/concepts.`;
+  }
+
+  if (questionType === 'Multiple Choice') {
+    prompt += `\n\nFORMAT EXACTLY (create ALL ${numQuestions} questions):
+
+Q1: [Question testing specific concept from the text - focus on WHAT was explained, not WHY author wrote it]
+A) [Detailed option based on content]
+B) [Alternative based on different aspect]
+C) [Plausible but incorrect option]
+D) [Another content-based option]
+ANSWER: A
+
+Q2: [Completely different topic/concept question with varied structure]
+A) [Different style of option]
+B) [Alternative approach]
+C) [Different type of distractor]
+D) [Varied content option]
+ANSWER: C
+
+[Continue for ALL ${numQuestions} questions with distinct topics and varied question styles]`;
+
+  } else if (questionType === 'True/False') {
+    prompt += `\n\nFORMAT EXACTLY (create ALL ${numQuestions} questions):
+
+Q1: [Statement about specific content/concept from text]
+ANSWER: True
+
+Q2: [Different statement about unrelated concept]
+ANSWER: False
+
+[Continue for ALL ${numQuestions} questions on different topics]`;
+
+  } else if (questionType === 'Short Answer') {
+    prompt += `\n\nFORMAT EXACTLY (create ALL ${numQuestions} questions):
+
+Q1: [Question requiring explanation of concept/process from text]
+
+Q2: [Question about different topic requiring analysis]
+
+[Continue for ALL ${numQuestions} questions on varied topics]`;
+
+  } else if (questionType === 'Flashcards') {
+    prompt += `\n\nFORMAT EXACTLY (create ALL ${numQuestions} flashcards):
+
+Q1: [Concept/term from text]
+ANSWER: [Comprehensive explanation based on content]
+
+Q2: [Different concept/process]
+ANSWER: [Detailed explanation]
+
+[Continue for ALL ${numQuestions} flashcards on different concepts]`;
+  }
+
+  prompt += `\n\nREMEMBER: Generate EXACTLY ${numQuestions} unique questions testing content comprehension, not author analysis.`;
+  
+  return prompt;
+}
+
+// FILTER OUT DUPLICATE/SIMILAR QUESTIONS
+function filterUniqueQuestions(newQuestions, existingQuestions) {
+  const unique = [];
+  
+  for (const newQ of newQuestions) {
+    let isDuplicate = false;
+    
+    for (const existingQ of existingQuestions) {
+      // Check for similar questions using keyword overlap
+      const newWords = newQ.question.toLowerCase().split(/\s+/);
+      const existingWords = existingQ.question.toLowerCase().split(/\s+/);
+      
+      const overlap = newWords.filter(word => existingWords.includes(word) && word.length > 3);
+      const similarityRatio = overlap.length / Math.min(newWords.length, existingWords.length);
+      
+      if (similarityRatio > 0.4) { // If more than 40% similarity
+        isDuplicate = true;
+        console.log(`Skipping similar question: ${newQ.question.substring(0, 60)}...`);
+        break;
+      }
+    }
+    
+    if (!isDuplicate) {
+      unique.push(newQ);
+    }
+  }
+  
+  return unique;
 }
 
 // CREATE QUESTION GENERATION PROMPT
 function createQuestionGenerationPrompt(text, questionType, numQuestions, difficulty) {
-  // Use much more text for deeper analysis - 20000 characters
-  const truncatedText = text.length > 20000 ? text.substring(0, 20000) + '...' : text;
-  
-  // Analyze text type and vibe
-  const textAnalysis = analyzeTextType(truncatedText);
-  
-  // Map difficulty levels to be more challenging
-  let difficultyLevel = '';
-  switch(difficulty.toLowerCase()) {
-    case 'easy':
-      difficultyLevel = 'medium-challenging';
-      break;
-    case 'medium':
-      difficultyLevel = 'hard-analytical';
-      break;
-    case 'hard':
-      difficultyLevel = 'expert-level';
-      break;
-    case 'exam level':
-      difficultyLevel = 'nearly impossible - requiring masterful understanding';
-      break;
-  }
-  
-  let prompt = `You are the AUTHOR/CREATOR of this ${textAnalysis.type} content. As the person who wrote this material, you want to create exactly ${numQuestions} extremely challenging ${questionType.toLowerCase()} questions at ${difficultyLevel} difficulty to test if readers TRULY understand what you created.
-
-EXTENSIVE TEXT TO ANALYZE (STUDY THIS DEEPLY):
-"""
-${truncatedText}
-"""
-
-AUTHOR'S PERSPECTIVE INSTRUCTIONS:
-- You wrote this content - you know every nuance, connection, and subtle implication
-- IGNORE any table of contents, page numbers, headers, footers, or navigational elements
-- Focus ONLY on the substantial content that teaches core concepts
-- Create questions that test whether someone truly absorbed and understood YOUR work
-- Test synthesis of concepts, not surface-level recall
-- Each question should require deep comprehension of multiple interconnected ideas
-- Make questions that would challenge even advanced students who studied this material extensively
-
-DIFFICULTY REQUIREMENTS FOR ${difficultyLevel.toUpperCase()}:
-- Questions must require understanding of complex relationships between concepts
-- Test ability to apply knowledge to novel scenarios you didn't explicitly cover
-- Require synthesis of information from different parts of the text
-- Challenge assumptions and test deeper implications
-- Include questions that require multi-step reasoning
-- Test understanding of WHY things work, not just WHAT they are
-
-CRITICAL: Generate EXACTLY ${numQuestions} questions - count carefully and ensure you create the full amount requested.`;
-
-  if (questionType === 'Multiple Choice') {
-    prompt += `
-
-For multiple choice questions - create intellectually demanding questions with sophisticated options:
-- Each question should test complex understanding, not recognition
-- Options must be substantive (not just single words or phrases)
-- Include options that would fool someone who only partially understands
-- Test connections between concepts, applications, and implications
-- Vary question structures completely - avoid repetitive patterns
-- Make questions that require multi-step reasoning to solve
-
-FORMAT EXACTLY (ensure you create ALL ${numQuestions} questions):
-
-Q1: [Complex analytical question testing deep conceptual understanding and relationships]
-A) [Sophisticated option requiring comprehensive knowledge]
-B) [Detailed alternative testing different aspect of understanding]
-C) [Nuanced option that seems plausible but requires careful analysis to reject]
-D) [Complex option testing related but distinct concept]
-ANSWER: A
-
-Q2: [Completely different style question testing synthesis and application]
-A) [Multi-faceted option requiring deep comprehension]
-B) [Comprehensive alternative with detailed reasoning requirements]
-C) [Sophisticated distractor testing common misconceptions]
-D) [Advanced option requiring expert-level understanding]
-ANSWER: C
-
-[Continue this pattern for ALL ${numQuestions} questions - count carefully to ensure you generate the exact number requested]`;
-
-  } else if (questionType === 'True/False') {
-    prompt += `
-
-For True/False questions - create nuanced statements requiring expert-level analysis:
-- Test complex relationships and subtle distinctions
-- Include statements about implications and applications
-- Test understanding of exceptions and edge cases
-- Require deep comprehension of interconnected concepts
-
-FORMAT EXACTLY (create ALL ${numQuestions} questions):
-
-Q1: [Complex statement requiring sophisticated analysis of concept relationships and implications]
-ANSWER: True
-
-Q2: [Nuanced statement testing deep understanding of processes, applications, or subtle distinctions]
-ANSWER: False
-
-[Continue for ALL ${numQuestions} questions]`;
-
-  } else if (questionType === 'Short Answer') {
-    prompt += `
-
-For Short Answer questions - require comprehensive explanations demonstrating mastery:
-- Test ability to explain complex processes and relationships
-- Require synthesis of multiple concepts
-- Ask for analysis of WHY and HOW, not just WHAT
-- Test application to new scenarios
-
-FORMAT EXACTLY (create ALL ${numQuestions} questions):
-
-Q1: [Complex question requiring detailed explanation of processes, relationships, or applications]
-
-Q2: [Analytical question testing synthesis and deep understanding]
-
-[Continue for ALL ${numQuestions} questions]`;
-
-  } else if (questionType === 'Flashcards') {
-    prompt += `
-
-For Flashcard questions - create concept pairs requiring comprehensive understanding:
-- Focus on complex concepts, processes, and relationships
-- Include context and significance in answers
-- Test understanding of applications and implications
-- Cover key principles that require deep comprehension
-
-FORMAT EXACTLY (create ALL ${numQuestions} flashcards):
-
-Q1: [Complex concept, principle, or process requiring deep understanding]
-ANSWER: [Comprehensive explanation with context, significance, and applications]
-
-Q2: [Advanced concept or relationship testing expert knowledge]
-ANSWER: [Detailed explanation demonstrating thorough comprehension]
-
-[Continue for ALL ${numQuestions} flashcards]`;
-  }
-  
-  prompt += `\n\nREMEMBER: You are the AUTHOR of this content. Create EXACTLY ${numQuestions} questions that test true mastery of YOUR work. Count your questions carefully - the reader specifically requested ${numQuestions} questions and expects exactly that number.`;
-  
-  return prompt;
+  // This function is now replaced by createAdvancedQuestionPrompt
+  // Keep for backward compatibility
+  return createAdvancedQuestionPrompt(text, questionType, numQuestions, difficulty, []);
 }
 
 // ANALYZE TEXT TYPE AND CONTENT
