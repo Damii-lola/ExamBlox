@@ -226,19 +226,52 @@ function createQuestionGenerationPrompt(text, questionType, numQuestions, diffic
   // Limit text to prevent token overflow - use first 3000 characters
   const truncatedText = text.length > 3000 ? text.substring(0, 3000) + '...' : text;
   
-  let prompt = `You must create ${numQuestions} ${questionType.toLowerCase()} questions based ONLY on the following text. The questions should be at ${difficulty.toLowerCase()} difficulty level.
+  let difficultyInstructions = '';
+  let questionTypes = '';
+  
+  // Enhanced difficulty instructions
+  switch(difficulty.toLowerCase()) {
+    case 'easy':
+      difficultyInstructions = 'Focus on basic recall and recognition of key facts and concepts directly stated in the text.';
+      break;
+    case 'medium':
+      difficultyInstructions = 'Focus on comprehension and application - require understanding of relationships between concepts, cause-and-effect, and drawing reasonable conclusions from the text.';
+      break;
+    case 'hard':
+      difficultyInstructions = 'Focus on analysis and synthesis - require critical thinking, evaluation of arguments, comparison of ideas, identification of assumptions, and deeper implications of the content.';
+      break;
+    case 'exam level':
+      difficultyInstructions = 'Create challenging questions that test advanced understanding, critical analysis, synthesis of multiple concepts, evaluation of evidence, and application to new scenarios.';
+      break;
+  }
+
+  // Enhanced question type instructions
+  if (questionType === 'Multiple Choice') {
+    questionTypes = `Create sophisticated multiple choice questions where:
+- The correct answer requires genuine understanding, not just keyword matching
+- Distractors are plausible and test common misconceptions
+- Questions test WHY, HOW, and implications, not just WHAT
+- Include questions about author's intent, underlying assumptions, and broader significance`;
+  }
+
+  let prompt = `You are creating ${difficulty.toLowerCase()} level ${questionType.toLowerCase()} questions for advanced learners. ${difficultyInstructions}
 
 TEXT TO ANALYZE:
 """
 ${truncatedText}
 """
 
-CRITICAL INSTRUCTIONS:
-- Create questions that test understanding of the main concepts, key points, and important details from this specific text
-- Each question MUST be directly related to the content provided above
-- Make questions appropriate for ${difficulty.toLowerCase()} level
-- Focus on comprehension, analysis, and application of the material
-- Do NOT create generic questions - use the actual content from the text
+ADVANCED QUESTION CREATION INSTRUCTIONS:
+${questionTypes}
+
+Create questions that test:
+1. Conceptual understanding and relationships between ideas
+2. Critical analysis of arguments and evidence presented
+3. Ability to synthesize information and draw conclusions
+4. Understanding of context, implications, and broader significance
+5. Application of concepts to new situations or scenarios
+
+Avoid basic recall questions. Focus on higher-order thinking skills.
 
 REQUIRED FORMAT:`;
 
@@ -247,34 +280,34 @@ REQUIRED FORMAT:`;
 
 You MUST format your response EXACTLY like this:
 
-Q1: [Your specific question based on the text content above]
-A) [Option 1 based on text]
-B) [Option 2 based on text]
-C) [Option 3 based on text]
-D) [Option 4 based on text]
+Q1: [Sophisticated analytical question that tests deep understanding of concepts, relationships, or implications from the text]
+A) [Plausible option that tests understanding]
+B) [Another sophisticated option]
+C) [Complex option that requires analysis]
+D) [Nuanced option that could be tempting but wrong]
 ANSWER: A
 
-Q2: [Your next specific question based on the text content above]
-A) [Option 1 based on text]
-B) [Option 2 based on text]
-C) [Option 3 based on text]
-D) [Option 4 based on text]
-ANSWER: B
+Q2: [Advanced question about author's argument, methodology, assumptions, or broader implications]
+A) [Option requiring critical thinking]
+B) [Option testing synthesis of ideas]
+C) [Option about underlying concepts]
+D) [Option testing evaluation skills]
+ANSWER: C
 
-Continue this EXACT format for all ${numQuestions} questions. Each question must test different aspects of the provided text.`;
+Continue this EXACT format for all ${numQuestions} questions. Make each question progressively more challenging and test different analytical skills.`;
 
   } else if (questionType === 'True/False') {
     prompt += `
 
 You MUST format your response EXACTLY like this:
 
-Q1: [Statement based on the text content above]
+Q1: [Complex statement that requires analysis of relationships, implications, or deeper meaning from the text - not simple facts]
 ANSWER: True
 
-Q2: [Another statement based on the text content above]
+Q2: [Nuanced statement about author's argument, methodology, or conclusions that requires critical evaluation]
 ANSWER: False
 
-Continue this EXACT format for all ${numQuestions} questions.`;
+Continue this EXACT format for all ${numQuestions} questions. Focus on statements that test analytical thinking, not memorization.`;
   }
   
   return prompt;
