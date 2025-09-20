@@ -223,123 +223,197 @@ async function generateQuestionsWithGroq(text, questionType, numQuestions, diffi
 
 // CREATE QUESTION GENERATION PROMPT
 function createQuestionGenerationPrompt(text, questionType, numQuestions, difficulty) {
-  // Limit text to prevent token overflow - use first 3000 characters
-  const truncatedText = text.length > 3000 ? text.substring(0, 3000) + '...' : text;
+  // Use more text to get better context - increase to 5000 characters
+  const truncatedText = text.length > 5000 ? text.substring(0, 5000) + '...' : text;
   
-  let difficultyInstructions = '';
-  let questionTypes = '';
+  // Analyze text type and vibe
+  const textAnalysis = analyzeTextType(truncatedText);
   
-  // Enhanced difficulty instructions
-  switch(difficulty.toLowerCase()) {
-    case 'easy':
-      difficultyInstructions = 'Focus on basic recall and recognition of key facts and concepts directly stated in the text.';
-      break;
-    case 'medium':
-      difficultyInstructions = 'Focus on comprehension and application - require understanding of relationships between concepts, cause-and-effect, and drawing reasonable conclusions from the text.';
-      break;
-    case 'hard':
-      difficultyInstructions = 'Focus on analysis and synthesis - require critical thinking, evaluation of arguments, comparison of ideas, identification of assumptions, and deeper implications of the content.';
-      break;
-    case 'exam level':
-      difficultyInstructions = 'Create challenging questions that test advanced understanding, critical analysis, synthesis of multiple concepts, evaluation of evidence, and application to new scenarios.';
-      break;
-  }
-
-  // Enhanced question type instructions
-  if (questionType === 'Multiple Choice') {
-    questionTypes = `Create sophisticated multiple choice questions where:
-- The correct answer requires genuine understanding, not just keyword matching
-- Distractors are plausible and test common misconceptions
-- Questions test WHY, HOW, and implications, not just WHAT
-- Include questions about author's intent, underlying assumptions, and broader significance`;
-  }
-
-  let prompt = `You are creating ${difficulty.toLowerCase()} level ${questionType.toLowerCase()} questions for advanced learners. ${difficultyInstructions}
+  let prompt = `Analyze this ${textAnalysis.type} text and create exactly ${numQuestions} high-quality ${questionType.toLowerCase()} questions at ${difficulty.toLowerCase()} difficulty.
 
 TEXT TO ANALYZE:
 """
 ${truncatedText}
 """
 
-ADVANCED QUESTION CREATION INSTRUCTIONS:
-${questionTypes}
+TEXT ANALYSIS:
+- Content Type: ${textAnalysis.type}
+- Subject Focus: ${textAnalysis.subject}
+- Question Style: ${textAnalysis.style}
 
-Create questions that test:
-1. Conceptual understanding and relationships between ideas
-2. Critical analysis of arguments and evidence presented
-3. Ability to synthesize information and draw conclusions
-4. Understanding of context, implications, and broader significance
-5. Application of concepts to new situations or scenarios
-
-Avoid basic recall questions. Focus on higher-order thinking skills.
-
-REQUIRED FORMAT:`;
+CRITICAL INSTRUCTIONS:
+- IGNORE table of contents, page numbers, headers, footers, and navigation elements
+- Focus ONLY on substantial content that teaches or explains concepts
+- Create exactly ${numQuestions} questions - no more, no less
+- Match the content's vibe: ${textAnalysis.style}
+- Test understanding of CONCEPTS, not author's personal opinions (unless it's literature/story)
+- Use varied question structures and vocabulary
+- Each question must test different aspects and use different wording patterns`;
 
   if (questionType === 'Multiple Choice') {
     prompt += `
 
-You MUST format your response EXACTLY like this:
+For multiple choice questions:
+- Create sophisticated questions that test conceptual understanding
+- Options should be substantive and require real knowledge to distinguish
+- Avoid repetitive phrasing across questions
+- Test practical application of concepts, not memorization
+- Make distractors plausible but clearly wrong to someone who understands the material
 
-Q1: [Sophisticated analytical question that tests deep understanding of concepts, relationships, or implications from the text]
-A) [Plausible option that tests understanding]
-B) [Another sophisticated option]
-C) [Complex option that requires analysis]
-D) [Nuanced option that could be tempting but wrong]
+FORMAT EXACTLY:
+
+Q1: [Sophisticated question testing core concept]
+A) [Substantial option requiring understanding]
+B) [Complex alternative that tests different aspect]
+C) [Detailed option that could be plausible but wrong]
+D) [Nuanced option requiring analysis]
 ANSWER: A
 
-Q2: [Advanced question about author's argument, methodology, assumptions, or broader implications]
-A) [Option requiring critical thinking]
-B) [Option testing synthesis of ideas]
-C) [Option about underlying concepts]
-D) [Option testing evaluation skills]
+Q2: [Different style question testing another concept]
+A) [Different structure from previous options]
+B) [Varied vocabulary and approach]
+C) [Alternative perspective or application]
+D) [Different type of distractor]
 ANSWER: C
 
-Continue this EXACT format for all ${numQuestions} questions. Make each question progressively more challenging and test different analytical skills.`;
+Continue for ALL ${numQuestions} questions with varied question styles and sophisticated content.`;
 
   } else if (questionType === 'True/False') {
     prompt += `
 
-You MUST format your response EXACTLY like this:
+For True/False questions:
+- Create nuanced statements that require deep understanding
+- Test relationships between concepts, not simple facts
+- Include statements about implications, applications, and connections
+- Vary the complexity and focus of each statement
+- Balance True and False answers
 
-Q1: [Complex statement that requires analysis of relationships, implications, or deeper meaning from the text - not simple facts]
+FORMAT EXACTLY:
+
+Q1: [Complex statement requiring analysis of concept relationships]
 ANSWER: True
 
-Q2: [Nuanced statement about author's argument, methodology, or conclusions that requires critical evaluation]
+Q2: [Nuanced statement about practical application or implication]
 ANSWER: False
 
-Continue this EXACT format for all ${numQuestions} questions. Focus on statements that test analytical thinking, not memorization.`;
+Continue for ALL ${numQuestions} questions with sophisticated content.`;
+
+  } else if (questionType === 'Short Answer') {
+    prompt += `
+
+For Short Answer questions:
+- Create questions requiring 2-3 sentence explanations
+- Test ability to explain processes, relationships, or applications
+- Focus on HOW and WHY, not just WHAT
+- Require synthesis and analysis skills
+- Vary question types: explanatory, comparative, analytical, applied
+
+FORMAT EXACTLY:
+
+Q1: [Question requiring explanation of concept or process]
+
+Q2: [Question requiring analysis or comparison]
+
+Continue for ALL ${numQuestions} questions with varied analytical focuses.`;
+
+  } else if (questionType === 'Flashcards') {
+    prompt += `
+
+For Flashcard questions:
+- Create concept-definition pairs that test key understanding
+- Include both terms and their applications
+- Test processes, principles, and relationships
+- Make definitions substantial and complete
+- Focus on concepts that require understanding, not memorization
+
+FORMAT EXACTLY:
+
+Q1: [Key concept, principle, or process]
+ANSWER: [Comprehensive explanation with context and significance]
+
+Q2: [Different type of concept or application]
+ANSWER: [Detailed explanation with practical relevance]
+
+Continue for ALL ${numQuestions} flashcards with varied concept types.`;
   }
   
+  prompt += `\n\nRemember: Create EXACTLY ${numQuestions} questions. Test conceptual understanding appropriate for ${textAnalysis.subject} content. Use varied vocabulary and question structures.`;
+  
   return prompt;
+}
+
+// ANALYZE TEXT TYPE AND CONTENT
+function analyzeTextType(text) {
+  const lowerText = text.toLowerCase();
+  
+  // Detect subject area
+  let subject = 'general knowledge';
+  let type = 'educational text';
+  let style = 'Focus on conceptual understanding and practical application';
+  
+  // Science and Technical
+  if (lowerText.includes('equation') || lowerText.includes('formula') || lowerText.includes('theorem') || lowerText.includes('hypothesis')) {
+    subject = 'scientific/technical';
+    style = 'Test principles, processes, and problem-solving ability';
+  }
+  
+  // Business
+  if (lowerText.includes('business') || lowerText.includes('management') || lowerText.includes('strategy') || lowerText.includes('market')) {
+    subject = 'business';
+    style = 'Test strategic thinking, case analysis, and practical application';
+  }
+  
+  // History
+  if (lowerText.includes('century') || lowerText.includes('historical') || lowerText.includes('period') || lowerText.includes('era')) {
+    subject = 'history';
+    style = 'Test understanding of causes, effects, and historical significance';
+  }
+  
+  // Literature/Story
+  if (lowerText.includes('character') || lowerText.includes('plot') || lowerText.includes('narrative') || lowerText.includes('story')) {
+    subject = 'literature';
+    type = 'literary text';
+    style = 'Test literary analysis, themes, and author\'s techniques';
+  }
+  
+  // Philosophy
+  if (lowerText.includes('philosophy') || lowerText.includes('ethical') || lowerText.includes('moral') || lowerText.includes('argument')) {
+    subject = 'philosophy';
+    style = 'Test logical reasoning, argument analysis, and ethical implications';
+  }
+  
+  // Medical/Health
+  if (lowerText.includes('medical') || lowerText.includes('health') || lowerText.includes('disease') || lowerText.includes('treatment')) {
+    subject = 'medical/health';
+    style = 'Test diagnostic thinking, treatment principles, and clinical application';
+  }
+  
+  return { type, subject, style };
 }
 
 // PARSE GROQ RESPONSE INTO STRUCTURED QUESTIONS
 function parseGroqQuestionsResponse(groqResponse, questionType, numQuestions) {
   console.log('🔄 Parsing Groq response into structured questions...');
+  console.log(`🎯 Target: ${numQuestions} ${questionType} questions`);
   
   const questions = [];
   
   if (questionType === 'Multiple Choice') {
-    // Split by Q1:, Q2:, Q3:, etc.
     const questionBlocks = groqResponse.split(/Q\d+:/);
+    questionBlocks.shift(); // Remove empty first element
     
-    // Remove empty first element
-    questionBlocks.shift();
+    console.log(`📊 Found ${questionBlocks.length} question blocks to parse`);
     
     questionBlocks.forEach((block, index) => {
+      if (questions.length >= numQuestions) return; // Stop when we have enough
+      
       try {
         const lines = block.trim().split('\n').filter(line => line.trim());
         
-        if (lines.length < 5) {
-          console.log(`⚠️ Question ${index + 1} has insufficient lines:`, lines.length);
-          return;
-        }
-        
-        const questionText = lines[0].trim();
+        const questionText = lines[0]?.trim();
         const options = [];
         let answerLine = '';
         
-        // Extract options and answer
         for (let line of lines.slice(1)) {
           line = line.trim();
           if (/^[A-D]\)/.test(line)) {
@@ -354,23 +428,20 @@ function parseGroqQuestionsResponse(groqResponse, questionType, numQuestions) {
           const correctIndex = Math.max(0, Math.min(3, correctLetter.charCodeAt(0) - 65));
           
           questions.push({
-            id: index + 1,
+            id: questions.length + 1,
             type: questionType,
             question: questionText,
-            options: options.slice(0, 4), // Ensure exactly 4 options
+            options: options.slice(0, 4),
             correctAnswer: correctIndex,
             correctLetter: correctLetter,
-            explanation: `Generated by Groq AI from your document content.`,
+            explanation: `Tests conceptual understanding of the material.`,
             source: 'groq_ai'
           });
           
-          console.log(`✅ Successfully parsed question ${index + 1}: ${questionText.substring(0, 50)}...`);
-        } else {
-          console.log(`❌ Failed to parse question ${index + 1} - missing components`);
-          console.log(`Question: "${questionText}", Options: ${options.length}, Answer: "${answerLine}"`);
+          console.log(`✅ Parsed MC question ${questions.length}: ${questionText.substring(0, 50)}...`);
         }
       } catch (error) {
-        console.log(`❌ Error parsing question ${index + 1}:`, error.message);
+        console.log(`❌ Error parsing MC question ${index + 1}:`, error.message);
       }
     });
     
@@ -378,7 +449,11 @@ function parseGroqQuestionsResponse(groqResponse, questionType, numQuestions) {
     const questionBlocks = groqResponse.split(/Q\d+:/);
     questionBlocks.shift();
     
+    console.log(`📊 Found ${questionBlocks.length} T/F question blocks to parse`);
+    
     questionBlocks.forEach((block, index) => {
+      if (questions.length >= numQuestions) return;
+      
       try {
         const lines = block.trim().split('\n').filter(line => line.trim());
         const questionText = lines[0]?.trim();
@@ -388,24 +463,94 @@ function parseGroqQuestionsResponse(groqResponse, questionType, numQuestions) {
           const answer = answerLine.toUpperCase().includes('TRUE') ? 'True' : 'False';
           
           questions.push({
-            id: index + 1,
+            id: questions.length + 1,
             type: questionType,
             question: questionText,
             correctAnswer: answer,
-            explanation: `Generated by Groq AI from your document content.`,
+            explanation: `Tests understanding of key concepts and relationships.`,
             source: 'groq_ai'
           });
           
-          console.log(`✅ Successfully parsed T/F question ${index + 1}: ${questionText.substring(0, 50)}...`);
+          console.log(`✅ Parsed T/F question ${questions.length}: ${questionText.substring(0, 50)}...`);
         }
       } catch (error) {
         console.log(`❌ Error parsing T/F question ${index + 1}:`, error.message);
       }
     });
+    
+  } else if (questionType === 'Short Answer') {
+    const questionBlocks = groqResponse.split(/Q\d+:/);
+    questionBlocks.shift();
+    
+    console.log(`📊 Found ${questionBlocks.length} Short Answer question blocks to parse`);
+    
+    questionBlocks.forEach((block, index) => {
+      if (questions.length >= numQuestions) return;
+      
+      try {
+        const questionText = block.trim();
+        
+        if (questionText && questionText.length > 10) {
+          questions.push({
+            id: questions.length + 1,
+            type: questionType,
+            question: questionText,
+            explanation: `Requires comprehensive explanation demonstrating understanding.`,
+            source: 'groq_ai'
+          });
+          
+          console.log(`✅ Parsed SA question ${questions.length}: ${questionText.substring(0, 50)}...`);
+        }
+      } catch (error) {
+        console.log(`❌ Error parsing SA question ${index + 1}:`, error.message);
+      }
+    });
+    
+  } else if (questionType === 'Flashcards') {
+    const questionBlocks = groqResponse.split(/Q\d+:/);
+    questionBlocks.shift();
+    
+    console.log(`📊 Found ${questionBlocks.length} Flashcard blocks to parse`);
+    
+    questionBlocks.forEach((block, index) => {
+      if (questions.length >= numQuestions) return;
+      
+      try {
+        const lines = block.trim().split('\n').filter(line => line.trim());
+        const questionText = lines[0]?.trim();
+        const answerLine = lines.find(line => line.toUpperCase().includes('ANSWER:'));
+        
+        if (questionText && answerLine) {
+          const answer = answerLine.substring(answerLine.toUpperCase().indexOf('ANSWER:') + 7).trim();
+          
+          questions.push({
+            id: questions.length + 1,
+            type: questionType,
+            question: questionText,
+            answer: answer,
+            explanation: `Key concept requiring thorough understanding.`,
+            source: 'groq_ai'
+          });
+          
+          console.log(`✅ Parsed Flashcard ${questions.length}: ${questionText.substring(0, 50)}...`);
+        }
+      } catch (error) {
+        console.log(`❌ Error parsing Flashcard ${index + 1}:`, error.message);
+      }
+    });
   }
   
-  console.log(`📊 Final result: Successfully parsed ${questions.length} out of ${numQuestions} requested questions`);
-  return questions.slice(0, numQuestions);
+  // If we didn't get enough questions, log the issue
+  if (questions.length < numQuestions) {
+    console.log(`⚠️ Only parsed ${questions.length} out of ${numQuestions} requested questions`);
+    console.log('Raw Groq response for debugging:');
+    console.log('='.repeat(50));
+    console.log(groqResponse);
+    console.log('='.repeat(50));
+  }
+  
+  console.log(`📊 Final result: Successfully parsed ${questions.length} questions`);
+  return questions;
 }
 
 // Error handling middleware
