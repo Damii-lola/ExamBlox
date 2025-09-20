@@ -506,10 +506,50 @@ async function callBackendAPI(text, questionType, numQuestions, difficulty) {
         
         console.log('✅ Railway backend response received!');
         console.log('Backend message:', result.message);
-        console.log('Groq AI says:', result.data?.message || 'No message from Groq');
-        console.log('Full response:', result);
+        
+        // Display the actual Groq-generated questions in console
+        if (result.data && result.data.questions) {
+            console.log('=== GROQ GENERATED QUESTIONS FROM RAILWAY ===');
+            result.data.questions.forEach((question, index) => {
+                console.log(`\n--- QUESTION ${index + 1} ---`);
+                console.log(`Type: ${question.type}`);
+                console.log(`Question: ${question.question}`);
+                
+                if (question.options && question.options.length > 0) {
+                    console.log('Options:');
+                    question.options.forEach((option, i) => {
+                        const letter = String.fromCharCode(65 + i); // A, B, C, D
+                        console.log(`  ${letter}) ${option}`);
+                    });
+                    
+                    const correctAnswer = question.correctLetter || 
+                        (typeof question.correctAnswer === 'number' 
+                            ? String.fromCharCode(65 + question.correctAnswer) 
+                            : question.correctAnswer);
+                    console.log(`Correct Answer: ${correctAnswer}`);
+                } else if (question.correctAnswer) {
+                    console.log(`Answer: ${question.correctAnswer}`);
+                }
+                
+                if (question.explanation) {
+                    console.log(`Explanation: ${question.explanation}`);
+                }
+            });
+            console.log('\n=== END OF GROQ QUESTIONS ===');
+            
+            // Show generation info
+            console.log('\n=== GENERATION INFO ===');
+            console.log(`Questions generated: ${result.data.questions.length}`);
+            console.log(`AI Provider: ${result.data.provider}`);
+            console.log(`Model: ${result.data.model}`);
+            console.log(`Text processed: ${result.data.textLength} characters`);
+            
+        } else {
+            console.log('❌ No questions found in response');
+            console.log('Raw response data:', result.data);
+        }
 
-        showNotification('Groq AI connected via Railway! Check console.', 'success');
+        showNotification('Groq AI questions generated! Check console.', 'success');
         
     } catch (error) {
         console.error('Error in API call chain:', error);
