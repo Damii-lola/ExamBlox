@@ -105,7 +105,7 @@ app.post('/api/generate-questions', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Hi from Groq AI via Railway!',
+      message: response.message, // Use the actual message from Groq response
       data: response,
       metadata: {
         textLength: text.length,
