@@ -553,6 +553,11 @@ function formatFileSize(bytes) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
+// Navigate to homepage
+function goToHomepage() {
+    window.location.href = 'index.html';
+}
+
 function initializeStarsBackground() {
     const starsContainer = document.querySelector('.stars');
     if (!starsContainer) return;
