@@ -162,7 +162,7 @@ function filterRelevantContent(text) {
   return cleanedText;
 }
 
-// PERSISTENT MULTI-BATCH QUESTION GENERATION - GUARANTEES FULL COUNT
+// PARALLEL BATCH QUESTION GENERATION - SENDS ALL REQUESTS SIMULTANEOUSLY
 async function generateQuestionsWithGroq(text, questionType, numQuestions, difficulty) {
   const API_KEY = process.env.GROQ_API_KEY;
   
@@ -171,100 +171,136 @@ async function generateQuestionsWithGroq(text, questionType, numQuestions, diffi
     throw new Error('GROQ_API_KEY is not configured');
   }
 
-  console.log('🚀 Starting PERSISTENT question generation...');
+  console.log('🚀 Starting PARALLEL BATCH question generation...');
   console.log('📊 Processing text length:', text.length, 'characters');
-  console.log('🎯 TARGET QUESTIONS:', numQuestions, '(WILL NOT STOP UNTIL REACHED)');
-  console.log('⚡ Max attempts allowed: 50');
+  console.log('🎯 TARGET QUESTIONS:', numQuestions);
 
-  let allQuestions = [];
+  // Calculate batch configuration
+  const batchSize = 10;
+  const numberOfBatches = Math.ceil(numQuestions / batchSize);
+  const batches = [];
+
+  // Create batch configurations
+  for (let i = 0; i < numberOfBatches; i++) {
+    const startIndex = i * batchSize + 1;
+    const endIndex = Math.min((i + 1) * batchSize, numQuestions);
+    const questionsInThisBatch = endIndex - startIndex + 1;
+    
+    batches.push({
+      batchId: i + 1,
+      questionsNeeded: questionsInThisBatch,
+      startIndex: startIndex,
+      endIndex: endIndex
+    });
+  }
+
+  console.log('📦 BATCH CONFIGURATION:');
+  batches.forEach(batch => {
+    console.log(`   Batch ${batch.batchId}: Questions ${batch.startIndex}-${batch.endIndex} (${batch.questionsNeeded} questions)`);
+  });
+
   let attempt = 1;
-  const maxAttempts = 50; // Increased to 50 attempts
-  let consecutiveFailures = 0;
-  const maxConsecutiveFailures = 8; // Increased threshold for strategy adjustment
+  const maxAttempts = 10; // Reduced since we're doing parallel processing
+  let allQuestions = [];
 
   while (allQuestions.length < numQuestions && attempt <= maxAttempts) {
-    const remaining = numQuestions - allQuestions.length;
-    console.log(`\n🔄 === ATTEMPT ${attempt}/50 ===`);
-    console.log(`📊 NEED: ${remaining} more questions | HAVE: ${allQuestions.length}/${numQuestions}`);
-    console.log(`📈 SUCCESS RATE: ${allQuestions.length > 0 ? ((allQuestions.length / attempt) * 100).toFixed(1) : '0'}% questions per attempt`);
+    console.log(`\n🔄 === PARALLEL ATTEMPT ${attempt}/${maxAttempts} ===`);
+    console.log(`📊 NEED: ${numQuestions - allQuestions.length} more questions | HAVE: ${allQuestions.length}/${numQuestions}`);
 
     try {
-      // Adjust strategy based on how many attempts we've made
-      const batchDifficulty = getDynamicDifficulty(difficulty, attempt);
-      const questionsToRequest = calculateOptimalBatchSize(remaining, attempt, consecutiveFailures);
-      
-      console.log(`🎲 Requesting ${questionsToRequest} questions at ${batchDifficulty} difficulty`);
-      
-      // Generate questions for this batch
-      const batchQuestions = await generateQuestionBatch(text, questionType, questionsToRequest, batchDifficulty, allQuestions, API_KEY);
-      
-      if (batchQuestions.length === 0) {
-        consecutiveFailures++;
-        console.log(`❌ No questions generated in this batch. Consecutive failures: ${consecutiveFailures}`);
+      // Create all batch promises simultaneously
+      const batchPromises = batches.map(async (batch) => {
+        const questionsToRequest = batch.questionsNeeded * 2; // Ask for 2x to account for filtering
+        const batchDifficulty = getDynamicDifficulty(difficulty, batch.batchId);
         
-        if (consecutiveFailures >= maxConsecutiveFailures) {
-          console.log(`🔧 Too many consecutive failures. Adjusting strategy...`);
-          // Reset failure counter and continue with adjusted strategy
-          consecutiveFailures = 0;
-        }
+        console.log(`🚀 Launching Batch ${batch.batchId}: Requesting ${questionsToRequest} ${batchDifficulty} questions`);
         
-        attempt++;
-        continue;
-      }
-      
-      // Add unique, exam-worthy questions only
-      const examWorthyQuestions = filterExamWorthyQuestions(batchQuestions, allQuestions);
-      const questionsBeforeAdd = allQuestions.length;
-      allQuestions = allQuestions.concat(examWorthyQuestions);
-      
-      const questionsAdded = allQuestions.length - questionsBeforeAdd;
-      console.log(`✅ Batch ${attempt} added ${questionsAdded} NEW exam-worthy questions`);
-      console.log(`📊 PROGRESS: ${allQuestions.length}/${numQuestions} (${((allQuestions.length/numQuestions)*100).toFixed(1)}% complete)`);
-      
-      if (questionsAdded > 0) {
-        consecutiveFailures = 0; // Reset failure counter on success
-      } else {
-        consecutiveFailures++;
-      }
+        return generateSingleBatch(text, questionType, questionsToRequest, batchDifficulty, batch.batchId, API_KEY);
+      });
 
-      // Check if we've reached our goal
+      // Execute all batches simultaneously
+      console.log(`⚡ EXECUTING ${batches.length} PARALLEL API CALLS...`);
+      const batchResults = await Promise.all(batchPromises);
+      
+      // Combine all batch results
+      let rawQuestions = [];
+      batchResults.forEach((questions, index) => {
+        console.log(`📥 Batch ${index + 1} returned ${questions.length} raw questions`);
+        rawQuestions = rawQuestions.concat(questions);
+      });
+
+      console.log(`📊 Total raw questions collected: ${rawQuestions.length}`);
+
+      // Deduplicate and filter for exam-worthiness
+      console.log('🔍 DEDUPLICATING AND FILTERING...');
+      const uniqueQuestions = deduplicateQuestions(rawQuestions);
+      console.log(`✅ After deduplication: ${uniqueQuestions.length} unique questions`);
+
+      const examWorthyQuestions = filterExamWorthyQuestions(uniqueQuestions, []);
+      console.log(`✅ After exam-worthy filter: ${examWorthyQuestions.length} quality questions`);
+
+      // Add new questions to our collection
+      const questionsBeforeAdd = allQuestions.length;
+      allQuestions = deduplicateQuestions([...allQuestions, ...examWorthyQuestions]);
+      const questionsAdded = allQuestions.length - questionsBeforeAdd;
+
+      console.log(`📈 PARALLEL ATTEMPT ${attempt} RESULTS:`);
+      console.log(`   - Raw questions generated: ${rawQuestions.length}`);
+      console.log(`   - After deduplication: ${uniqueQuestions.length}`);
+      console.log(`   - After quality filter: ${examWorthyQuestions.length}`);
+      console.log(`   - New questions added: ${questionsAdded}`);
+      console.log(`   - Total progress: ${allQuestions.length}/${numQuestions} (${((allQuestions.length/numQuestions)*100).toFixed(1)}%)`);
+
       if (allQuestions.length >= numQuestions) {
-        console.log(`🎉 SUCCESS! Generated ${allQuestions.length}/${numQuestions} questions in ${attempt} attempts!`);
+        console.log(`🎉 SUCCESS! Generated ${allQuestions.length}/${numQuestions} questions in ${attempt} parallel attempts!`);
         break;
       }
 
-      // If we're close to the target, be more aggressive
-      if (remaining <= 5) {
-        console.log(`🎯 Close to target! Only need ${remaining} more questions. Being more aggressive...`);
+      // If we didn't get enough, adjust batches for remaining questions
+      if (allQuestions.length < numQuestions) {
+        const remaining = numQuestions - allQuestions.length;
+        console.log(`🔄 Need ${remaining} more questions. Reconfiguring batches for next parallel attempt...`);
+        
+        // Reconfigure batches for remaining questions
+        const newBatchCount = Math.min(Math.ceil(remaining / batchSize), 5); // Max 5 batches for remaining
+        batches.length = 0; // Clear existing batches
+        
+        for (let i = 0; i < newBatchCount; i++) {
+          const questionsInBatch = Math.ceil(remaining / newBatchCount);
+          batches.push({
+            batchId: i + 1,
+            questionsNeeded: questionsInBatch,
+            startIndex: i * questionsInBatch + 1,
+            endIndex: Math.min((i + 1) * questionsInBatch, remaining)
+          });
+        }
       }
 
     } catch (error) {
-      consecutiveFailures++;
-      console.error(`❌ Batch ${attempt} failed:`, error.message);
-      console.log(`⚠️ Consecutive failures: ${consecutiveFailures}. Will retry...`);
+      console.error(`❌ Parallel attempt ${attempt} failed:`, error.message);
     }
 
     attempt++;
     
-    // Small delay between attempts to avoid rate limiting
-    if (attempt <= maxAttempts) {
-      console.log(`⏱️ Brief pause before next attempt...`);
-      await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+    if (attempt <= maxAttempts && allQuestions.length < numQuestions) {
+      console.log(`⏱️ Brief pause before next parallel attempt...`);
+      await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
     }
   }
 
-  // Final check and logging
-  if (allQuestions.length < numQuestions) {
-    console.log(`⚠️ WARNING: Only generated ${allQuestions.length}/${numQuestions} questions after ${maxAttempts} attempts`);
-    console.log(`📊 This may be due to text content limitations or very high difficulty requirements`);
+  // Final results and logging
+  const finalQuestions = allQuestions.slice(0, numQuestions); // Limit to exact number requested
+
+  if (finalQuestions.length < numQuestions) {
+    console.log(`⚠️ WARNING: Generated ${finalQuestions.length}/${numQuestions} questions after ${attempt - 1} parallel attempts`);
   } else {
-    console.log(`🏆 MISSION ACCOMPLISHED! Generated exactly ${numQuestions} questions!`);
+    console.log(`🏆 MISSION ACCOMPLISHED! Generated exactly ${numQuestions} questions using parallel processing!`);
   }
 
-  // ALWAYS log ALL questions at the end, regardless of count
-  console.log(`\n🔥 === FINAL QUESTION SET (${allQuestions.length} questions) ===`);
-  allQuestions.forEach((q, index) => {
-    console.log(`\n--- QUESTION ${index + 1}/${allQuestions.length} ---`);
+  // ALWAYS log ALL questions at the end
+  console.log(`\n🔥 === FINAL QUESTION SET (${finalQuestions.length} questions) ===`);
+  finalQuestions.forEach((q, index) => {
+    console.log(`\n--- QUESTION ${index + 1}/${finalQuestions.length} ---`);
     console.log(`Question: ${q.question}`);
     if (q.options) {
       q.options.forEach((option, i) => {
@@ -280,15 +316,14 @@ async function generateQuestionsWithGroq(text, questionType, numQuestions, diffi
   });
   console.log(`\n🔥 === END OF FINAL QUESTION SET ===`);
 
-  // Don't limit to exact number - return what we have
   return {
-    message: `Generated ${allQuestions.length} out of ${numQuestions} requested questions using ${attempt - 1} API calls`,
-    questions: allQuestions, // Return all questions we managed to generate
+    message: `Generated ${finalQuestions.length} questions using ${attempt - 1} parallel batch attempts`,
+    questions: finalQuestions,
     provider: 'groq',
     model: 'llama-3.3-70b-versatile',
     textLength: text.length,
-    batchesUsed: attempt - 1,
-    successRate: `${allQuestions.length}/${numQuestions} (${((allQuestions.length/numQuestions)*100).toFixed(1)}%)`,
+    parallelBatchesUsed: attempt - 1,
+    successRate: `${finalQuestions.length}/${numQuestions} (${((finalQuestions.length/numQuestions)*100).toFixed(1)}%)`,
     requestParams: {
       questionType,
       numQuestions,
@@ -297,57 +332,156 @@ async function generateQuestionsWithGroq(text, questionType, numQuestions, diffi
   };
 }
 
-// CALCULATE OPTIMAL BATCH SIZE BASED ON REMAINING QUESTIONS AND ATTEMPT NUMBER
-function calculateOptimalBatchSize(remaining, attemptNumber, consecutiveFailures) {
-  // Base strategy: ask for exactly what we need, but adjust based on failures
-  let batchSize = remaining;
+// GENERATE SINGLE BATCH FOR PARALLEL PROCESSING
+async function generateSingleBatch(text, questionType, numQuestions, difficulty, batchId, API_KEY) {
+  const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
   
-  // If we're having consecutive failures, ask for more to account for filtering
-  if (consecutiveFailures > 0) {
-    batchSize = Math.min(remaining * (2 + consecutiveFailures), remaining + 15);
-    console.log(`🔧 Adjusting batch size due to ${consecutiveFailures} consecutive failures: ${batchSize}`);
+  // Use different sections of text for each batch to increase variety
+  const maxTextLength = 12000;
+  const sections = Math.floor(text.length / maxTextLength) || 1;
+  const sectionIndex = (batchId - 1) % sections;
+  const startPos = sectionIndex * maxTextLength;
+  const textSection = text.length > maxTextLength 
+    ? text.substring(startPos, startPos + maxTextLength)
+    : text;
+  
+  const prompt = createExamFocusedPrompt(textSection, questionType, numQuestions, difficulty, []);
+  
+  console.log(`   🎲 Batch ${batchId}: Using text section ${sectionIndex + 1}/${sections} (${textSection.length} chars)`);
+  
+  try {
+    const response = await fetch(GROQ_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          {
+            role: "system",
+            content: `You are an expert exam question creator for Batch ${batchId}. Create unique, exam-worthy questions that test deep understanding. Each question should be different from typical questions and focus on important concepts.`
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        temperature: 0.7 + (batchId * 0.1), // Vary temperature slightly per batch for variety
+        max_tokens: 2800
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ Batch ${batchId} API error:`, response.status, errorText);
+      throw new Error(`API error: ${response.status} - ${errorText}`);
+    }
+
+    const result = await response.json();
+    const groqGeneratedText = result.choices[0]?.message?.content || '';
+    
+    const parsedQuestions = parseGroqQuestionsResponse(groqGeneratedText, questionType, numQuestions);
+    
+    // Add batch identifier to questions
+    parsedQuestions.forEach(q => {
+      q.batchId = batchId;
+      q.batchSource = `batch_${batchId}`;
+    });
+    
+    console.log(`   ✅ Batch ${batchId}: Generated ${parsedQuestions.length} questions`);
+    return parsedQuestions;
+
+  } catch (error) {
+    console.error(`❌ Batch ${batchId} failed:`, error.message);
+    return []; // Return empty array on failure
   }
-  
-  // Early attempts: be more aggressive to get a good foundation
-  if (attemptNumber <= 5) {
-    batchSize = Math.max(batchSize, Math.min(remaining * 2, 20));
-  }
-  
-  // Middle attempts: maintain aggressive approach
-  if (attemptNumber > 5 && attemptNumber <= 25) {
-    batchSize = Math.max(batchSize, Math.min(remaining * 1.5, 15));
-  }
-  
-  // Later attempts: be more conservative but still ask for what we need
-  if (attemptNumber > 25) {
-    batchSize = Math.min(remaining + 8, batchSize);
-  }
-  
-  // Never ask for less than what we actually need
-  batchSize = Math.max(batchSize, remaining);
-  
-  // Cap at reasonable maximum to avoid token limits but allow for larger requests
-  batchSize = Math.min(batchSize, 30);
-  
-  return batchSize;
 }
 
-// GET DYNAMIC DIFFICULTY FOR VARIETY (EXPANDED FOR 50 ATTEMPTS)
-function getDynamicDifficulty(baseDifficulty, attemptNumber) {
+// ADVANCED DEDUPLICATION FUNCTION
+function deduplicateQuestions(questions) {
+  console.log(`🔍 Starting deduplication of ${questions.length} questions...`);
+  
+  const uniqueQuestions = [];
+  const questionHashes = new Set();
+  let duplicatesRemoved = 0;
+  
+  for (const question of questions) {
+    // Create a normalized hash of the question for comparison
+    const normalizedQuestion = question.question
+      .toLowerCase()
+      .replace(/[^\w\s]/g, '') // Remove punctuation
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim();
+    
+    // Create hash from first 10 significant words
+    const significantWords = normalizedQuestion
+      .split(' ')
+      .filter(word => word.length > 3) // Only words longer than 3 characters
+      .slice(0, 10); // First 10 significant words
+    
+    const questionHash = significantWords.join('_');
+    
+    if (questionHashes.has(questionHash)) {
+      duplicatesRemoved++;
+      console.log(`   ❌ Removed duplicate: ${question.question.substring(0, 60)}...`);
+      continue;
+    }
+    
+    // Check for semantic similarity with existing questions
+    let isSimilar = false;
+    for (const existingQ of uniqueQuestions) {
+      const similarity = calculateAdvancedSimilarity(question.question, existingQ.question);
+      if (similarity > 0.7) { // 70% similarity threshold
+        isSimilar = true;
+        duplicatesRemoved++;
+        console.log(`   ❌ Removed similar (${(similarity * 100).toFixed(1)}%): ${question.question.substring(0, 60)}...`);
+        break;
+      }
+    }
+    
+    if (!isSimilar) {
+      questionHashes.add(questionHash);
+      uniqueQuestions.push(question);
+      console.log(`   ✅ Kept unique: ${question.question.substring(0, 60)}...`);
+    }
+  }
+  
+  console.log(`🔍 Deduplication complete: Removed ${duplicatesRemoved} duplicates/similar, kept ${uniqueQuestions.length} unique`);
+  return uniqueQuestions;
+}
+
+// ADVANCED SIMILARITY CALCULATION
+function calculateAdvancedSimilarity(question1, question2) {
+  // Normalize both questions
+  const normalize = (text) => text
+    .toLowerCase()
+    .replace(/[^\w\s]/g, '')
+    .split(/\s+/)
+    .filter(word => word.length > 2);
+  
+  const words1 = normalize(question1);
+  const words2 = normalize(question2);
+  
+  // Calculate Jaccard similarity (intersection over union)
+  const set1 = new Set(words1);
+  const set2 = new Set(words2);
+  
+  const intersection = new Set([...set1].filter(x => set2.has(x)));
+  const union = new Set([...set1, ...set2]);
+  
+  return intersection.size / union.size;
+}
+
+// GET DYNAMIC DIFFICULTY FOR VARIETY (SIMPLIFIED FOR PARALLEL PROCESSING)
+function getDynamicDifficulty(baseDifficulty, batchId) {
   const difficulties = ['Easy', 'Medium', 'Hard', 'Exam Level'];
   const baseIndex = difficulties.findIndex(d => d.toLowerCase() === baseDifficulty.toLowerCase());
   
-  // Expanded variance pattern for 50 attempts - creates more variation
-  const variancePattern = [
-    -1, 0, 1, 0, 1, -1, 0, 1, -1, 0,  // Attempts 1-10
-    0, -1, 1, 0, -1, 1, 0, -1, 1, 0,  // Attempts 11-20
-    1, -1, 0, 1, -1, 0, 1, -1, 0, 1,  // Attempts 21-30
-    0, 1, -1, 0, 1, -1, 0, 1, -1, 0,  // Attempts 31-40
-    -1, 1, 0, -1, 1, 0, -1, 1, 0, -1  // Attempts 41-50
-  ];
-  
-  const variance = variancePattern[attemptNumber - 1] || 0;
-  const adjustedIndex = Math.max(0, Math.min(3, baseIndex + variance));
+  // Simple variance pattern for batches
+  const variance = [-1, 0, 1, 0, 1];
+  const adjustedIndex = Math.max(0, Math.min(3, baseIndex + (variance[batchId % 5] || 0)));
   
   return difficulties[adjustedIndex];
 }
