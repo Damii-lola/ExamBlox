@@ -5,7 +5,7 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// CORS configuration - allow your GitHub Pages domain
+// CORS configuration
 const corsOptions = {
   origin: [
     'https://damii-lola.github.io',
@@ -21,7 +21,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 
-// Test route
+// Test routes
 app.get('/', (req, res) => {
   res.json({ 
     message: 'ExamBlox Backend API is running on Railway!',
@@ -36,7 +36,6 @@ app.get('/', (req, res) => {
   });
 });
 
-// Simple test endpoint - just to verify Railway works
 app.get('/test', (req, res) => {
   console.log('Test endpoint called');
   res.json({
@@ -47,7 +46,6 @@ app.get('/test', (req, res) => {
   });
 });
 
-// Another test endpoint that accepts both GET and POST
 app.all('/simple', (req, res) => {
   console.log('Simple endpoint called with method:', req.method);
   res.json({
@@ -58,12 +56,11 @@ app.all('/simple', (req, res) => {
   });
 });
 
-// Generate questions endpoint - THE MAIN FUNCTION
+// MAIN QUESTION GENERATION ENDPOINT
 app.post('/api/generate-questions', async (req, res) => {
   try {
     const { text, questionType, numQuestions, difficulty } = req.body;
 
-    // Validate input
     if (!text || text.trim().length === 0) {
       return res.status(400).json({ 
         error: 'Text is required',
@@ -76,14 +73,16 @@ app.post('/api/generate-questions', async (req, res) => {
     console.log('- Question type:', questionType);
     console.log('- Number of questions:', numQuestions);
     console.log('- Difficulty:', difficulty);
-    console.log('- Platform: Railway');
-    console.log('- Text preview:', text.substring(0, 200) + '...');
 
-    // Call Groq API to generate real questions
-    const response = await generateQuestionsWithGroq(text, questionType, numQuestions, difficulty);
+    // Filter out "About the author" sections and other irrelevant content
+    const cleanedText = filterRelevantContent(text);
+    console.log('- Cleaned text length:', cleanedText.length, 'characters');
 
-    // Log the generated questions to console
-    console.log('=== GROQ GENERATED QUESTIONS ===');
+    // Generate questions with enhanced prompting
+    const response = await generateQuestionsWithGroq(cleanedText, questionType, numQuestions, difficulty);
+
+    // Log generated questions for debugging
+    console.log('=== GENERATED QUESTIONS ===');
     if (response.questions && response.questions.length > 0) {
       response.questions.forEach((q, index) => {
         console.log(`\n--- QUESTION ${index + 1} ---`);
@@ -92,7 +91,7 @@ app.post('/api/generate-questions', async (req, res) => {
           q.options.forEach((option, i) => {
             console.log(`${String.fromCharCode(65 + i)}) ${option}`);
           });
-          console.log(`Correct Answer: ${q.correctLetter || String.fromCharCode(65 + q.correctAnswer)}`);
+          console.log(`Correct Answer: ${q.correctLetter}`);
         } else if (q.correctAnswer) {
           console.log(`Answer: ${q.correctAnswer}`);
         }
@@ -100,11 +99,8 @@ app.post('/api/generate-questions', async (req, res) => {
           console.log(`Explanation: ${q.explanation}`);
         }
       });
-    } else {
-      console.log('❌ No questions were generated');
-      console.log('Raw Groq response:', response.groqRawResponse);
     }
-    console.log('=== END OF GROQ QUESTIONS ===');
+    console.log('=== END OF QUESTIONS ===');
 
     res.json({
       success: true,
@@ -112,6 +108,7 @@ app.post('/api/generate-questions', async (req, res) => {
       data: response,
       metadata: {
         textLength: text.length,
+        cleanedTextLength: cleanedText.length,
         questionType,
         numQuestions,
         difficulty,
@@ -131,281 +128,521 @@ app.post('/api/generate-questions', async (req, res) => {
   }
 });
 
-// MAIN QUESTION GENERATION FUNCTION
+// FILTER OUT IRRELEVANT CONTENT
+function filterRelevantContent(text) {
+  console.log('🧹 Filtering out irrelevant content...');
+  
+  let cleanedText = text;
+  
+  // Remove "About the author" sections
+  cleanedText = cleanedText.replace(/about\s+the\s+author[^]*?(?=\n\n|\n[A-Z]|$)/gi, '');
+  
+  // Remove other common irrelevant sections
+  const sectionsToRemove = [
+    /acknowledgments?[^]*?(?=\n\n|\n[A-Z]|$)/gi,
+    /bibliography[^]*?(?=\n\n|\n[A-Z]|$)/gi,
+    /references[^]*?(?=\n\n|\n[A-Z]|$)/gi,
+    /index[^]*?(?=\n\n|\n[A-Z]|$)/gi,
+    /table\s+of\s+contents[^]*?(?=\n\n|\n[A-Z]|$)/gi,
+    /copyright[^]*?(?=\n\n|\n[A-Z]|$)/gi,
+    /published\s+by[^]*?(?=\n\n|\n[A-Z]|$)/gi,
+    /isbn[^]*?(?=\n\n|\n[A-Z]|$)/gi
+  ];
+  
+  sectionsToRemove.forEach(pattern => {
+    cleanedText = cleanedText.replace(pattern, '');
+  });
+  
+  // Remove excessive whitespace
+  cleanedText = cleanedText.replace(/\n{3,}/g, '\n\n');
+  cleanedText = cleanedText.trim();
+  
+  console.log(`✅ Content filtering complete. Removed ${text.length - cleanedText.length} characters of irrelevant content.`);
+  
+  return cleanedText;
+}
+
+// ENHANCED MULTI-BATCH QUESTION GENERATION
 async function generateQuestionsWithGroq(text, questionType, numQuestions, difficulty) {
   const API_KEY = process.env.GROQ_API_KEY;
   
   if (!API_KEY) {
-    console.error('❌ GROQ_API_KEY is not configured');
+    console.error('GROQ_API_KEY is not configured');
     throw new Error('GROQ_API_KEY is not configured');
   }
 
-  console.log('🤖 Starting Groq question generation...');
-  console.log('📊 API Key exists:', !!API_KEY);
-  console.log('📝 Processing text length:', text.length, 'characters');
+  console.log('Starting enhanced multi-batch Groq question generation...');
+  console.log('Processing text length:', text.length, 'characters');
+  console.log('Target questions:', numQuestions);
 
-  try {
-    // Groq API endpoint
-    const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
-    
-    // Create the question generation prompt
-    const prompt = createQuestionGenerationPrompt(text, questionType, numQuestions, difficulty);
-    
-    console.log('📋 Sending question generation prompt to Groq...');
-    console.log('🎯 Requesting:', numQuestions, questionType, 'questions at', difficulty, 'level');
-    
-    const response = await fetch(GROQ_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          {
-            role: "system",
-            content: "You are an expert educator who creates high-quality educational questions. Always follow the exact format requested and generate questions that test comprehension of the provided text."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 2000
-      })
-    });
+  let allQuestions = [];
+  let attempt = 1;
+  const maxAttempts = 10; // Increased from 5 to 10 API calls
 
-    console.log('📡 Groq API response status:', response.status);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ Groq API error:', response.status, response.statusText);
-      console.error('❌ Error details:', errorText);
-      throw new Error(`Groq API error: ${response.status} - ${errorText}`);
+  while (allQuestions.length < numQuestions && attempt <= maxAttempts) {
+    const remaining = numQuestions - allQuestions.length;
+    console.log(`\n=== BATCH ${attempt} ===`);
+    console.log(`Need ${remaining} more questions (have ${allQuestions.length}/${numQuestions})`);
+
+    try {
+      // Use different difficulty levels across batches for variety
+      const batchDifficulty = getDynamicDifficulty(difficulty, attempt);
+      
+      // Generate questions for this batch
+      const batchQuestions = await generateQuestionBatch(text, questionType, remaining, batchDifficulty, allQuestions, API_KEY);
+      
+      // Add unique, exam-worthy questions only
+      const examWorthyQuestions = filterExamWorthyQuestions(batchQuestions, allQuestions);
+      allQuestions = allQuestions.concat(examWorthyQuestions);
+      
+      console.log(`Batch ${attempt} added ${examWorthyQuestions.length} exam-worthy questions`);
+      console.log(`Total progress: ${allQuestions.length}/${numQuestions}`);
+
+      if (allQuestions.length >= numQuestions) {
+        console.log(`SUCCESS: Generated ${allQuestions.length} questions!`);
+        break;
+      }
+
+    } catch (error) {
+      console.error(`Batch ${attempt} failed:`, error.message);
     }
 
-    const result = await response.json();
-    console.log('✅ Raw Groq API response received');
-
-    const groqGeneratedText = result.choices[0]?.message?.content || 'No response from Groq';
-    
-    console.log('📝 Groq Generated Content:');
-    console.log('='.repeat(80));
-    console.log(groqGeneratedText);
-    console.log('='.repeat(80));
-
-    // Parse the questions from Groq's response
-    const parsedQuestions = parseGroqQuestionsResponse(groqGeneratedText, questionType, numQuestions);
-
-    console.log(`✅ Successfully parsed ${parsedQuestions.length} questions from Groq response`);
-
-    return {
-      message: `Successfully generated ${parsedQuestions.length} questions using Groq AI`,
-      groqRawResponse: groqGeneratedText,
-      questions: parsedQuestions,
-      provider: 'groq',
-      model: 'llama-3.3-70b-versatile',
-      textLength: text.length,
-      requestParams: {
-        questionType,
-        numQuestions,
-        difficulty
-      }
-    };
-
-  } catch (error) {
-    console.error('💥 Groq API call failed:', error.message);
-    throw error;
+    attempt++;
   }
+
+  // Limit to exact number requested
+  const finalQuestions = allQuestions.slice(0, numQuestions);
+
+  return {
+    message: `Generated ${finalQuestions.length} exam-worthy questions using ${attempt - 1} API calls`,
+    questions: finalQuestions,
+    provider: 'groq',
+    model: 'llama-3.3-70b-versatile',
+    textLength: text.length,
+    batchesUsed: attempt - 1,
+    requestParams: {
+      questionType,
+      numQuestions,
+      difficulty
+    }
+  };
 }
 
-// CREATE QUESTION GENERATION PROMPT
-function createQuestionGenerationPrompt(text, questionType, numQuestions, difficulty) {
-  // Limit text to prevent token overflow - use first 3000 characters
-  const truncatedText = text.length > 3000 ? text.substring(0, 3000) + '...' : text;
+// GET DYNAMIC DIFFICULTY FOR VARIETY
+function getDynamicDifficulty(baseDifficulty, attemptNumber) {
+  const difficulties = ['Easy', 'Medium', 'Hard', 'Exam Level'];
+  const baseIndex = difficulties.findIndex(d => d.toLowerCase() === baseDifficulty.toLowerCase());
   
-  let difficultyInstructions = '';
-  let questionTypes = '';
+  // Vary difficulty across batches while staying close to requested level
+  const variance = [-1, 0, 1, 0, 1, -1, 0, 1, -1, 0];
+  const adjustedIndex = Math.max(0, Math.min(3, baseIndex + (variance[attemptNumber - 1] || 0)));
   
-  // Enhanced difficulty instructions
-  switch(difficulty.toLowerCase()) {
-    case 'easy':
-      difficultyInstructions = 'Focus on basic recall and recognition of key facts and concepts directly stated in the text.';
-      break;
-    case 'medium':
-      difficultyInstructions = 'Focus on comprehension and application - require understanding of relationships between concepts, cause-and-effect, and drawing reasonable conclusions from the text.';
-      break;
-    case 'hard':
-      difficultyInstructions = 'Focus on analysis and synthesis - require critical thinking, evaluation of arguments, comparison of ideas, identification of assumptions, and deeper implications of the content.';
-      break;
-    case 'exam level':
-      difficultyInstructions = 'Create challenging questions that test advanced understanding, critical analysis, synthesis of multiple concepts, evaluation of evidence, and application to new scenarios.';
-      break;
+  return difficulties[adjustedIndex];
+}
+
+// GENERATE SINGLE BATCH WITH EXAM-FOCUSED PROMPTING
+async function generateQuestionBatch(text, questionType, numQuestions, difficulty, existingQuestions, API_KEY) {
+  const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+  
+  // Use different sections of text for variety
+  const maxTextLength = 12000;
+  const startPos = existingQuestions.length > 0 
+    ? Math.floor(Math.random() * Math.max(0, text.length - maxTextLength))
+    : 0;
+  const textSection = text.length > maxTextLength 
+    ? text.substring(startPos, startPos + maxTextLength)
+    : text;
+  
+  const prompt = createExamFocusedPrompt(textSection, questionType, numQuestions, difficulty, existingQuestions);
+  
+  console.log(`Making API request for ${numQuestions} ${difficulty} questions...`);
+  
+  const response = await fetch(GROQ_URL, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert exam question creator. Your questions must be worthy of appearing on actual exams. Focus on testing understanding, application, and critical thinking rather than simple recall."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.8, // Increased for more variety
+      max_tokens: 2800 // Increased token limit
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Groq API error:', response.status, errorText);
+    throw new Error(`Groq API error: ${response.status} - ${errorText}`);
   }
 
-  // Enhanced question type instructions
-  if (questionType === 'Multiple Choice') {
-    questionTypes = `Create sophisticated multiple choice questions where:
-- The correct answer requires genuine understanding, not just keyword matching
-- Distractors are plausible and test common misconceptions
-- Questions test WHY, HOW, and implications, not just WHAT
-- Include questions about author's intent, underlying assumptions, and broader significance`;
-  }
+  const result = await response.json();
+  const groqGeneratedText = result.choices[0]?.message?.content || '';
+  
+  console.log('Raw Groq response length:', groqGeneratedText.length, 'characters');
+  
+  const parsedQuestions = parseGroqQuestionsResponse(groqGeneratedText, questionType, numQuestions);
+  console.log(`Parsed ${parsedQuestions.length} questions from this batch`);
+  
+  return parsedQuestions;
+}
 
-  let prompt = `You are creating ${difficulty.toLowerCase()} level ${questionType.toLowerCase()} questions for advanced learners. ${difficultyInstructions}
+// CREATE EXAM-FOCUSED PROMPTS
+function createExamFocusedPrompt(textSection, questionType, numQuestions, difficulty, existingQuestions) {
+  const difficultyMap = {
+    'easy': 'moderately challenging (like mid-term exam questions)',
+    'medium': 'challenging (like final exam questions)', 
+    'hard': 'very challenging (like advanced course exams)',
+    'exam level': 'extremely challenging (like professional certification exams)'
+  };
+  
+  const difficultyLevel = difficultyMap[difficulty.toLowerCase()] || 'challenging';
+
+  let prompt = `You are creating ${questionType.toLowerCase()} questions for an actual exam. These questions MUST be exam-worthy and test real understanding.
+
+EXAM STANDARDS:
+- Questions should appear on a real exam about this material
+- Test understanding, application, and analysis - NOT just memorization
+- Make students think critically about the concepts
+- Questions should have clear, defensible answers based on the text
+- Avoid trivial details that don't matter for learning
 
 TEXT TO ANALYZE:
 """
-${truncatedText}
+${textSection}
 """
 
-ADVANCED QUESTION CREATION INSTRUCTIONS:
-${questionTypes}
+Create exactly ${numQuestions} ${difficultyLevel} questions that would appear on an exam covering this material.`;
 
-Create questions that test:
-1. Conceptual understanding and relationships between ideas
-2. Critical analysis of arguments and evidence presented
-3. Ability to synthesize information and draw conclusions
-4. Understanding of context, implications, and broader significance
-5. Application of concepts to new situations or scenarios
-
-Avoid basic recall questions. Focus on higher-order thinking skills.
-
-REQUIRED FORMAT:`;
+  if (existingQuestions.length > 0) {
+    const recentTopics = existingQuestions.slice(-3).map(q => {
+      const words = q.question.split(' ');
+      return words.slice(0, 6).join(' '); // First 6 words
+    }).join('; ');
+    prompt += `\n\nAVOID these recent question topics: ${recentTopics}
+Focus on completely different concepts from the text.`;
+  }
 
   if (questionType === 'Multiple Choice') {
     prompt += `
 
-You MUST format your response EXACTLY like this:
+FORMAT - Create exactly ${numQuestions} multiple choice questions:
 
-Q1: [Sophisticated analytical question that tests deep understanding of concepts, relationships, or implications from the text]
-A) [Plausible option that tests understanding]
-B) [Another sophisticated option]
-C) [Complex option that requires analysis]
-D) [Nuanced option that could be tempting but wrong]
+Q1: [Exam-worthy question testing understanding/application]
+A) [Detailed correct answer based on text]
+B) [Plausible incorrect option] 
+C) [Another plausible incorrect option]
+D) [Fourth plausible incorrect option]
 ANSWER: A
+EXPLANATION: [Why this tests understanding and why the answer is correct based on specific text content]
 
-Q2: [Advanced question about author's argument, methodology, assumptions, or broader implications]
-A) [Option requiring critical thinking]
-B) [Option testing synthesis of ideas]
-C) [Option about underlying concepts]
-D) [Option testing evaluation skills]
-ANSWER: C
+Continue this exact format for all ${numQuestions} questions.
 
-Continue this EXACT format for all ${numQuestions} questions. Make each question progressively more challenging and test different analytical skills.`;
+QUALITY REQUIREMENTS:
+- Each question tests a different important concept
+- Options should be similar length and plausibility
+- Incorrect options should be believable but clearly wrong
+- Explanations must reference specific content from the text`;
 
   } else if (questionType === 'True/False') {
     prompt += `
 
-You MUST format your response EXACTLY like this:
+FORMAT - Create exactly ${numQuestions} true/false questions:
 
-Q1: [Complex statement that requires analysis of relationships, implications, or deeper meaning from the text - not simple facts]
+Q1: [Exam-worthy statement about concepts from text]
 ANSWER: True
+EXPLANATION: [Why this is true/false based on specific text content]
 
-Q2: [Nuanced statement about author's argument, methodology, or conclusions that requires critical evaluation]
-ANSWER: False
+Continue for all ${numQuestions} questions.`;
 
-Continue this EXACT format for all ${numQuestions} questions. Focus on statements that test analytical thinking, not memorization.`;
+  } else if (questionType === 'Short Answer') {
+    prompt += `
+
+FORMAT - Create exactly ${numQuestions} short answer questions:
+
+Q1: [Question requiring explanation/analysis based on text]
+EXPLANATION: [What a complete answer should include based on the text]
+
+Continue for all ${numQuestions} questions.`;
+
+  } else if (questionType === 'Flashcards') {
+    prompt += `
+
+FORMAT - Create exactly ${numQuestions} flashcards:
+
+Q1: [Important term/concept from text]
+ANSWER: [Complete definition/explanation from text]
+EXPLANATION: [Why this concept is important for understanding the material]
+
+Continue for all ${numQuestions} flashcards.`;
   }
-  
+
   return prompt;
 }
 
-// PARSE GROQ RESPONSE INTO STRUCTURED QUESTIONS
+// FILTER FOR EXAM-WORTHY QUESTIONS
+function filterExamWorthyQuestions(newQuestions, existingQuestions) {
+  const examWorthy = [];
+  
+  for (const newQ of newQuestions) {
+    // Check if question is exam-worthy
+    if (!isExamWorthy(newQ)) {
+      console.log(`❌ Rejected non-exam-worthy: ${newQ.question.substring(0, 60)}...`);
+      continue;
+    }
+    
+    // Check for duplicates/similarity
+    let isDuplicate = false;
+    for (const existingQ of existingQuestions) {
+      const similarity = calculateQuestionSimilarity(newQ.question, existingQ.question);
+      if (similarity > 0.35) { // Reduced threshold for stricter filtering
+        isDuplicate = true;
+        console.log(`❌ Rejected similar question: ${newQ.question.substring(0, 60)}...`);
+        break;
+      }
+    }
+    
+    if (!isDuplicate) {
+      examWorthy.push(newQ);
+      console.log(`✅ Accepted exam-worthy: ${newQ.question.substring(0, 60)}...`);
+    }
+  }
+  
+  return examWorthy;
+}
+
+// CHECK IF QUESTION IS EXAM-WORTHY
+function isExamWorthy(question) {
+  const questionText = question.question.toLowerCase();
+  
+  // Reject questions that are too basic or trivial
+  const trivialIndicators = [
+    'what is the title',
+    'who is the author',
+    'what page',
+    'according to page',
+    'in what year was this written',
+    'how many pages',
+    'what is the first word',
+    'what is the last word'
+  ];
+  
+  for (const indicator of trivialIndicators) {
+    if (questionText.includes(indicator)) {
+      return false;
+    }
+  }
+  
+  // Require questions to test understanding/analysis
+  const examWorthyIndicators = [
+    'explain', 'analyze', 'compare', 'contrast', 'evaluate', 'discuss',
+    'what does this suggest', 'why is', 'how does', 'what would happen',
+    'what is the significance', 'what can be concluded', 'what is the relationship',
+    'according to the text', 'based on the content', 'the author argues'
+  ];
+  
+  const hasExamWorthy = examWorthyIndicators.some(indicator => 
+    questionText.includes(indicator)
+  );
+  
+  // Questions should be substantial (not too short or too long)
+  const isGoodLength = question.question.length >= 15 && question.question.length <= 200;
+  
+  return hasExamWorthy && isGoodLength;
+}
+
+// CALCULATE QUESTION SIMILARITY
+function calculateQuestionSimilarity(q1, q2) {
+  const words1 = q1.toLowerCase().split(/\W+/).filter(w => w.length > 3);
+  const words2 = q2.toLowerCase().split(/\W+/).filter(w => w.length > 3);
+  
+  const commonWords = words1.filter(w => words2.includes(w));
+  const totalUniqueWords = new Set([...words1, ...words2]).size;
+  
+  return totalUniqueWords > 0 ? commonWords.length / totalUniqueWords : 0;
+}
+
+// ENHANCED QUESTION PARSING
 function parseGroqQuestionsResponse(groqResponse, questionType, numQuestions) {
-  console.log('🔄 Parsing Groq response into structured questions...');
+  console.log('🔄 Parsing Groq response with enhanced extraction...');
   
   const questions = [];
   
   if (questionType === 'Multiple Choice') {
-    // Split by Q1:, Q2:, Q3:, etc.
+    // Enhanced multiple choice parsing
     const questionBlocks = groqResponse.split(/Q\d+:/);
+    questionBlocks.shift(); // Remove empty first element
     
-    // Remove empty first element
-    questionBlocks.shift();
+    console.log(`📊 Found ${questionBlocks.length} MC question blocks`);
     
-    questionBlocks.forEach((block, index) => {
+    for (let i = 0; i < questionBlocks.length && questions.length < numQuestions; i++) {
       try {
-        const lines = block.trim().split('\n').filter(line => line.trim());
+        const block = questionBlocks[i].trim();
+        const lines = block.split('\n').map(line => line.trim()).filter(line => line);
         
-        if (lines.length < 5) {
-          console.log(`⚠️ Question ${index + 1} has insufficient lines:`, lines.length);
-          return;
-        }
+        if (lines.length < 3) continue;
         
-        const questionText = lines[0].trim();
+        const questionText = lines[0];
+        if (!questionText || questionText.length < 15) continue;
+        
         const options = [];
         let answerLine = '';
+        let explanationLine = '';
         
-        // Extract options and answer
+        // Extract options, answer, and explanation
         for (let line of lines.slice(1)) {
-          line = line.trim();
           if (/^[A-D]\)/.test(line)) {
             options.push(line.substring(2).trim());
           } else if (line.toUpperCase().includes('ANSWER:')) {
             answerLine = line;
+          } else if (line.toUpperCase().includes('EXPLANATION:')) {
+            explanationLine = line.substring(line.toUpperCase().indexOf('EXPLANATION:') + 12).trim();
           }
         }
         
+        // Validation and construction
         if (questionText && options.length >= 4 && answerLine) {
-          const correctLetter = answerLine.toUpperCase().split('ANSWER:')[1].trim().charAt(0);
-          const correctIndex = Math.max(0, Math.min(3, correctLetter.charCodeAt(0) - 65));
+          const correctLetter = answerLine.toUpperCase().match(/[A-D]/)?.[0] || 'A';
+          const correctIndex = correctLetter.charCodeAt(0) - 65;
+          
+          // Enhanced explanation that references the text
+          const enhancedExplanation = explanationLine || 
+            `This question tests understanding of key concepts from the source material. The correct answer is ${correctLetter} because it accurately reflects the information presented in the text.`;
           
           questions.push({
-            id: index + 1,
+            id: questions.length + 1,
             type: questionType,
             question: questionText,
-            options: options.slice(0, 4), // Ensure exactly 4 options
+            options: options.slice(0, 4),
             correctAnswer: correctIndex,
             correctLetter: correctLetter,
-            explanation: `Generated by Groq AI from your document content.`,
-            source: 'groq_ai'
+            explanation: enhancedExplanation,
+            source: 'groq_ai',
+            examWorthy: true
           });
           
-          console.log(`✅ Successfully parsed question ${index + 1}: ${questionText.substring(0, 50)}...`);
-        } else {
-          console.log(`❌ Failed to parse question ${index + 1} - missing components`);
-          console.log(`Question: "${questionText}", Options: ${options.length}, Answer: "${answerLine}"`);
+          console.log(`✅ Parsed MC question ${questions.length}: ${questionText.substring(0, 50)}...`);
         }
       } catch (error) {
-        console.log(`❌ Error parsing question ${index + 1}:`, error.message);
+        console.log(`❌ Error parsing MC question ${i + 1}:`, error.message);
       }
-    });
+    }
     
   } else if (questionType === 'True/False') {
+    // Enhanced T/F parsing
     const questionBlocks = groqResponse.split(/Q\d+:/);
     questionBlocks.shift();
     
     questionBlocks.forEach((block, index) => {
+      if (questions.length >= numQuestions) return;
+      
       try {
         const lines = block.trim().split('\n').filter(line => line.trim());
         const questionText = lines[0]?.trim();
         const answerLine = lines.find(line => line.toUpperCase().includes('ANSWER:'));
+        const explanationLine = lines.find(line => line.toUpperCase().includes('EXPLANATION:'));
         
         if (questionText && answerLine) {
           const answer = answerLine.toUpperCase().includes('TRUE') ? 'True' : 'False';
+          const explanation = explanationLine ? 
+            explanationLine.substring(explanationLine.toUpperCase().indexOf('EXPLANATION:') + 12).trim() :
+            `This statement is ${answer.toLowerCase()} based on the content analysis of the source material.`;
           
           questions.push({
-            id: index + 1,
+            id: questions.length + 1,
             type: questionType,
             question: questionText,
             correctAnswer: answer,
-            explanation: `Generated by Groq AI from your document content.`,
-            source: 'groq_ai'
+            explanation: explanation,
+            source: 'groq_ai',
+            examWorthy: true
           });
-          
-          console.log(`✅ Successfully parsed T/F question ${index + 1}: ${questionText.substring(0, 50)}...`);
         }
       } catch (error) {
         console.log(`❌ Error parsing T/F question ${index + 1}:`, error.message);
       }
     });
+    
+  } else if (questionType === 'Short Answer') {
+    // Enhanced Short Answer parsing
+    const questionBlocks = groqResponse.split(/Q\d+:/);
+    questionBlocks.shift();
+    
+    questionBlocks.forEach((block, index) => {
+      if (questions.length >= numQuestions) return;
+      
+      try {
+        const lines = block.trim().split('\n').filter(line => line.trim());
+        const questionText = lines[0]?.trim();
+        const explanationLine = lines.find(line => line.toUpperCase().includes('EXPLANATION:'));
+        
+        if (questionText && questionText.length > 15) {
+          const explanation = explanationLine ? 
+            explanationLine.substring(explanationLine.toUpperCase().indexOf('EXPLANATION:') + 12).trim() :
+            `A comprehensive answer should demonstrate understanding of the key concepts and their relationships as presented in the source material.`;
+          
+          questions.push({
+            id: questions.length + 1,
+            type: questionType,
+            question: questionText,
+            explanation: explanation,
+            source: 'groq_ai',
+            examWorthy: true
+          });
+        }
+      } catch (error) {
+        console.log(`❌ Error parsing SA question ${index + 1}:`, error.message);
+      }
+    });
+    
+  } else if (questionType === 'Flashcards') {
+    // Enhanced Flashcard parsing
+    const questionBlocks = groqResponse.split(/Q\d+:/);
+    questionBlocks.shift();
+    
+    questionBlocks.forEach((block, index) => {
+      if (questions.length >= numQuestions) return;
+      
+      try {
+        const lines = block.trim().split('\n').filter(line => line.trim());
+        const questionText = lines[0]?.trim();
+        const answerLine = lines.find(line => line.toUpperCase().includes('ANSWER:'));
+        const explanationLine = lines.find(line => line.toUpperCase().includes('EXPLANATION:'));
+        
+        if (questionText && answerLine) {
+          const answer = answerLine.substring(answerLine.toUpperCase().indexOf('ANSWER:') + 7).trim();
+          const explanation = explanationLine ? 
+            explanationLine.substring(explanationLine.toUpperCase().indexOf('EXPLANATION:') + 12).trim() :
+            `This concept is essential for understanding the broader themes and principles discussed in the material.`;
+          
+          questions.push({
+            id: questions.length + 1,
+            type: questionType,
+            question: questionText,
+            answer: answer,
+            explanation: explanation,
+            source: 'groq_ai',
+            examWorthy: true
+          });
+        }
+      } catch (error) {
+        console.log(`❌ Error parsing Flashcard ${index + 1}:`, error.message);
+      }
+    });
   }
   
-  console.log(`📊 Final result: Successfully parsed ${questions.length} out of ${numQuestions} requested questions`);
-  return questions.slice(0, numQuestions);
+  console.log(`📊 Final parsing result: ${questions.length} exam-worthy questions extracted`);
+  return questions;
 }
 
 // Error handling middleware
@@ -427,5 +664,5 @@ app.use('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`✅ Server is running on port ${PORT}`);
-  console.log('🚀 ExamBlox Backend is ready on Railway with Groq AI!');
+  console.log('🚀 ExamBlox Backend is ready with enhanced exam-focused question generation!');
 });
