@@ -78,14 +78,16 @@ app.post('/api/generate-questions', async (req, res) => {
     const cleanedText = filterRelevantContent(text);
     console.log('- Cleaned text length:', cleanedText.length, 'characters');
 
-    // Generate questions with enhanced prompting
-    const response = await generateQuestionsWithGroq(cleanedText, questionType, numQuestions, difficulty);
+    // Generate questions with persistent retry until target is reached
+    const response = await generateQuestionsWithPersistence(cleanedText, questionType, numQuestions, difficulty);
 
-    // Log generated questions for debugging
-    console.log('=== GENERATED QUESTIONS ===');
+    // Log ALL generated questions for debugging
+    console.log('\n' + '='.repeat(80));
+    console.log('🎯 ALL GENERATED QUESTIONS - FINAL OUTPUT');
+    console.log('='.repeat(80));
     if (response.questions && response.questions.length > 0) {
       response.questions.forEach((q, index) => {
-        console.log(`\n--- QUESTION ${index + 1} ---`);
+        console.log(`\n--- QUESTION ${index + 1} OF ${response.questions.length} ---`);
         console.log(`Question: ${q.question}`);
         if (q.options) {
           q.options.forEach((option, i) => {
@@ -98,9 +100,12 @@ app.post('/api/generate-questions', async (req, res) => {
         if (q.explanation) {
           console.log(`Explanation: ${q.explanation}`);
         }
+        console.log(`Difficulty Level: ${q.difficultyLevel || 'Not specified'}`);
       });
     }
-    console.log('=== END OF QUESTIONS ===');
+    console.log('\n' + '='.repeat(80));
+    console.log(`✅ SUCCESS: Generated ${response.questions.length}/${numQuestions} questions`);
+    console.log('='.repeat(80));
 
     res.json({
       success: true,
@@ -111,6 +116,7 @@ app.post('/api/generate-questions', async (req, res) => {
         cleanedTextLength: cleanedText.length,
         questionType,
         numQuestions,
+        actualQuestions: response.questions.length,
         difficulty,
         timestamp: new Date().toISOString(),
         platform: 'railway',
@@ -162,8 +168,8 @@ function filterRelevantContent(text) {
   return cleanedText;
 }
 
-// ENHANCED MULTI-BATCH QUESTION GENERATION
-async function generateQuestionsWithGroq(text, questionType, numQuestions, difficulty) {
+// PERSISTENT QUESTION GENERATION - KEEPS TRYING UNTIL TARGET IS REACHED
+async function generateQuestionsWithPersistence(text, questionType, numQuestions, difficulty) {
   const API_KEY = process.env.GROQ_API_KEY;
   
   if (!API_KEY) {
@@ -171,22 +177,27 @@ async function generateQuestionsWithGroq(text, questionType, numQuestions, diffi
     throw new Error('GROQ_API_KEY is not configured');
   }
 
-  console.log('Starting enhanced multi-batch Groq question generation...');
-  console.log('Processing text length:', text.length, 'characters');
-  console.log('Target questions:', numQuestions);
+  console.log('\n🎯 STARTING PERSISTENT QUESTION GENERATION');
+  console.log(`Target: ${numQuestions} questions`);
+  console.log(`Difficulty: ${difficulty}`);
+  console.log(`Text length: ${text.length} characters`);
 
   let allQuestions = [];
-  let attempt = 1;
-  const maxAttempts = 10; // Increased from 5 to 10 API calls
+  let totalAttempts = 0;
+  const maxTotalAttempts = 25; // Increased maximum attempts
 
-  while (allQuestions.length < numQuestions && attempt <= maxAttempts) {
+  while (allQuestions.length < numQuestions && totalAttempts < maxTotalAttempts) {
     const remaining = numQuestions - allQuestions.length;
-    console.log(`\n=== BATCH ${attempt} ===`);
-    console.log(`Need ${remaining} more questions (have ${allQuestions.length}/${numQuestions})`);
+    totalAttempts++;
+    
+    console.log(`\n🔄 ATTEMPT ${totalAttempts}`);
+    console.log(`Current: ${allQuestions.length}/${numQuestions} questions`);
+    console.log(`Requesting: ${remaining} more questions`);
 
     try {
-      // Use different difficulty levels across batches for variety
-      const batchDifficulty = getDynamicDifficulty(difficulty, attempt);
+      // Use escalated difficulty for this batch
+      const batchDifficulty = getEscalatedDifficulty(difficulty, totalAttempts);
+      console.log(`Batch difficulty: ${batchDifficulty}`);
       
       // Generate questions for this batch
       const batchQuestions = await generateQuestionBatch(text, questionType, remaining, batchDifficulty, allQuestions, API_KEY);
@@ -195,31 +206,44 @@ async function generateQuestionsWithGroq(text, questionType, numQuestions, diffi
       const examWorthyQuestions = filterExamWorthyQuestions(batchQuestions, allQuestions);
       allQuestions = allQuestions.concat(examWorthyQuestions);
       
-      console.log(`Batch ${attempt} added ${examWorthyQuestions.length} exam-worthy questions`);
-      console.log(`Total progress: ${allQuestions.length}/${numQuestions}`);
+      console.log(`✅ Batch ${totalAttempts}: Added ${examWorthyQuestions.length} questions`);
+      console.log(`📊 Progress: ${allQuestions.length}/${numQuestions} (${Math.round((allQuestions.length/numQuestions)*100)}%)`);
 
       if (allQuestions.length >= numQuestions) {
-        console.log(`SUCCESS: Generated ${allQuestions.length} questions!`);
+        console.log(`\n🎉 TARGET REACHED! Generated ${allQuestions.length} questions in ${totalAttempts} attempts`);
         break;
       }
 
-    } catch (error) {
-      console.error(`Batch ${attempt} failed:`, error.message);
-    }
+      // If we're getting close but not quite there, be more aggressive
+      if (remaining <= 3 && totalAttempts > 10) {
+        console.log('🚀 Final push mode: Requesting extra questions to ensure target');
+      }
 
-    attempt++;
+    } catch (error) {
+      console.error(`❌ Batch ${totalAttempts} failed:`, error.message);
+      
+      // Add small delay before retry to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
   }
 
-  // Limit to exact number requested
+  // Final check and trimming
   const finalQuestions = allQuestions.slice(0, numQuestions);
+  
+  console.log(`\n📈 GENERATION SUMMARY:`);
+  console.log(`- Requested: ${numQuestions} questions`);
+  console.log(`- Generated: ${finalQuestions.length} questions`);
+  console.log(`- Success rate: ${Math.round((finalQuestions.length/numQuestions)*100)}%`);
+  console.log(`- Total attempts: ${totalAttempts}`);
 
   return {
-    message: `Generated ${finalQuestions.length} exam-worthy questions using ${attempt - 1} API calls`,
+    message: `Generated ${finalQuestions.length}/${numQuestions} extremely challenging questions using ${totalAttempts} attempts`,
     questions: finalQuestions,
     provider: 'groq',
     model: 'llama-3.3-70b-versatile',
     textLength: text.length,
-    batchesUsed: attempt - 1,
+    attemptsUsed: totalAttempts,
+    completionRate: Math.round((finalQuestions.length/numQuestions)*100),
     requestParams: {
       questionType,
       numQuestions,
@@ -228,24 +252,40 @@ async function generateQuestionsWithGroq(text, questionType, numQuestions, diffi
   };
 }
 
-// GET DYNAMIC DIFFICULTY FOR VARIETY
-function getDynamicDifficulty(baseDifficulty, attemptNumber) {
-  const difficulties = ['Easy', 'Medium', 'Hard', 'Exam Level'];
-  const baseIndex = difficulties.findIndex(d => d.toLowerCase() === baseDifficulty.toLowerCase());
+// ESCALATED DIFFICULTY MAPPING
+function getEscalatedDifficulty(userDifficulty, attemptNumber) {
+  // Map user difficulty to much harder actual difficulty
+  const difficultyMap = {
+    'easy': 'Challenging', // Easy becomes Medium-Hard
+    'medium': 'Extremely Difficult', // Medium becomes Hard
+    'hard': 'Expert Level', // Hard becomes Exam Level  
+    'exam level': 'Impossible' // Exam Level becomes Impossible
+  };
   
-  // Vary difficulty across batches while staying close to requested level
-  const variance = [-1, 0, 1, 0, 1, -1, 0, 1, -1, 0];
-  const adjustedIndex = Math.max(0, Math.min(3, baseIndex + (variance[attemptNumber - 1] || 0)));
+  const baseDifficulty = difficultyMap[userDifficulty.toLowerCase()] || 'Extremely Difficult';
   
-  return difficulties[adjustedIndex];
+  // Escalate further based on attempt number for variety
+  const escalationLevels = [
+    'Challenging',
+    'Very Challenging', 
+    'Extremely Difficult',
+    'Expert Level',
+    'Impossible',
+    'Beyond Expert Level'
+  ];
+  
+  const baseIndex = escalationLevels.findIndex(d => d === baseDifficulty);
+  const escalatedIndex = Math.min(escalationLevels.length - 1, baseIndex + Math.floor(attemptNumber / 3));
+  
+  return escalationLevels[escalatedIndex];
 }
 
-// GENERATE SINGLE BATCH WITH EXAM-FOCUSED PROMPTING
+// GENERATE SINGLE BATCH WITH EXTREME DIFFICULTY FOCUS
 async function generateQuestionBatch(text, questionType, numQuestions, difficulty, existingQuestions, API_KEY) {
   const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
   
   // Use different sections of text for variety
-  const maxTextLength = 12000;
+  const maxTextLength = 10000;
   const startPos = existingQuestions.length > 0 
     ? Math.floor(Math.random() * Math.max(0, text.length - maxTextLength))
     : 0;
@@ -253,9 +293,9 @@ async function generateQuestionBatch(text, questionType, numQuestions, difficult
     ? text.substring(startPos, startPos + maxTextLength)
     : text;
   
-  const prompt = createExamFocusedPrompt(textSection, questionType, numQuestions, difficulty, existingQuestions);
+  const prompt = createExtremelyChallengingPrompt(textSection, questionType, numQuestions, difficulty, existingQuestions);
   
-  console.log(`Making API request for ${numQuestions} ${difficulty} questions...`);
+  console.log(`🔥 Making API request for ${numQuestions} ${difficulty} questions...`);
   
   const response = await fetch(GROQ_URL, {
     method: 'POST',
@@ -268,15 +308,15 @@ async function generateQuestionBatch(text, questionType, numQuestions, difficult
       messages: [
         {
           role: "system",
-          content: "You are an expert exam question creator. Your questions must be worthy of appearing on actual exams. Focus on testing understanding, application, and critical thinking rather than simple recall."
+          content: "You are an EXTREMELY demanding expert examiner creating the most challenging questions possible. Your questions must be worthy of the hardest professional certification exams. Make students work for every point. Test deep analytical thinking, complex synthesis, and expert-level understanding."
         },
         {
           role: "user",
           content: prompt
         }
       ],
-      temperature: 0.8, // Increased for more variety
-      max_tokens: 2800 // Increased token limit
+      temperature: 0.9, // High creativity for challenging questions
+      max_tokens: 3000 // More tokens for complex questions
     })
   });
 
@@ -289,48 +329,55 @@ async function generateQuestionBatch(text, questionType, numQuestions, difficult
   const result = await response.json();
   const groqGeneratedText = result.choices[0]?.message?.content || '';
   
-  console.log('Raw Groq response length:', groqGeneratedText.length, 'characters');
+  console.log(`📝 Received response: ${groqGeneratedText.length} characters`);
   
   const parsedQuestions = parseGroqQuestionsResponse(groqGeneratedText, questionType, numQuestions);
-  console.log(`Parsed ${parsedQuestions.length} questions from this batch`);
+  
+  // Add difficulty level to each question
+  parsedQuestions.forEach(q => {
+    q.difficultyLevel = difficulty;
+  });
+  
+  console.log(`✅ Parsed ${parsedQuestions.length} questions from this batch`);
   
   return parsedQuestions;
 }
 
-// CREATE EXAM-FOCUSED PROMPTS
-function createExamFocusedPrompt(textSection, questionType, numQuestions, difficulty, existingQuestions) {
-  const difficultyMap = {
-    'easy': 'moderately challenging (like mid-term exam questions)',
-    'medium': 'challenging (like final exam questions)', 
-    'hard': 'very challenging (like advanced course exams)',
-    'exam level': 'extremely challenging (like professional certification exams)'
-  };
+// CREATE EXTREMELY CHALLENGING PROMPTS
+function createExtremelyChallengingPrompt(textSection, questionType, numQuestions, difficulty, existingQuestions) {
   
-  const difficultyLevel = difficultyMap[difficulty.toLowerCase()] || 'challenging';
+  let prompt = `You must GREATLY AND SERIOUSLY STUDY this text with extreme attention to detail. Create ${questionType.toLowerCase()} questions at ${difficulty} level that would challenge even experts in this field.
 
-  let prompt = `You are creating ${questionType.toLowerCase()} questions for an actual exam. These questions MUST be exam-worthy and test real understanding.
+CRITICAL ANALYSIS REQUIREMENTS:
+- STUDY EVERY SENTENCE with microscopic attention
+- Identify subtle nuances, implications, and hidden meanings
+- Test complex relationships between concepts
+- Create questions that require DEEP synthesis and analysis
+- Make questions that separate true experts from casual readers
+- Focus on WHY things matter, not just WHAT they are
+- Test ability to apply concepts in complex scenarios
 
-EXAM STANDARDS:
-- Questions should appear on a real exam about this material
-- Test understanding, application, and analysis - NOT just memorization
-- Make students think critically about the concepts
-- Questions should have clear, defensible answers based on the text
-- Avoid trivial details that don't matter for learning
-
-TEXT TO ANALYZE:
+TEXT FOR INTENSIVE STUDY:
 """
 ${textSection}
 """
 
-Create exactly ${numQuestions} ${difficultyLevel} questions that would appear on an exam covering this material.`;
+DIFFICULTY LEVEL: ${difficulty}
+- Questions must be mentally exhausting to answer
+- Require multiple layers of thinking to solve
+- Test connections between distant concepts
+- Challenge assumptions and require justification
+- Make students prove their mastery, not just recognition
+
+Create exactly ${numQuestions} questions that would appear on the most challenging professional certification exams in this field.`;
 
   if (existingQuestions.length > 0) {
     const recentTopics = existingQuestions.slice(-3).map(q => {
       const words = q.question.split(' ');
-      return words.slice(0, 6).join(' '); // First 6 words
+      return words.slice(0, 8).join(' ');
     }).join('; ');
     prompt += `\n\nAVOID these recent question topics: ${recentTopics}
-Focus on completely different concepts from the text.`;
+Find completely different angles and concepts to test.`;
   }
 
   if (questionType === 'Multiple Choice') {
@@ -338,53 +385,61 @@ Focus on completely different concepts from the text.`;
 
 FORMAT - Create exactly ${numQuestions} multiple choice questions:
 
-Q1: [Exam-worthy question testing understanding/application]
-A) [Detailed correct answer based on text]
-B) [Plausible incorrect option] 
-C) [Another plausible incorrect option]
-D) [Fourth plausible incorrect option]
+Q1: [Extremely challenging question requiring deep analysis and synthesis]
+A) [Complex correct answer requiring expert understanding]
+B) [Sophisticated incorrect option that would fool non-experts] 
+C) [Another complex incorrect option requiring careful analysis to reject]
+D) [Fourth sophisticated incorrect option]
 ANSWER: A
-EXPLANATION: [Why this tests understanding and why the answer is correct based on specific text content]
+EXPLANATION: [Detailed explanation of why this tests expert-level understanding and how the correct answer demonstrates mastery of complex concepts from the text]
 
-Continue this exact format for all ${numQuestions} questions.
-
-QUALITY REQUIREMENTS:
-- Each question tests a different important concept
-- Options should be similar length and plausibility
-- Incorrect options should be believable but clearly wrong
-- Explanations must reference specific content from the text`;
+QUALITY REQUIREMENTS for ${difficulty} level:
+- Questions must require 2-3 minutes of deep thinking
+- All options must be sophisticated and require expert knowledge to distinguish
+- Test synthesis of multiple concepts, not isolated facts
+- Require understanding of implications, consequences, and relationships
+- Make students demonstrate mastery through complex reasoning`;
 
   } else if (questionType === 'True/False') {
     prompt += `
 
 FORMAT - Create exactly ${numQuestions} true/false questions:
 
-Q1: [Exam-worthy statement about concepts from text]
+Q1: [Extremely subtle and complex statement requiring expert analysis]
 ANSWER: True
-EXPLANATION: [Why this is true/false based on specific text content]
+EXPLANATION: [Detailed explanation requiring deep understanding of nuances and implications]
 
-Continue for all ${numQuestions} questions.`;
+REQUIREMENTS for ${difficulty} level:
+- Statements must be subtly complex, not obviously true/false
+- Test understanding of nuances and edge cases
+- Require deep analysis of implications and consequences`;
 
   } else if (questionType === 'Short Answer') {
     prompt += `
 
 FORMAT - Create exactly ${numQuestions} short answer questions:
 
-Q1: [Question requiring explanation/analysis based on text]
-EXPLANATION: [What a complete answer should include based on the text]
+Q1: [Complex question requiring synthesis, analysis, and expert explanation]
+EXPLANATION: [What a complete expert-level answer must include, showing deep understanding]
 
-Continue for all ${numQuestions} questions.`;
+REQUIREMENTS for ${difficulty} level:
+- Questions must require essay-length responses
+- Test ability to synthesize multiple concepts
+- Require justification and evidence-based reasoning`;
 
   } else if (questionType === 'Flashcards') {
     prompt += `
 
 FORMAT - Create exactly ${numQuestions} flashcards:
 
-Q1: [Important term/concept from text]
-ANSWER: [Complete definition/explanation from text]
-EXPLANATION: [Why this concept is important for understanding the material]
+Q1: [Complex concept or nuanced term requiring expert understanding]
+ANSWER: [Comprehensive expert-level definition with implications and applications]
+EXPLANATION: [Why mastering this concept is crucial for expert-level understanding]
 
-Continue for all ${numQuestions} flashcards.`;
+REQUIREMENTS for ${difficulty} level:
+- Terms must be complex and nuanced
+- Definitions must require expert-level understanding
+- Include implications and applications, not just basic definitions`;
   }
 
   return prompt;
@@ -405,7 +460,7 @@ function filterExamWorthyQuestions(newQuestions, existingQuestions) {
     let isDuplicate = false;
     for (const existingQ of existingQuestions) {
       const similarity = calculateQuestionSimilarity(newQ.question, existingQ.question);
-      if (similarity > 0.35) { // Reduced threshold for stricter filtering
+      if (similarity > 0.3) { // Reduced threshold for stricter filtering
         isDuplicate = true;
         console.log(`❌ Rejected similar question: ${newQ.question.substring(0, 60)}...`);
         break;
@@ -434,7 +489,8 @@ function isExamWorthy(question) {
     'in what year was this written',
     'how many pages',
     'what is the first word',
-    'what is the last word'
+    'what is the last word',
+    'true or false: the text mentions'
   ];
   
   for (const indicator of trivialIndicators) {
@@ -445,10 +501,11 @@ function isExamWorthy(question) {
   
   // Require questions to test understanding/analysis
   const examWorthyIndicators = [
-    'explain', 'analyze', 'compare', 'contrast', 'evaluate', 'discuss',
-    'what does this suggest', 'why is', 'how does', 'what would happen',
-    'what is the significance', 'what can be concluded', 'what is the relationship',
-    'according to the text', 'based on the content', 'the author argues'
+    'analyze', 'synthesize', 'evaluate', 'compare and contrast', 'justify',
+    'what are the implications', 'how does this relate to', 'what would happen if',
+    'what is the significance', 'what can be concluded', 'why is this important',
+    'how does the author', 'what evidence supports', 'what assumptions',
+    'critically assess', 'to what extent', 'how effectively'
   ];
   
   const hasExamWorthy = examWorthyIndicators.some(indicator => 
@@ -456,7 +513,7 @@ function isExamWorthy(question) {
   );
   
   // Questions should be substantial (not too short or too long)
-  const isGoodLength = question.question.length >= 15 && question.question.length <= 200;
+  const isGoodLength = question.question.length >= 20 && question.question.length <= 300;
   
   return hasExamWorthy && isGoodLength;
 }
@@ -479,9 +536,8 @@ function parseGroqQuestionsResponse(groqResponse, questionType, numQuestions) {
   const questions = [];
   
   if (questionType === 'Multiple Choice') {
-    // Enhanced multiple choice parsing
     const questionBlocks = groqResponse.split(/Q\d+:/);
-    questionBlocks.shift(); // Remove empty first element
+    questionBlocks.shift();
     
     console.log(`📊 Found ${questionBlocks.length} MC question blocks`);
     
@@ -493,13 +549,12 @@ function parseGroqQuestionsResponse(groqResponse, questionType, numQuestions) {
         if (lines.length < 3) continue;
         
         const questionText = lines[0];
-        if (!questionText || questionText.length < 15) continue;
+        if (!questionText || questionText.length < 20) continue;
         
         const options = [];
         let answerLine = '';
         let explanationLine = '';
         
-        // Extract options, answer, and explanation
         for (let line of lines.slice(1)) {
           if (/^[A-D]\)/.test(line)) {
             options.push(line.substring(2).trim());
@@ -510,14 +565,12 @@ function parseGroqQuestionsResponse(groqResponse, questionType, numQuestions) {
           }
         }
         
-        // Validation and construction
         if (questionText && options.length >= 4 && answerLine) {
           const correctLetter = answerLine.toUpperCase().match(/[A-D]/)?.[0] || 'A';
           const correctIndex = correctLetter.charCodeAt(0) - 65;
           
-          // Enhanced explanation that references the text
           const enhancedExplanation = explanationLine || 
-            `This question tests understanding of key concepts from the source material. The correct answer is ${correctLetter} because it accurately reflects the information presented in the text.`;
+            `This extremely challenging question tests expert-level understanding of complex concepts and their intricate relationships as presented in the source material.`;
           
           questions.push({
             id: questions.length + 1,
@@ -531,7 +584,7 @@ function parseGroqQuestionsResponse(groqResponse, questionType, numQuestions) {
             examWorthy: true
           });
           
-          console.log(`✅ Parsed MC question ${questions.length}: ${questionText.substring(0, 50)}...`);
+          console.log(`✅ Parsed challenging MC question ${questions.length}`);
         }
       } catch (error) {
         console.log(`❌ Error parsing MC question ${i + 1}:`, error.message);
@@ -539,7 +592,6 @@ function parseGroqQuestionsResponse(groqResponse, questionType, numQuestions) {
     }
     
   } else if (questionType === 'True/False') {
-    // Enhanced T/F parsing
     const questionBlocks = groqResponse.split(/Q\d+:/);
     questionBlocks.shift();
     
@@ -552,11 +604,11 @@ function parseGroqQuestionsResponse(groqResponse, questionType, numQuestions) {
         const answerLine = lines.find(line => line.toUpperCase().includes('ANSWER:'));
         const explanationLine = lines.find(line => line.toUpperCase().includes('EXPLANATION:'));
         
-        if (questionText && answerLine) {
+        if (questionText && answerLine && questionText.length >= 20) {
           const answer = answerLine.toUpperCase().includes('TRUE') ? 'True' : 'False';
           const explanation = explanationLine ? 
             explanationLine.substring(explanationLine.toUpperCase().indexOf('EXPLANATION:') + 12).trim() :
-            `This statement is ${answer.toLowerCase()} based on the content analysis of the source material.`;
+            `This extremely challenging statement requires expert-level analysis of subtle nuances and complex implications from the source material.`;
           
           questions.push({
             id: questions.length + 1,
@@ -574,7 +626,6 @@ function parseGroqQuestionsResponse(groqResponse, questionType, numQuestions) {
     });
     
   } else if (questionType === 'Short Answer') {
-    // Enhanced Short Answer parsing
     const questionBlocks = groqResponse.split(/Q\d+:/);
     questionBlocks.shift();
     
@@ -586,10 +637,10 @@ function parseGroqQuestionsResponse(groqResponse, questionType, numQuestions) {
         const questionText = lines[0]?.trim();
         const explanationLine = lines.find(line => line.toUpperCase().includes('EXPLANATION:'));
         
-        if (questionText && questionText.length > 15) {
+        if (questionText && questionText.length > 20) {
           const explanation = explanationLine ? 
             explanationLine.substring(explanationLine.toUpperCase().indexOf('EXPLANATION:') + 12).trim() :
-            `A comprehensive answer should demonstrate understanding of the key concepts and their relationships as presented in the source material.`;
+            `An expert-level answer must demonstrate sophisticated synthesis, critical analysis, and deep understanding of complex relationships and implications presented in the source material.`;
           
           questions.push({
             id: questions.length + 1,
@@ -606,7 +657,6 @@ function parseGroqQuestionsResponse(groqResponse, questionType, numQuestions) {
     });
     
   } else if (questionType === 'Flashcards') {
-    // Enhanced Flashcard parsing
     const questionBlocks = groqResponse.split(/Q\d+:/);
     questionBlocks.shift();
     
@@ -623,7 +673,7 @@ function parseGroqQuestionsResponse(groqResponse, questionType, numQuestions) {
           const answer = answerLine.substring(answerLine.toUpperCase().indexOf('ANSWER:') + 7).trim();
           const explanation = explanationLine ? 
             explanationLine.substring(explanationLine.toUpperCase().indexOf('EXPLANATION:') + 12).trim() :
-            `This concept is essential for understanding the broader themes and principles discussed in the material.`;
+            `This complex concept requires expert-level mastery and understanding of sophisticated relationships within the broader theoretical framework presented in the material.`;
           
           questions.push({
             id: questions.length + 1,
@@ -641,7 +691,7 @@ function parseGroqQuestionsResponse(groqResponse, questionType, numQuestions) {
     });
   }
   
-  console.log(`📊 Final parsing result: ${questions.length} exam-worthy questions extracted`);
+  console.log(`📊 Final parsing result: ${questions.length} extremely challenging questions extracted`);
   return questions;
 }
 
@@ -664,5 +714,5 @@ app.use('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`✅ Server is running on port ${PORT}`);
-  console.log('🚀 ExamBlox Backend is ready with enhanced exam-focused question generation!');
+  console.log('🚀 ExamBlox Backend ready with PERSISTENT GENERATION and EXTREME DIFFICULTY!');
 });
