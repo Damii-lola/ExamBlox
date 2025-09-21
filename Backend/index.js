@@ -174,17 +174,17 @@ async function generateQuestionsWithGroq(text, questionType, numQuestions, diffi
   console.log('🚀 Starting PERSISTENT question generation...');
   console.log('📊 Processing text length:', text.length, 'characters');
   console.log('🎯 TARGET QUESTIONS:', numQuestions, '(WILL NOT STOP UNTIL REACHED)');
-  console.log('⚡ Max attempts allowed: 20');
+  console.log('⚡ Max attempts allowed: 50');
 
   let allQuestions = [];
   let attempt = 1;
-  const maxAttempts = 20; // Increased to 20 attempts
+  const maxAttempts = 50; // Increased to 50 attempts
   let consecutiveFailures = 0;
-  const maxConsecutiveFailures = 5; // If we fail 5 times in a row, adjust strategy
+  const maxConsecutiveFailures = 8; // Increased threshold for strategy adjustment
 
   while (allQuestions.length < numQuestions && attempt <= maxAttempts) {
     const remaining = numQuestions - allQuestions.length;
-    console.log(`\n🔄 === ATTEMPT ${attempt}/20 ===`);
+    console.log(`\n🔄 === ATTEMPT ${attempt}/50 ===`);
     console.log(`📊 NEED: ${remaining} more questions | HAVE: ${allQuestions.length}/${numQuestions}`);
     console.log(`📈 SUCCESS RATE: ${allQuestions.length > 0 ? ((allQuestions.length / attempt) * 100).toFixed(1) : '0'}% questions per attempt`);
 
@@ -304,37 +304,50 @@ function calculateOptimalBatchSize(remaining, attemptNumber, consecutiveFailures
   
   // If we're having consecutive failures, ask for more to account for filtering
   if (consecutiveFailures > 0) {
-    batchSize = Math.min(remaining * (2 + consecutiveFailures), remaining + 10);
+    batchSize = Math.min(remaining * (2 + consecutiveFailures), remaining + 15);
     console.log(`🔧 Adjusting batch size due to ${consecutiveFailures} consecutive failures: ${batchSize}`);
   }
   
   // Early attempts: be more aggressive to get a good foundation
-  if (attemptNumber <= 3) {
-    batchSize = Math.max(batchSize, Math.min(remaining * 2, 15));
+  if (attemptNumber <= 5) {
+    batchSize = Math.max(batchSize, Math.min(remaining * 2, 20));
+  }
+  
+  // Middle attempts: maintain aggressive approach
+  if (attemptNumber > 5 && attemptNumber <= 25) {
+    batchSize = Math.max(batchSize, Math.min(remaining * 1.5, 15));
   }
   
   // Later attempts: be more conservative but still ask for what we need
-  if (attemptNumber > 10) {
-    batchSize = Math.min(remaining + 5, batchSize);
+  if (attemptNumber > 25) {
+    batchSize = Math.min(remaining + 8, batchSize);
   }
   
   // Never ask for less than what we actually need
   batchSize = Math.max(batchSize, remaining);
   
-  // Cap at reasonable maximum to avoid token limits
-  batchSize = Math.min(batchSize, 25);
+  // Cap at reasonable maximum to avoid token limits but allow for larger requests
+  batchSize = Math.min(batchSize, 30);
   
   return batchSize;
 }
 
-// GET DYNAMIC DIFFICULTY FOR VARIETY
+// GET DYNAMIC DIFFICULTY FOR VARIETY (EXPANDED FOR 50 ATTEMPTS)
 function getDynamicDifficulty(baseDifficulty, attemptNumber) {
   const difficulties = ['Easy', 'Medium', 'Hard', 'Exam Level'];
   const baseIndex = difficulties.findIndex(d => d.toLowerCase() === baseDifficulty.toLowerCase());
   
-  // Vary difficulty across batches while staying close to requested level
-  const variance = [-1, 0, 1, 0, 1, -1, 0, 1, -1, 0, 0, -1, 1, 0, -1, 1, 0, -1, 1, 0];
-  const adjustedIndex = Math.max(0, Math.min(3, baseIndex + (variance[attemptNumber - 1] || 0)));
+  // Expanded variance pattern for 50 attempts - creates more variation
+  const variancePattern = [
+    -1, 0, 1, 0, 1, -1, 0, 1, -1, 0,  // Attempts 1-10
+    0, -1, 1, 0, -1, 1, 0, -1, 1, 0,  // Attempts 11-20
+    1, -1, 0, 1, -1, 0, 1, -1, 0, 1,  // Attempts 21-30
+    0, 1, -1, 0, 1, -1, 0, 1, -1, 0,  // Attempts 31-40
+    -1, 1, 0, -1, 1, 0, -1, 1, 0, -1  // Attempts 41-50
+  ];
+  
+  const variance = variancePattern[attemptNumber - 1] || 0;
+  const adjustedIndex = Math.max(0, Math.min(3, baseIndex + variance));
   
   return difficulties[adjustedIndex];
 }
