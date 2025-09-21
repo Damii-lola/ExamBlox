@@ -361,7 +361,7 @@
   <!-- Navigation -->
   <nav class="navbar">
     <div class="container">
-      <div class="site-logo">
+      <div class="site-logo" onclick="goToHomepage()" style="cursor: pointer;">
         <i class="fas fa-book"></i>
         <h2 class="site-name">ExamBlox</h2>
       </div>
@@ -746,6 +746,11 @@
       
       // Could redirect to results page or home
       // window.location.href = 'index.html';
+    }
+
+    // Navigate to homepage
+    function goToHomepage() {
+      window.location.href = 'index.html';
     }
 
     function initializeStarsBackground() {
