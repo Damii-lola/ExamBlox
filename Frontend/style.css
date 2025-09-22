@@ -478,60 +478,101 @@ h2 {
   font-size: var(--font-size-lg);
 }
 
-/* Dynamic Grid System - Fixed Alignment */
-.steps, .features-grid, .testimonial-grid, .pricing-grid {
+/* Fixed Grid Alignment - Better Centering */
+.steps {
   display: grid;
   gap: var(--spacing-lg);
-  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  grid-template-columns: repeat(3, 1fr);
   justify-items: center;
   align-items: stretch;
 }
 
-/* Ensure items take full width of their grid cell */
-.step, .feature-card, .testimonial-card, .pricing-card {
-  background: var(--card-bg);
-  backdrop-filter: blur(10px);
-  border-radius: 15px;
-  padding: var(--spacing-lg);
-  text-align: center;
-  transition: transform 0.3s, box-shadow 0.3s;
-  position: relative;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  min-height: 200px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  width: 100%;
-  max-width: 400px;
+.features-grid {
+  display: grid;
+  gap: var(--spacing-lg);
+  grid-template-columns: repeat(3, 1fr);
+  justify-items: center;
+  align-items: stretch;
+}
+
+.testimonial-grid {
+  display: grid;
+  gap: var(--spacing-lg);
+  grid-template-columns: repeat(3, 1fr);
+  justify-items: center;
+  align-items: stretch;
+}
+
+.pricing-grid {
+  display: grid;
+  gap: var(--spacing-lg);
+  grid-template-columns: repeat(3, 1fr);
+  justify-items: center;
+  align-items: stretch;
 }
 
 /* Override for better grid alignment */
 @media (min-width: 1024px) {
   .steps {
     grid-template-columns: repeat(3, 1fr);
+    justify-content: center;
   }
   
   .features-grid {
     grid-template-columns: repeat(3, 1fr);
+    justify-content: center;
   }
   
   .testimonial-grid {
     grid-template-columns: repeat(3, 1fr);
+    justify-content: center;
   }
   
   .pricing-grid {
     grid-template-columns: repeat(3, 1fr);
+    justify-content: center;
   }
 }
 
 @media (min-width: 768px) and (max-width: 1023px) {
-  .steps, .features-grid, .testimonial-grid {
+  .steps {
     grid-template-columns: repeat(2, 1fr);
+    justify-content: center;
+  }
+  
+  .features-grid {
+    grid-template-columns: repeat(2, 1fr);
+    justify-content: center;
+  }
+  
+  .testimonial-grid {
+    grid-template-columns: repeat(2, 1fr);
+    justify-content: center;
   }
   
   .pricing-grid {
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(2, 1fr);
     justify-content: center;
+  }
+  
+  /* Handle odd number items - center the last one */
+  .steps .step:nth-child(3):nth-last-child(1) {
+    grid-column: 1 / -1;
+    justify-self: center;
+    max-width: 400px;
+  }
+  
+  .testimonial-grid .testimonial-card:nth-child(3):nth-last-child(1) {
+    grid-column: 1 / -1;
+    justify-self: center;
+    max-width: 400px;
+  }
+}
+
+@media (max-width: 767px) {
+  .steps, .features-grid, .testimonial-grid, .pricing-grid {
+    grid-template-columns: 1fr;
+    justify-items: center;
   }
 }
 
@@ -967,16 +1008,17 @@ h2 {
   }
 }
 
-/* Reduced Motion Preferences */
+/* Reduced Motion Preferences - Fixed */
 @media (prefers-reduced-motion: reduce) {
-  * {
+  .step:hover, .feature-card:hover, .testimonial-card:hover, .pricing-card:hover,
+  .option-item:hover, .btn-browse:hover, .btn-generate:hover {
     animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-duration: 0.3s;
   }
   
+  /* Keep star animations even with reduced motion preference */
   .stars span {
-    animation: none;
+    animation: twinkle 3s infinite ease-in-out, drift 25s linear infinite !important;
   }
 }
 
@@ -1020,7 +1062,7 @@ h2 {
   }
 }
 
-/* Star Background - Fixed Animations */
+/* Star Background - Completely Fixed Animation System */
 .stars {
   position: fixed;
   top: 0; 
@@ -1034,67 +1076,81 @@ h2 {
 
 .stars span {
   position: absolute;
-  width: clamp(1px, 0.3vw, 3px);
-  height: clamp(1px, 0.3vw, 3px);
-  background: white;
+  width: 2px;
+  height: 2px;
+  background: #ffffff;
   border-radius: 50%;
   opacity: 0.8;
-  animation: twinkle 3s infinite ease-in-out, drift 25s linear infinite;
+  animation: starTwinkle 4s infinite ease-in-out, starDrift 30s linear infinite;
   box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
 }
 
-/* Create different star sizes and speeds */
-.stars span:nth-child(odd) {
-  animation-duration: 4s, 30s;
-  opacity: 0.6;
+/* Different star types for variety */
+.stars span:nth-child(2n) {
+  width: 1px;
+  height: 1px;
+  animation: starTwinkle 3s infinite ease-in-out, starDrift 25s linear infinite;
+  background: rgba(77, 255, 243, 0.9);
+  box-shadow: 0 0 4px rgba(77, 255, 243, 0.6);
 }
 
 .stars span:nth-child(3n) {
-  animation-duration: 2.5s, 35s;
-  opacity: 0.9;
-  box-shadow: 0 0 8px rgba(77, 255, 243, 0.6);
+  width: 3px;
+  height: 3px;
+  animation: starTwinkle 5s infinite ease-in-out, starDrift 35s linear infinite;
+  background: rgba(155, 106, 255, 0.9);
+  box-shadow: 0 0 8px rgba(155, 106, 255, 0.7);
+}
+
+.stars span:nth-child(4n) {
+  animation: starTwinkle 2.5s infinite ease-in-out, starDrift 20s linear infinite;
+  background: rgba(255, 255, 255, 0.7);
 }
 
 .stars span:nth-child(5n) {
-  animation-duration: 3.5s, 20s;
-  opacity: 0.7;
-  box-shadow: 0 0 4px rgba(155, 106, 255, 0.7);
+  animation: starTwinkle 6s infinite ease-in-out, starDrift 40s linear infinite;
+  background: rgba(77, 255, 243, 0.8);
 }
 
-@keyframes twinkle {
-  0%, 100% { 
-    opacity: 0.3; 
-    transform: scale(0.8);
+/* Keyframe animations with unique names */
+@keyframes starTwinkle {
+  0% { 
+    opacity: 0.2; 
+    transform: scale(0.5); 
   }
   25% { 
     opacity: 0.8; 
-    transform: scale(1.2);
+    transform: scale(1.2); 
   }
   50% { 
     opacity: 1; 
-    transform: scale(1.5);
+    transform: scale(1.5); 
   }
   75% { 
     opacity: 0.6; 
-    transform: scale(1.1);
+    transform: scale(1.1); 
+  }
+  100% { 
+    opacity: 0.3; 
+    transform: scale(0.8); 
   }
 }
 
-@keyframes drift {
-  from { 
-    transform: translateY(-10px) translateX(0px) rotate(0deg); 
+@keyframes starDrift {
+  0% { 
+    transform: translateY(-20px) translateX(0px); 
   }
   25% { 
-    transform: translateY(25px) translateX(10px) rotate(90deg); 
+    transform: translateY(25px) translateX(15px); 
   }
   50% { 
-    transform: translateY(50px) translateX(-5px) rotate(180deg); 
+    transform: translateY(60px) translateX(-10px); 
   }
   75% { 
-    transform: translateY(75px) translateX(15px) rotate(270deg); 
+    transform: translateY(90px) translateX(20px); 
   }
-  to { 
-    transform: translateY(100px) translateX(0px) rotate(360deg); 
+  100% { 
+    transform: translateY(120px) translateX(5px); 
   }
 }
 
