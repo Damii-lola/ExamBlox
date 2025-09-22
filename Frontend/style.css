@@ -1055,7 +1055,7 @@ h2 {
   background: white;
   border-radius: 50%;
   opacity: 0.75;
-  animation: twinkle 4s infinite, drift 35s linear infinite;
+  animation: twinkle 7s infinite, drift 60s linear infinite;
 }
 
 @keyframes twinkle {
