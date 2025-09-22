@@ -1054,40 +1054,18 @@ h2 {
   height: 2px;
   background: white;
   border-radius: 50%;
-  opacity: 0.8;
-  animation: simpleTwinkle 2s ease-in-out infinite alternate, simpleMove 15s linear infinite;
+  opacity: 0.75;
+  animation: twinkle 4s infinite, drift 35s linear infinite;
 }
 
-.stars span:nth-child(2n) {
-  animation: simpleTwinkle 3s ease-in-out infinite alternate, simpleMove 20s linear infinite;
-  background: #4dfff3;
+@keyframes twinkle {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
 }
 
-.stars span:nth-child(3n) {
-  animation: simpleTwinkle 2.5s ease-in-out infinite alternate, simpleMove 12s linear infinite;
-  background: #9b6aff;
-}
-
-@keyframes simpleTwinkle {
-  from { opacity: 0.3; }
-  to { opacity: 1; }
-}
-
-@keyframes simpleMove {
-  0% { 
-    transform: translateY(-20px); 
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-  }
-  90% {
-    opacity: 1;
-  }
-  100% { 
-    transform: translateY(calc(100vh + 20px)); 
-    opacity: 0;
-  }
+@keyframes drift {
+  from { transform: translateY(-20px); }
+  to { transform: translateY(calc(100vh + 20px)); }
 }
 
 /* Notification System - Fully Responsive */
