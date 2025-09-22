@@ -412,6 +412,14 @@
         <!-- Questions will be dynamically inserted here -->
       </div>
 
+      <!-- Submit Quiz Button -->
+      <div style="text-align: center; margin: var(--spacing-xl) 0;">
+        <button class="control-btn" id="submit-quiz-btn" onclick="submitQuiz()" style="background: var(--success); font-size: var(--font-size-base); padding: var(--spacing-sm) var(--spacing-xl);">
+          <i class="fas fa-check-circle"></i>
+          Submit Quiz
+        </button>
+      </div>
+
       <!-- Quiz Controls -->
       <div class="quiz-controls">
         <button class="control-btn" id="prev-btn" onclick="previousQuestion()" disabled>
@@ -666,10 +674,24 @@
     }
 
     function getUserAnswerStatus(question) {
-      if (userAnswers[question.id] !== undefined) {
+      if (userAnswers[question.id] !== undefined && userAnswers[question.id] !== '') {
         return '<i class="fas fa-check-circle" style="color: var(--success);"></i> Answered';
       }
       return '<i class="fas fa-circle" style="color: var(--text-secondary);"></i> Not answered';
+    }
+
+    function submitQuiz() {
+      const totalQuestions = questions.length;
+      const answeredQuestions = Object.keys(userAnswers).filter(id => 
+        userAnswers[id] !== undefined && userAnswers[id] !== ''
+      ).length;
+      
+      if (answeredQuestions < totalQuestions) {
+        const confirmed = confirm(`You have answered ${answeredQuestions} out of ${totalQuestions} questions. Are you sure you want to submit?`);
+        if (!confirmed) return;
+      }
+      
+      finishQuiz();
     }
 
     function previousQuestion() {
