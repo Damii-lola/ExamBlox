@@ -225,6 +225,8 @@ small { font-size: var(--font-size-sm); }
   line-height: 1.2;
   max-width: 100%;
   word-wrap: break-word;
+  /* Fix spacing between "Practice" and "Questions" */
+  letter-spacing: -0.02em;
 }
 
 .highlight {
@@ -234,6 +236,8 @@ small { font-size: var(--font-size-sm); }
   display: inline;
   font-size: inherit;
   font-weight: inherit;
+  /* Tighter letter spacing for "Practice Questions" */
+  letter-spacing: -0.01em;
 }
 
 .hero-text p {
@@ -1496,7 +1500,7 @@ footer {
   font-size: var(--font-size-sm);
 }
 
-/* Stars Background */
+/* Stars - Seamless Animation */
 .stars {
   position: fixed;
   top: 0; 
@@ -1515,17 +1519,40 @@ footer {
   background: white;
   border-radius: 50%;
   opacity: 0.75;
-  animation: twinkle 14s infinite, drift 135s linear infinite;
+  /* Improved seamless animation with staggered delays */
+  animation: twinkle 3s infinite ease-in-out, drift 20s linear infinite;
 }
 
+/* Create staggered star animations for seamless effect */
+.stars span:nth-child(odd) { animation-delay: 0s; }
+.stars span:nth-child(even) { animation-delay: -10s; }
+.stars span:nth-child(3n) { animation-delay: -5s; }
+.stars span:nth-child(4n) { animation-delay: -15s; }
+.stars span:nth-child(5n) { animation-delay: -2s; }
+.stars span:nth-child(6n) { animation-delay: -12s; }
+.stars span:nth-child(7n) { animation-delay: -7s; }
+.stars span:nth-child(8n) { animation-delay: -17s; }
+
 @keyframes twinkle {
-  0%, 100% { opacity: 0.5; }
+  0%, 100% { opacity: 0.3; }
   50% { opacity: 1; }
 }
 
 @keyframes drift {
-  from { transform: translateY(-20px); }
-  to { transform: translateY(calc(100vh + 20px)); }
+  from { 
+    transform: translateY(-20px); 
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.75;
+  }
+  90% {
+    opacity: 0.75;
+  }
+  to { 
+    transform: translateY(calc(100vh + 20px)); 
+    opacity: 0;
+  }
 }
 
 /* Notification System */
