@@ -10,6 +10,47 @@
   <link rel="stylesheet" href="Frontend/style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    /* Additional CSS fixes for spacing and stars */
+    .hero-text h1 {
+      letter-spacing: -0.02em;
+    }
+    
+    .highlight {
+      letter-spacing: -0.01em;
+    }
+    
+    /* Improved seamless stars animation */
+    .stars span {
+      animation: twinkle 3s infinite ease-in-out, drift 20s linear infinite;
+    }
+    
+    .stars span:nth-child(odd) { animation-delay: 0s; }
+    .stars span:nth-child(even) { animation-delay: -10s; }
+    .stars span:nth-child(3n) { animation-delay: -5s; }
+    .stars span:nth-child(4n) { animation-delay: -15s; }
+    .stars span:nth-child(5n) { animation-delay: -2s; }
+    .stars span:nth-child(6n) { animation-delay: -12s; }
+    .stars span:nth-child(7n) { animation-delay: -7s; }
+    .stars span:nth-child(8n) { animation-delay: -17s; }
+    
+    @keyframes drift {
+      from { 
+        transform: translateY(-20px); 
+        opacity: 0;
+      }
+      10% {
+        opacity: 0.75;
+      }
+      90% {
+        opacity: 0.75;
+      }
+      to { 
+        transform: translateY(calc(100vh + 20px)); 
+        opacity: 0;
+      }
+    }
+  </style>
 </head>
 <body>
   <!-- STAR BACKGROUND -->
@@ -215,13 +256,14 @@
     </div>
   </section>
 
-  <!-- Testimonials -->
+  <!-- Testimonials - FIXED ORDER -->
   <section id="testimonials" class="testimonials">
     <div class="container">
       <h2>What Our Users Say</h2>
       <p class="section-subtitle">Join thousands of satisfied students and educators</p>
       
       <div class="testimonial-grid">
+        <!-- Sarah Johnson - FIRST -->
         <div class="testimonial-card">
           <div class="testimonial-content">
             <div class="stars">
@@ -240,24 +282,7 @@
           </div>
         </div>
         
-        <div class="testimonial-card">
-          <div class="testimonial-content">
-            <div class="stars">
-              <i class="fas fa-star"></i><i class="fas fa-star"></i>
-              <i class="fas fa-star"></i><i class="fas fa-star"></i>
-              <i class="fas fa-star"></i>
-            </div>
-            <p>"As a teacher, this tool has saved me countless hours. I can now create differentiated practice sets for my students based on their individual needs."</p>
-          </div>
-          <div class="testimonial-author">
-            <div class="author-avatar"></div>
-            <div class="author-details">
-              <h4>Michael Chen</h4>
-              <p>High School Teacher</p>
-            </div>
-          </div>
-        </div>
-        
+        <!-- Emily Rodriguez - SECOND (moved to middle) -->
         <div class="testimonial-card">
           <div class="testimonial-content">
             <div class="stars">
@@ -275,17 +300,37 @@
             </div>
           </div>
         </div>
+        
+        <!-- Michael Chen - THIRD -->
+        <div class="testimonial-card">
+          <div class="testimonial-content">
+            <div class="stars">
+              <i class="fas fa-star"></i><i class="fas fa-star"></i>
+              <i class="fas fa-star"></i><i class="fas fa-star"></i>
+              <i class="fas fa-star"></i>
+            </div>
+            <p>"As a teacher, this tool has saved me countless hours. I can now create differentiated practice sets for my students based on their individual needs."</p>
+          </div>
+          <div class="testimonial-author">
+            <div class="author-avatar"></div>
+            <div class="author-details">
+              <h4>Michael Chen</h4>
+              <p>High School Teacher</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- Pricing -->
+  <!-- Pricing - FIXED ORDER -->
   <section id="pricing" class="pricing">
     <div class="container">
       <h2>Simple, Transparent Pricing</h2>
       <p class="section-subtitle">Choose the plan that works best for you</p>
       
       <div class="pricing-grid">
+        <!-- Free Plan - FIRST -->
         <div class="pricing-card">
           <div class="pricing-header"><h3>Free</h3><p>For trying out basic features</p></div>
           <div class="price">$0<span>/month</span></div>
@@ -300,21 +345,7 @@
           <button class="btn-pricing">Get Started</button>
         </div>
         
-        <div class="pricing-card popular">
-          <div class="popular-badge">MOST POPULAR</div>
-          <div class="pricing-header"><h3>Premium</h3><p>For serious students</p></div>
-          <div class="price">$5<span>/month</span></div>
-          <ul class="features-list">
-            <li><i class="fas fa-check"></i> Unlimited uploads</li>
-            <li><i class="fas fa-check"></i> Up to 100 questions per upload</li>
-            <li><i class="fas fa-check"></i> All question types</li>
-            <li><i class="fas fa-check"></i> Adjustable difficulty</li>
-            <li><i class="fas fa-check"></i> Advanced AI grading</li>
-            <li><i class="fas fa-check"></i> Progress tracking & analytics</li>
-          </ul>
-          <button class="btn-pricing">Subscribe Now</button>
-        </div>
-        
+        <!-- Institutional Plan - SECOND (moved to middle) -->
         <div class="pricing-card">
           <div class="pricing-header"><h3>Institutional</h3><p>For schools & organizations</p></div>
           <div class="price">Custom</div>
@@ -327,6 +358,21 @@
             <li><i class="fas fa-check"></i> Priority support</li>
           </ul>
           <button class="btn-pricing">Contact Sales</button>
+        </div>
+        
+        <!-- Premium Plan - THIRD (moved to end, no popular styling) -->
+        <div class="pricing-card">
+          <div class="pricing-header"><h3>Premium</h3><p>For serious students</p></div>
+          <div class="price">$5<span>/month</span></div>
+          <ul class="features-list">
+            <li><i class="fas fa-check"></i> Unlimited uploads</li>
+            <li><i class="fas fa-check"></i> Up to 100 questions per upload</li>
+            <li><i class="fas fa-check"></i> All question types</li>
+            <li><i class="fas fa-check"></i> Adjustable difficulty</li>
+            <li><i class="fas fa-check"></i> Advanced AI grading</li>
+            <li><i class="fas fa-check"></i> Progress tracking & analytics</li>
+          </ul>
+          <button class="btn-pricing">Subscribe Now</button>
         </div>
       </div>
     </div>
