@@ -152,6 +152,109 @@ small { font-size: var(--font-size-sm); }
   color: var(--primary-light);
 }
 
+/* User Avatar System */
+.user-avatar {
+  position: relative;
+  margin-left: var(--spacing-sm);
+}
+
+.avatar-container {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  cursor: pointer;
+  padding: var(--spacing-xs);
+  border-radius: 25px;
+  transition: all 0.3s;
+  position: relative;
+}
+
+.avatar-container:hover {
+  background: rgba(106, 75, 255, 0.1);
+}
+
+.avatar-circle {
+  width: clamp(35px, 8vw, 40px);
+  height: clamp(35px, 8vw, 40px);
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: clamp(0.9rem, 3vw, 1.1rem);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 15px rgba(106, 75, 255, 0.3);
+  transition: all 0.3s;
+}
+
+.avatar-container:hover .avatar-circle {
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(106, 75, 255, 0.4);
+}
+
+.avatar-label {
+  color: var(--text);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.avatar-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: var(--card-bg);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  min-width: 180px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px);
+  transition: all 0.3s;
+  z-index: 1000;
+  margin-top: var(--spacing-xs);
+}
+
+.avatar-container.active .avatar-dropdown {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.avatar-dropdown a {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  color: var(--text);
+  text-decoration: none;
+  transition: all 0.3s;
+  font-size: var(--font-size-sm);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.avatar-dropdown a:last-child {
+  border-bottom: none;
+}
+
+.avatar-dropdown a:hover {
+  background: rgba(106, 75, 255, 0.1);
+  color: var(--primary-light);
+}
+
+.avatar-dropdown i {
+  width: 16px;
+  text-align: center;
+  opacity: 0.8;
+}
+
 .btn-login, .btn-signup {
   padding: clamp(8px, 1.5vw, 10px) clamp(12px, 3vw, 20px);
   border-radius: 25px;
