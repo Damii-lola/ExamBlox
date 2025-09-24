@@ -504,7 +504,7 @@ h2 {
 .testimonial-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacing-lg);
+  gap: var(--spacing-md);
   justify-content: center;
   align-items: stretch;
   max-width: 1200px;
@@ -533,7 +533,7 @@ h2 {
 .pricing-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacing-lg);
+  gap: var(--spacing-md);
   justify-content: center;
   align-items: stretch;
   max-width: 1000px;
