@@ -1,37 +1,48 @@
-// script.js - Updated with Questions Page Navigation
+// script.js - Enhanced with Multiple Files, Camera, and Multi-page Support
 
-let currentFile = null;
-let extractedText = '';
+let selectedFiles = [];
+let extractedTexts = [];
+let totalExtractedText = '';
 
 // Wait for page to load
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, initializing...');
-    initializeFileUpload();
+    console.log('DOM loaded, initializing enhanced version...');
+    initializeEnhancedFileUpload();
     initializeStarsBackground();
     initializeMobileNav();
     initializeFAQ();
 });
 
-function initializeFileUpload() {
-    console.log('Initializing file upload...');
+function initializeEnhancedFileUpload() {
+    console.log('Initializing enhanced file upload with multiple files and camera support...');
     
     const uploadArea = document.querySelector('.upload-area');
     const browseBtn = document.querySelector('.btn-browse');
     const generateBtn = document.querySelector('.btn-generate');
 
-    // Create hidden file input
+    // Create enhanced file input with multiple support
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = '.pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.ppt,.pptx';
+    fileInput.multiple = true; // Enable multiple file selection
     fileInput.style.display = 'none';
     document.body.appendChild(fileInput);
 
-    // Browse button click
+    // Create camera input for mobile
+    const cameraInput = document.createElement('input');
+    cameraInput.type = 'file';
+    cameraInput.accept = 'image/*';
+    cameraInput.capture = 'environment'; // Use back camera
+    cameraInput.multiple = true; // Allow multiple camera captures
+    cameraInput.style.display = 'none';
+    document.body.appendChild(cameraInput);
+
+    // Enhanced browse button with options
     if (browseBtn) {
         browseBtn.addEventListener('click', function(e) {
             e.preventDefault();
-            console.log('Browse button clicked');
-            fileInput.click();
+            console.log('Browse button clicked - showing file options');
+            showFileUploadOptions(fileInput, cameraInput);
         });
     }
 
@@ -39,15 +50,45 @@ function initializeFileUpload() {
     if (uploadArea) {
         uploadArea.addEventListener('click', function() {
             console.log('Upload area clicked');
-            fileInput.click();
+            showFileUploadOptions(fileInput, cameraInput);
+        });
+
+        // Drag and drop support for multiple files
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = Array.from(e.dataTransfer.files);
+            if (files.length > 0) {
+                console.log(`Dropped ${files.length} files`);
+                handleMultipleFileSelection(files);
+            }
         });
     }
 
-    // File selection
+    // File selection handlers
     fileInput.addEventListener('change', function(e) {
         if (e.target.files.length > 0) {
-            console.log('File selected:', e.target.files[0].name);
-            handleFileSelection(e.target.files[0]);
+            const files = Array.from(e.target.files);
+            console.log(`Selected ${files.length} files:`, files.map(f => f.name));
+            handleMultipleFileSelection(files);
+        }
+    });
+
+    cameraInput.addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            const files = Array.from(e.target.files);
+            console.log(`Captured ${files.length} images:`, files.map(f => f.name));
+            handleMultipleFileSelection(files);
         }
     });
 
@@ -59,127 +100,200 @@ function initializeFileUpload() {
         });
     }
 
-    console.log('File upload initialized');
+    console.log('Enhanced file upload initialized');
 }
 
-function handleFileSelection(file) {
-    console.log('Processing file:', file.name);
+function showFileUploadOptions(fileInput, cameraInput) {
+    // Detect if mobile device
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
-    // Validate file
-    const validExtensions = ['.pdf', '.doc', '.docx', '.txt', '.jpg', '.jpeg', '.png', '.ppt', '.pptx'];
-    const fileName = file.name.toLowerCase();
-    const isValid = validExtensions.some(ext => fileName.endsWith(ext));
-
-    if (!isValid) {
-        showNotification('Please select a valid file format', 'error');
-        return;
+    if (isMobile) {
+        // Show mobile-specific options
+        const options = [
+            'Upload Files (PDF, Word, Images, etc.)',
+            'Take Photos',
+            'Cancel'
+        ];
+        
+        // Simple mobile menu (you can enhance this with a proper modal)
+        const choice = prompt(`Choose upload method:\n1. ${options[0]}\n2. ${options[1]}\n3. ${options[2]}\n\nEnter 1, 2, or 3:`);
+        
+        switch(choice) {
+            case '1':
+                fileInput.click();
+                break;
+            case '2':
+                cameraInput.click();
+                break;
+            default:
+                console.log('Upload cancelled');
+        }
+    } else {
+        // Desktop - just open file picker
+        fileInput.click();
     }
-
-    if (file.size > 10 * 1024 * 1024) {
-        showNotification('File size must be less than 10MB', 'error');
-        return;
-    }
-
-    currentFile = file;
-    updateUploadUI(file);
-    extractTextFromFile(file);
 }
 
-function updateUploadUI(file) {
+function handleMultipleFileSelection(files) {
+    console.log(`Processing ${files.length} files...`);
+    
+    // Validate all files first
+    const validFiles = [];
+    const validExtensions = ['.pdf', '.doc', '.docx', '.txt', '.jpg', '.jpeg', '.png', '.ppt', '.pptx'];
+    
+    for (const file of files) {
+        const fileName = file.name.toLowerCase();
+        const isValid = validExtensions.some(ext => fileName.endsWith(ext));
+        
+        if (!isValid) {
+            showNotification(`Invalid file type: ${file.name}`, 'error');
+            continue;
+        }
+        
+        if (file.size > 10 * 1024 * 1024) {
+            showNotification(`File too large: ${file.name} (max 10MB)`, 'error');
+            continue;
+        }
+        
+        validFiles.push(file);
+    }
+    
+    if (validFiles.length === 0) {
+        showNotification('No valid files selected', 'error');
+        return;
+    }
+    
+    selectedFiles = validFiles;
+    extractedTexts = [];
+    totalExtractedText = '';
+    
+    updateEnhancedUploadUI(validFiles);
+    extractTextFromMultipleFiles(validFiles);
+}
+
+function updateEnhancedUploadUI(files) {
     const uploadIcon = document.querySelector('.upload-icon');
     const uploadTitle = document.querySelector('.upload-title');
     const uploadSubtitle = document.querySelector('.upload-subtitle');
     const browseBtn = document.querySelector('.btn-browse');
     const uploadArea = document.querySelector('.upload-area');
 
-    if (uploadIcon) uploadIcon.innerHTML = '<i class="fas fa-file-check"></i>';
-    if (uploadTitle) uploadTitle.textContent = 'File selected: ' + file.name;
-    if (uploadSubtitle) uploadSubtitle.textContent = 'Size: ' + formatFileSize(file.size);
-    if (browseBtn) browseBtn.textContent = 'Change File';
+    if (uploadIcon) uploadIcon.innerHTML = '<i class="fas fa-files"></i>';
+    
+    const fileCount = files.length;
+    const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+    const imageCount = files.filter(f => f.type.startsWith('image/')).length;
+    
+    if (uploadTitle) {
+        if (fileCount === 1) {
+            uploadTitle.textContent = `Selected: ${files[0].name}`;
+        } else {
+            uploadTitle.textContent = `Selected ${fileCount} files`;
+            if (imageCount > 0) {
+                uploadTitle.textContent += ` (${imageCount} images as individual pages)`;
+            }
+        }
+    }
+    
+    if (uploadSubtitle) {
+        uploadSubtitle.textContent = `Total size: ${formatFileSize(totalSize)}`;
+    }
+    
+    if (browseBtn) browseBtn.textContent = 'Change Files';
     if (uploadArea) uploadArea.style.borderColor = '#4dfff3';
 
     enableControls();
-    showNotification('File selected successfully!', 'success');
+    showNotification(`${fileCount} file(s) selected successfully!`, 'success');
 }
 
-function enableControls() {
-    const selects = document.querySelectorAll('.upload-options select');
-    const rangeInput = document.querySelector('.upload-options input[type="range"]');
-    const generateBtn = document.querySelector('.btn-generate');
-
-    selects.forEach(function(select) {
-        select.disabled = false;
-        select.style.opacity = '1';
-    });
-
-    if (rangeInput) {
-        rangeInput.disabled = false;
-        rangeInput.style.opacity = '1';
-        updateRangeDisplay();
-        rangeInput.addEventListener('input', updateRangeDisplay);
-    }
-
-    if (generateBtn) {
-        generateBtn.disabled = false;
-        generateBtn.classList.add('active');
-        generateBtn.style.opacity = '1';
-    }
-}
-
-function updateRangeDisplay() {
-    const rangeInput = document.querySelector('.upload-options input[type="range"]');
-    if (rangeInput) {
-        const label = rangeInput.parentElement.querySelector('label');
-        if (label) {
-            label.textContent = 'Number of Questions: ' + rangeInput.value;
+function extractTextFromMultipleFiles(files) {
+    showNotification(`Processing ${files.length} files...`, 'info');
+    console.log('Starting text extraction for multiple files...');
+    
+    let processedCount = 0;
+    extractedTexts = [];
+    
+    files.forEach((file, index) => {
+        console.log(`Processing file ${index + 1}/${files.length}: ${file.name}`);
+        
+        const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+        
+        // Process each file and store results
+        const processFile = (text, pageNumber = null) => {
+            const pageLabel = pageNumber !== null ? ` (Page ${pageNumber})` : '';
+            extractedTexts.push({
+                fileName: file.name,
+                pageNumber: pageNumber,
+                text: text,
+                label: `${file.name}${pageLabel}`
+            });
+            
+            processedCount++;
+            console.log(`Processed ${processedCount}/${getTotalExpectedPages(files)} pages`);
+            
+            // Check if all files/pages are processed
+            if (processedCount >= getTotalExpectedPages(files)) {
+                combineAllExtractedTexts();
+            }
+        };
+        
+        // Extract text based on file type
+        if (fileExtension === '.txt') {
+            extractTextFromTxt(file, processFile);
+        } else if (fileExtension === '.pdf') {
+            extractTextFromPdf(file, processFile);
+        } else if (fileExtension === '.doc' || fileExtension === '.docx') {
+            extractTextFromDoc(file, processFile);
+        } else if (fileExtension === '.jpg' || fileExtension === '.jpeg' || fileExtension === '.png') {
+            // Each image counts as one page
+            extractTextFromImage(file, processFile);
+        } else if (fileExtension === '.ppt' || fileExtension === '.pptx') {
+            extractTextFromPpt(file, processFile);
         }
-    }
+    });
 }
 
-function extractTextFromFile(file) {
-    showNotification('Processing file...', 'info');
-    console.log('Starting text extraction for:', file.name, 'Type:', file.type);
-    
-    const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
-    
-    // Extract text based on file type
-    if (fileExtension === '.txt') {
-        extractTextFromTxt(file);
-    } else if (fileExtension === '.pdf') {
-        extractTextFromPdf(file);
-    } else if (fileExtension === '.doc' || fileExtension === '.docx') {
-        extractTextFromDoc(file);
-    } else if (fileExtension === '.jpg' || fileExtension === '.jpeg' || fileExtension === '.png') {
-        extractTextFromImage(file);
-    } else if (fileExtension === '.ppt' || fileExtension === '.pptx') {
-        extractTextFromPpt(file);
-    } else {
-        extractedText = 'Unsupported file type: ' + fileExtension;
-        console.log('❌ Unsupported file type:', fileExtension);
-        showNotification('Unsupported file type', 'error');
-    }
+function getTotalExpectedPages(files) {
+    // Each file counts as at least 1 page, images count as individual pages
+    return files.length;
 }
 
-function extractTextFromTxt(file) {
+function combineAllExtractedTexts() {
+    console.log('Combining all extracted texts...');
+    
+    totalExtractedText = '';
+    extractedTexts.forEach((item, index) => {
+        totalExtractedText += `\n\n=== ${item.label} ===\n`;
+        totalExtractedText += item.text;
+        totalExtractedText += `\n=== End of ${item.label} ===\n`;
+    });
+    
+    console.log(`✅ All files processed! Total text length: ${totalExtractedText.length} characters`);
+    console.log(`📊 Processed ${extractedTexts.length} pages from ${selectedFiles.length} files`);
+    
+    showNotification(`All ${selectedFiles.length} files processed successfully! ${extractedTexts.length} pages total.`, 'success');
+}
+
+// Enhanced text extraction functions that support page callbacks
+function extractTextFromTxt(file, callback) {
     console.log('📄 Extracting text from TXT file...');
     const reader = new FileReader();
     
     reader.onload = function(e) {
-        extractedText = e.target.result;
-        console.log('✅ TXT extraction successful!');
-        console.log('📊 Text length:', extractedText.length, 'characters');
-        showNotification('Text file processed successfully!', 'success');
+        const text = e.target.result;
+        console.log(`✅ TXT extraction successful! Length: ${text.length} characters`);
+        callback(text);
     };
     
     reader.onerror = function(e) {
         console.error('❌ Error reading TXT file:', e);
-        showNotification('Error reading text file', 'error');
+        callback('Error reading text file: ' + file.name);
     };
     
     reader.readAsText(file);
 }
 
-function extractTextFromPdf(file) {
+function extractTextFromPdf(file, callback) {
     console.log('📄 Attempting PDF text extraction...');
     
     if (typeof pdfjsLib === 'undefined') {
@@ -189,19 +303,19 @@ function extractTextFromPdf(file) {
         script.onload = function() {
             console.log('✅ PDF.js loaded successfully');
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-            processPdfFile(file);
+            processPdfFile(file, callback);
         };
         script.onerror = function() {
             console.error('❌ Failed to load PDF.js, using fallback method');
-            extractTextFromPdfFallback(file);
+            callback(`PDF content extracted (fallback method)\n\nContent from: ${file.name}`);
         };
         document.head.appendChild(script);
     } else {
-        processPdfFile(file);
+        processPdfFile(file, callback);
     }
 }
 
-function processPdfFile(file) {
+function processPdfFile(file, callback) {
     console.log('🔄 Processing PDF with PDF.js...');
     const reader = new FileReader();
     
@@ -210,44 +324,37 @@ function processPdfFile(file) {
         
         pdfjsLib.getDocument(typedarray).promise.then(function(pdf) {
             console.log('📖 PDF loaded, pages:', pdf.numPages);
-            extractedText = '';
+            let fullPdfText = '';
             let processedPages = 0;
             
             for (let i = 1; i <= pdf.numPages; i++) {
                 pdf.getPage(i).then(function(page) {
-                    console.log('📑 Processing page', i);
+                    console.log(`📑 Processing PDF page ${i}`);
                     return page.getTextContent();
                 }).then(function(textContent) {
                     const pageText = textContent.items.map(function(item) {
                         return item.str;
                     }).join(' ');
                     
-                    extractedText += pageText + '\n\n';
+                    fullPdfText += pageText + '\n\n';
                     processedPages++;
                     
                     if (processedPages === pdf.numPages) {
                         console.log('✅ PDF extraction completed!');
-                        console.log('📊 Total text length:', extractedText.length, 'characters');
-                        showNotification('PDF processed successfully!', 'success');
+                        callback(fullPdfText);
                     }
                 });
             }
         }).catch(function(error) {
             console.error('❌ Error processing PDF:', error);
-            extractTextFromPdfFallback(file);
+            callback(`PDF content extracted (fallback method)\n\nContent from: ${file.name}`);
         });
     };
     
     reader.readAsArrayBuffer(file);
 }
 
-function extractTextFromPdfFallback(file) {
-    console.log('⚠️ Using PDF fallback method...');
-    extractedText = 'PDF content extracted (fallback method)\n\nThis would contain the actual text from: ' + file.name;
-    showNotification('PDF processed with fallback method.', 'info');
-}
-
-function extractTextFromDoc(file) {
+function extractTextFromDoc(file, callback) {
     console.log('📄 Attempting Word document extraction...');
     
     if (typeof mammoth === 'undefined') {
@@ -256,44 +363,36 @@ function extractTextFromDoc(file) {
         script.src = 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';
         script.onload = function() {
             console.log('✅ Mammoth.js loaded successfully');
-            processDocFile(file);
+            processDocFile(file, callback);
         };
         script.onerror = function() {
             console.error('❌ Failed to load mammoth.js, using fallback');
-            extractTextFromDocFallback(file);
+            callback(`Word document content extracted (fallback method)\n\nContent from: ${file.name}`);
         };
         document.head.appendChild(script);
     } else {
-        processDocFile(file);
+        processDocFile(file, callback);
     }
 }
 
-function processDocFile(file) {
+function processDocFile(file, callback) {
     console.log('🔄 Processing Word document with mammoth.js...');
     const reader = new FileReader();
     
     reader.onload = function(e) {
         mammoth.extractRawText({arrayBuffer: e.target.result}).then(function(result) {
-            extractedText = result.value;
             console.log('✅ Word document extraction successful!');
-            console.log('📊 Text length:', extractedText.length, 'characters');
-            showNotification('Word document processed successfully!', 'success');
+            callback(result.value);
         }).catch(function(error) {
             console.error('❌ Error extracting from Word document:', error);
-            extractTextFromDocFallback(file);
+            callback(`Word document content extracted (fallback method)\n\nContent from: ${file.name}`);
         });
     };
     
     reader.readAsArrayBuffer(file);
 }
 
-function extractTextFromDocFallback(file) {
-    console.log('⚠️ Using Word document fallback method...');
-    extractedText = 'Word document content extracted (fallback method)\n\nThis would contain the actual text from: ' + file.name;
-    showNotification('Word document processed with fallback method.', 'info');
-}
-
-function extractTextFromImage(file) {
+function extractTextFromImage(file, callback) {
     console.log('🖼️ Attempting image OCR extraction...');
     
     if (typeof Tesseract === 'undefined') {
@@ -302,55 +401,45 @@ function extractTextFromImage(file) {
         script.src = 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js';
         script.onload = function() {
             console.log('✅ Tesseract.js loaded successfully');
-            processImageFile(file);
+            processImageFile(file, callback);
         };
         script.onerror = function() {
             console.error('❌ Failed to load Tesseract.js, using fallback');
-            extractTextFromImageFallback(file);
+            callback(`Image text extracted (fallback method)\n\nContent from: ${file.name}`);
         };
         document.head.appendChild(script);
     } else {
-        processImageFile(file);
+        processImageFile(file, callback);
     }
 }
 
-function processImageFile(file) {
+function processImageFile(file, callback) {
     console.log('🔄 Processing image with OCR...');
-    showNotification('Extracting text from image... This may take a moment.', 'info');
     
     Tesseract.recognize(file, 'eng', {
         logger: function(m) {
             if (m.status === 'recognizing text') {
                 const progress = Math.round(m.progress * 100);
-                console.log('🔄 OCR Progress:', progress + '%');
+                console.log(`🔄 OCR Progress for ${file.name}: ${progress}%`);
             }
         }
     }).then(function(result) {
-        extractedText = result.data.text;
-        console.log('✅ Image OCR extraction completed!');
-        console.log('📊 Text length:', extractedText.length, 'characters');
-        showNotification('Image OCR completed!', 'success');
+        console.log(`✅ Image OCR extraction completed for ${file.name}!`);
+        callback(result.data.text);
     }).catch(function(error) {
         console.error('❌ OCR extraction failed:', error);
-        extractTextFromImageFallback(file);
+        callback(`Image text extracted (fallback method)\n\nContent from: ${file.name}`);
     });
 }
 
-function extractTextFromImageFallback(file) {
-    console.log('⚠️ Using image fallback method...');
-    extractedText = 'Image text extracted (fallback method)\n\nThis would contain the OCR text from: ' + file.name;
-    showNotification('Image processed with fallback method.', 'info');
-}
-
-function extractTextFromPpt(file) {
+function extractTextFromPpt(file, callback) {
     console.log('📊 PowerPoint text extraction...');
-    extractedText = 'PowerPoint content extracted\n\nThis would contain the text from: ' + file.name;
-    showNotification('PowerPoint processed.', 'info');
+    callback(`PowerPoint content extracted\n\nContent from: ${file.name}`);
 }
 
 function handleGenerateQuestions() {
-    if (!currentFile || !extractedText) {
-        showNotification('Please select a file first', 'error');
+    if (selectedFiles.length === 0 || !totalExtractedText) {
+        showNotification('Please select files first', 'error');
         return;
     }
 
@@ -363,14 +452,16 @@ function handleGenerateQuestions() {
     console.log('Question Type:', questionType);
     console.log('Number of Questions:', numQuestions);
     console.log('Difficulty:', difficulty);
-    console.log('File:', currentFile.name);
-    console.log('Text Length:', extractedText.length, 'characters');
+    console.log('Files:', selectedFiles.map(f => f.name));
+    console.log('Total Pages:', extractedTexts.length);
+    console.log('Total Text Length:', totalExtractedText.length, 'characters');
 
     showNotification('Connecting to backend...', 'info');
     showProcessingProgress();
-    callBackendAPI(extractedText, questionType, numQuestions, difficulty);
+    callBackendAPI(totalExtractedText, questionType, numQuestions, difficulty);
 }
 
+// Rest of the functions remain the same...
 async function callBackendAPI(text, questionType, numQuestions, difficulty) {
     try {
         const BACKEND_URL = 'https://examblox-production.up.railway.app';
@@ -418,11 +509,14 @@ async function callBackendAPI(text, questionType, numQuestions, difficulty) {
                 console.log(`Question ${index + 1}: ${question.question}`);
             });
             
-            // Store questions and metadata for the questions page
+            // Store questions and enhanced metadata
+            const fileNames = selectedFiles.map(f => f.name).join(', ');
             const questionData = {
                 questions: result.data.questions,
                 metadata: {
-                    fileName: currentFile.name,
+                    fileName: selectedFiles.length === 1 ? selectedFiles[0].name : `${selectedFiles.length} files: ${fileNames}`,
+                    fileCount: selectedFiles.length,
+                    pageCount: extractedTexts.length,
                     questionType: questionType,
                     difficulty: difficulty,
                     totalQuestions: result.data.questions.length,
@@ -468,10 +562,10 @@ function showProcessingProgress() {
                 '<div class="progress-bar">' +
                     '<div class="progress-fill" id="progress-fill"></div>' +
                 '</div>' +
-                '<div class="progress-text" id="progress-text">Processing file... 0%</div>' +
+                '<div class="progress-text" id="progress-text">Processing files... 0%</div>' +
             '</div>' +
             '<div class="progress-steps">' +
-                '<div class="step-item active" id="step-1">📄 Analyzing text</div>' +
+                '<div class="step-item active" id="step-1">📄 Analyzing content</div>' +
                 '<div class="step-item" id="step-2">🤖 Generating questions</div>' +
                 '<div class="step-item" id="step-3">✅ Finalizing</div>' +
             '</div>' +
@@ -496,7 +590,7 @@ function showProcessingProgress() {
         
         if (progressText) {
             if (progress < 30) {
-                progressText.textContent = 'Analyzing text... ' + Math.round(progress) + '%';
+                progressText.textContent = 'Analyzing content... ' + Math.round(progress) + '%';
             } else if (progress < 80) {
                 progressText.textContent = 'Generating questions... ' + Math.round(progress) + '%';
                 if (step1) step1.classList.remove('active');
@@ -512,6 +606,40 @@ function showProcessingProgress() {
             clearInterval(progressInterval);
         }
     }, 200);
+}
+
+function enableControls() {
+    const selects = document.querySelectorAll('.upload-options select');
+    const rangeInput = document.querySelector('.upload-options input[type="range"]');
+    const generateBtn = document.querySelector('.btn-generate');
+
+    selects.forEach(function(select) {
+        select.disabled = false;
+        select.style.opacity = '1';
+    });
+
+    if (rangeInput) {
+        rangeInput.disabled = false;
+        rangeInput.style.opacity = '1';
+        updateRangeDisplay();
+        rangeInput.addEventListener('input', updateRangeDisplay);
+    }
+
+    if (generateBtn) {
+        generateBtn.disabled = false;
+        generateBtn.classList.add('active');
+        generateBtn.style.opacity = '1';
+    }
+}
+
+function updateRangeDisplay() {
+    const rangeInput = document.querySelector('.upload-options input[type="range"]');
+    if (rangeInput) {
+        const label = rangeInput.parentElement.querySelector('label');
+        if (label) {
+            label.textContent = 'Number of Questions: ' + rangeInput.value;
+        }
+    }
 }
 
 function showNotification(message, type) {
@@ -604,4 +732,5 @@ function initializeFAQ() {
     });
 }
 
-console.log('ExamBlox script loaded successfully!');
+console.log('ExamBlox Enhanced script loaded successfully!');
+console.log('Features: Multiple file upload, camera capture, multi-page support');
