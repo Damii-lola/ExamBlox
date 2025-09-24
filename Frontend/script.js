@@ -1,34 +1,234 @@
 // script.js - Enhanced with Multiple Files, Camera, and Multi-page Support
 
-// Authentication state
-let isUserLoggedIn = false;
-let currentUser = null;
-
 // Initialize authentication on page load
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing enhanced version...');
-    checkAuthState();
-    initializeAuth();
+    
+    // Load global auth first
+    loadGlobalAuth();
+    
     initializeEnhancedFileUpload();
     initializeStarsBackground();
     initializeMobileNav();
     initializeFAQ();
+    initializeButtonHandlers();
 });
 
-function checkAuthState() {
-    // Check if user is logged in (from localStorage)
-    const userData = localStorage.getItem('examblox_user');
-    if (userData) {
-        try {
-            currentUser = JSON.parse(userData);
-            isUserLoggedIn = true;
-            updateAuthUI();
-            console.log('User is logged in:', currentUser.email);
-        } catch (error) {
-            console.error('Error parsing user data:', error);
-            localStorage.removeItem('examblox_user');
-        }
+function loadGlobalAuth() {
+    // Check if authManager is available, if not, initialize it
+    if (typeof authManager === 'undefined') {
+        console.log('Loading auth manager...');
+        // The auth manager will be loaded via auth.js script tag
+        setTimeout(() => {
+            if (typeof authManager !== 'undefined') {
+                updateLocalAuthState();
+            }
+        }, 100);
+    } else {
+        updateLocalAuthState();
     }
+}
+
+function updateLocalAuthState() {
+    // Sync with global auth manager
+    if (authManager) {
+        isUserLoggedIn = authManager.isLoggedIn;
+        currentUser = authManager.currentUser;
+        console.log('Auth state synced:', { isUserLoggedIn, currentUser });
+    }
+}
+
+function initializeButtonHandlers() {
+    // Handle login/signup buttons
+    const loginBtn = document.querySelector('.btn-login');
+    const signupBtn = document.querySelector('.btn-signup');
+
+    if (loginBtn) {
+        loginBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (authManager) {
+                if (!authManager.isLoggedIn) {
+                    authManager.showAuthModal('login');
+                } else {
+                    window.location.href = 'dashboard.html';
+                }
+            }
+        });
+    }
+
+    if (signupBtn) {
+        signupBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (authManager) {
+                if (!authManager.isLoggedIn) {
+                    authManager.showAuthModal('signup');
+                } else {
+                    window.location.href = 'dashboard.html';
+                }
+            }
+        });
+    }
+
+    // Handle CTA button
+    const ctaBtn = document.querySelector('.btn-cta');
+    if (ctaBtn) {
+        ctaBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (authManager && !authManager.isLoggedIn) {
+                authManager.showAuthModal('signup');
+            } else {
+                const uploadArea = document.querySelector('.upload-area');
+                if (uploadArea) {
+                    uploadArea.scrollIntoView({ behavior: 'smooth' });
+                }
+            }
+        });
+    }
+
+    // Handle pricing buttons
+    const pricingBtns = document.querySelectorAll('.btn-pricing');
+    pricingBtns.forEach((btn, index) => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (index === 0) { // Free plan
+                if (authManager && !authManager.isLoggedIn) {
+                    authManager.showAuthModal('signup');
+                } else {
+                    authManager.showNotification('You are already on the Free plan!', 'info');
+                }
+            } else if (index === 1) { // Premium plan
+                authManager.showNotification('Premium plan upgrade coming soon!', 'info');
+            } else { // Institutional plan
+                authManager.showNotification('Contact sales feature coming soon!', 'info');
+            }
+        });
+    });
+}
+
+function handleGenerateQuestions() {
+    // Check authentication using global auth manager
+    if (!authManager || !authManager.isLoggedIn) {
+        authManager.showNotification('Please sign in to generate questions', 'error');
+        authManager.showAuthModal('login');
+        return;
+    }
+
+    if (selectedFiles.length === 0 || !totalExtractedText) {
+        authManager.showNotification('Please select files first', 'error');
+        return;
+    }
+
+    const questionType = document.querySelector('.upload-options select').value || 'Multiple Choice';
+    const numQuestions = document.querySelector('.upload-options input[type="range"]').value || '10';
+    const difficultySelects = document.querySelectorAll('.upload-options select');
+    const difficulty = difficultySelects.length > 1 ? difficultySelects[1].value : 'Medium';
+
+    console.log('Generate button clicked!');
+    console.log('User:', authManager.currentUser.email);
+    console.log('Question Type:', questionType);
+    console.log('Number of Questions:', numQuestions);
+    console.log('Difficulty:', difficulty);
+    console.log('Files:', selectedFiles.map(f => f.name));
+    console.log('Total Pages:', extractedTexts.length);
+    console.log('Total Text Length:', totalExtractedText.length, 'characters');
+
+    authManager.showNotification('Connecting to backend...', 'info');
+    showProcessingProgress();
+    callBackendAPI(totalExtractedText, questionType, numQuestions, difficulty);
+}
+
+// Update user stats using global auth
+function updateUserStats(questionCount, fileCount) {
+    if (!authManager || !authManager.currentUser) return;
+
+    const currentMonth = new Date().getMonth();
+    const statsKey = `stats_${authManager.currentUser.email}`;
+    const activitiesKey = `activities_${authManager.currentUser.email}`;
+    
+    // Get existing stats
+    const existingStats = JSON.parse(localStorage.getItem(statsKey) || '{}');
+    const existingActivities = JSON.parse(localStorage.getItem(activitiesKey) || '[]');
+    
+    // Update stats
+    const newStats = {
+        ...existingStats,
+        totalQuestions: (existingStats.totalQuestions || 0) + questionCount,
+        totalFiles: (existingStats.totalFiles || 0) + fileCount,
+        monthlyQuestions: {
+            ...(existingStats.monthlyQuestions || {}),
+            [currentMonth]: ((existingStats.monthlyQuestions || {})[currentMonth] || 0) + questionCount
+        },
+        monthlyFiles: {
+            ...(existingStats.monthlyFiles || {}),
+            [currentMonth]: ((existingStats.monthlyFiles || {})[currentMonth] || 0) + fileCount
+        },
+        lastActivity: new Date().toISOString()
+    };
+    
+    // Add activity
+    const newActivity = {
+        id: Date.now(),
+        type: 'questions',
+        title: `Generated ${questionCount} questions from ${fileCount} file(s)`,
+        date: new Date().toISOString(),
+        questionCount,
+        fileCount
+    };
+    
+    const updatedActivities = [newActivity, ...existingActivities].slice(0, 20);
+    
+    // Save to localStorage
+    localStorage.setItem(statsKey, JSON.stringify(newStats));
+    localStorage.setItem(activitiesKey, JSON.stringify(updatedActivities));
+    
+    console.log('User stats updated:', newStats);
+}
+
+// Remove old auth functions that are now handled by global auth manager
+function checkAuthState() {
+    // Handled by authManager
+}
+
+function initializeAuth() {
+    // Handled by authManager and initializeButtonHandlers
+}
+
+function updateAuthUI() {
+    // Handled by authManager
+}
+
+function loginUser(userData) {
+    // Handled by authManager
+}
+
+function logout() {
+    if (authManager) {
+        authManager.logout();
+    }
+}
+
+function showAuthModal(type) {
+    if (authManager) {
+        authManager.showAuthModal(type);
+    }
+}
+
+function closeAuthModal() {
+    if (authManager) {
+        authManager.closeAuthModal();
+    }
+}
+
+function showUserMenu() {
+    // Not needed with new avatar system
+}
+
+function closeUserMenu() {
+    // Not needed with new avatar system
+}
+
+function handleAuth(isLogin) {
+    // Handled by authManager
 }
 
 function initializeAuth() {
