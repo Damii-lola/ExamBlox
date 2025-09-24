@@ -1,17 +1,266 @@
 // script.js - Enhanced with Multiple Files, Camera, and Multi-page Support
 
-let selectedFiles = [];
-let extractedTexts = [];
-let totalExtractedText = '';
+// Authentication state
+let isUserLoggedIn = false;
+let currentUser = null;
 
-// Wait for page to load
+// Initialize authentication on page load
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing enhanced version...');
+    checkAuthState();
+    initializeAuth();
     initializeEnhancedFileUpload();
     initializeStarsBackground();
     initializeMobileNav();
     initializeFAQ();
 });
+
+function checkAuthState() {
+    // Check if user is logged in (from localStorage)
+    const userData = localStorage.getItem('examblox_user');
+    if (userData) {
+        try {
+            currentUser = JSON.parse(userData);
+            isUserLoggedIn = true;
+            updateAuthUI();
+            console.log('User is logged in:', currentUser.email);
+        } catch (error) {
+            console.error('Error parsing user data:', error);
+            localStorage.removeItem('examblox_user');
+        }
+    }
+}
+
+function initializeAuth() {
+    const loginBtn = document.querySelector('.btn-login');
+    const signupBtn = document.querySelector('.btn-signup');
+
+    if (loginBtn) {
+        loginBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (isUserLoggedIn) {
+                showUserMenu();
+            } else {
+                showAuthModal('login');
+            }
+        });
+    }
+
+    if (signupBtn) {
+        signupBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (isUserLoggedIn) {
+                logout();
+            } else {
+                showAuthModal('signup');
+            }
+        });
+    }
+}
+
+function updateAuthUI() {
+    const loginBtn = document.querySelector('.btn-login');
+    const signupBtn = document.querySelector('.btn-signup');
+
+    if (isUserLoggedIn && currentUser) {
+        if (loginBtn) {
+            loginBtn.textContent = currentUser.name || currentUser.email;
+            loginBtn.title = 'User menu';
+        }
+        if (signupBtn) {
+            signupBtn.textContent = 'Logout';
+            signupBtn.title = 'Sign out';
+        }
+    } else {
+        if (loginBtn) {
+            loginBtn.textContent = 'Login';
+            loginBtn.title = 'Sign in to your account';
+        }
+        if (signupBtn) {
+            signupBtn.textContent = 'Sign Up';
+            signupBtn.title = 'Create an account';
+        }
+    }
+}
+
+function showAuthModal(type) {
+    const isLogin = type === 'login';
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.id = 'auth-modal';
+    
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="close-modal" onclick="closeAuthModal()">&times;</div>
+            <h2>${isLogin ? 'Welcome Back' : 'Create Account'}</h2>
+            <p class="modal-subtitle">${isLogin ? 'Sign in to your ExamBlox account' : 'Join thousands of students using ExamBlox'}</p>
+            
+            <form id="auth-form" style="display: flex; flex-direction: column; gap: 20px;">
+                ${!isLogin ? '<input type="text" id="auth-name" placeholder="Full Name" required style="padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(21,19,32,0.8); color: var(--text);">' : ''}
+                <input type="email" id="auth-email" placeholder="Email Address" required style="padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(21,19,32,0.8); color: var(--text);">
+                <input type="password" id="auth-password" placeholder="Password" required style="padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(21,19,32,0.8); color: var(--text);">
+                ${!isLogin ? '<input type="password" id="auth-confirm-password" placeholder="Confirm Password" required style="padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(21,19,32,0.8); color: var(--text);">' : ''}
+                
+                <button type="submit" style="background: linear-gradient(90deg, var(--primary-light), var(--primary)); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                    ${isLogin ? 'Sign In' : 'Create Account'}
+                </button>
+            </form>
+            
+            <div style="text-align: center; margin-top: 20px; color: var(--text-secondary);">
+                ${isLogin ? "Don't have an account?" : "Already have an account?"}
+                <a href="#" id="auth-switch" style="color: var(--primary-light); text-decoration: none; margin-left: 5px;">
+                    ${isLogin ? 'Sign up' : 'Sign in'}
+                </a>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Handle form submission
+    document.getElementById('auth-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        handleAuth(isLogin);
+    });
+
+    // Handle auth switch
+    document.getElementById('auth-switch').addEventListener('click', function(e) {
+        e.preventDefault();
+        closeAuthModal();
+        showAuthModal(isLogin ? 'signup' : 'login');
+    });
+}
+
+function handleAuth(isLogin) {
+    const email = document.getElementById('auth-email').value;
+    const password = document.getElementById('auth-password').value;
+    const name = isLogin ? null : document.getElementById('auth-name').value;
+    const confirmPassword = isLogin ? null : document.getElementById('auth-confirm-password').value;
+
+    // Basic validation
+    if (!email || !password) {
+        showNotification('Please fill in all fields', 'error');
+        return;
+    }
+
+    if (!isLogin) {
+        if (!name) {
+            showNotification('Please enter your name', 'error');
+            return;
+        }
+        if (password !== confirmPassword) {
+            showNotification('Passwords do not match', 'error');
+            return;
+        }
+        if (password.length < 6) {
+            showNotification('Password must be at least 6 characters', 'error');
+            return;
+        }
+    }
+
+    // Simulate authentication (replace with real API calls)
+    if (isLogin) {
+        // Login logic - in a real app, validate against server
+        const existingUser = localStorage.getItem(`user_${email}`);
+        if (existingUser) {
+            const userData = JSON.parse(existingUser);
+            if (userData.password === password) {
+                loginUser(userData);
+                closeAuthModal();
+                showNotification('Welcome back!', 'success');
+            } else {
+                showNotification('Invalid email or password', 'error');
+            }
+        } else {
+            showNotification('Account not found. Please sign up first.', 'error');
+        }
+    } else {
+        // Signup logic - in a real app, send to server
+        const existingUser = localStorage.getItem(`user_${email}`);
+        if (existingUser) {
+            showNotification('Account already exists. Please sign in.', 'error');
+        } else {
+            const userData = {
+                name: name,
+                email: email,
+                password: password, // In real app, never store plain passwords!
+                createdAt: new Date().toISOString(),
+                plan: 'free'
+            };
+            
+            localStorage.setItem(`user_${email}`, JSON.stringify(userData));
+            loginUser(userData);
+            closeAuthModal();
+            showNotification('Account created successfully!', 'success');
+        }
+    }
+}
+
+function loginUser(userData) {
+    currentUser = {
+        name: userData.name,
+        email: userData.email,
+        plan: userData.plan || 'free',
+        loginTime: new Date().toISOString()
+    };
+    isUserLoggedIn = true;
+    localStorage.setItem('examblox_user', JSON.stringify(currentUser));
+    updateAuthUI();
+}
+
+function logout() {
+    isUserLoggedIn = false;
+    currentUser = null;
+    localStorage.removeItem('examblox_user');
+    updateAuthUI();
+    showNotification('Logged out successfully', 'success');
+}
+
+function showUserMenu() {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.id = 'user-menu-modal';
+    
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 300px;">
+            <div class="close-modal" onclick="closeUserMenu()">&times;</div>
+            <h3>${currentUser.name}</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">${currentUser.email}</p>
+            <p style="color: var(--accent); margin-bottom: 20px;">Plan: ${currentUser.plan.toUpperCase()}</p>
+            <button onclick="logout(); closeUserMenu();" style="background: var(--error); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; width: 100%;">
+                Sign Out
+            </button>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeUserMenu();
+        }
+    });
+}
+
+function closeAuthModal() {
+    const modal = document.getElementById('auth-modal');
+    if (modal) {
+        document.body.removeChild(modal);
+    }
+}
+
+function closeUserMenu() {
+    const modal = document.getElementById('user-menu-modal');
+    if (modal) {
+        document.body.removeChild(modal);
+    }
+}
+
+function showCustomUploadModal(fileInput, cameraInput) {
+    // This function is no longer needed, but keeping for compatibility
+}
+
+// Wait for page to load
 
 function initializeEnhancedFileUpload() {
     console.log('Initializing enhanced file upload with multiple files and camera support...');
@@ -493,6 +742,13 @@ function extractTextFromPpt(file, callback) {
 }
 
 function handleGenerateQuestions() {
+    // Check authentication first
+    if (!isUserLoggedIn) {
+        showNotification('Please sign in to generate questions', 'error');
+        showAuthModal('login');
+        return;
+    }
+
     if (selectedFiles.length === 0 || !totalExtractedText) {
         showNotification('Please select files first', 'error');
         return;
@@ -504,6 +760,7 @@ function handleGenerateQuestions() {
     const difficulty = difficultySelects.length > 1 ? difficultySelects[1].value : 'Medium';
 
     console.log('Generate button clicked!');
+    console.log('User:', currentUser.email);
     console.log('Question Type:', questionType);
     console.log('Number of Questions:', numQuestions);
     console.log('Difficulty:', difficulty);
