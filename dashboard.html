@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - ExamBlox</title>
+  <link rel="icon" type="image/png" href="images/favicon.png">
+  <link rel="stylesheet" href="Frontend/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    .dashboard-container {
+      background: var(--darker);
+      min-height: 100vh;
+      padding-top: clamp(100px, 15vh, 140px);
+      padding-bottom: var(--spacing-2xl);
+    }
+
+    .dashboard-header {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: var(--spacing-lg);
+      margin-bottom: var(--spacing-lg);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: var(--spacing-md);
+    }
+
+    .user-info h1 {
+      color: var(--primary-light);
+      margin-bottom: var(--spacing-xs);
+      font-size: var(--font-size-2xl);
+    }
+
+    .user-info .user-email {
+      color: var(--text-secondary);
+      font-size: var(--font-size-base);
+    }
+
+    .user-plan {
+      background: var(--primary);
+      color: white;
+      padding: var(--spacing-xs) var(--spacing-md);
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: var(--font-size-sm);
+    }
+
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+      gap: var(--spacing-lg);
+      margin-bottom: var(--spacing-xl);
+    }
+
+    .dashboard-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: var(--spacing-lg);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .dashboard-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      margin-bottom: var(--spacing-md);
+    }
+
+    .card-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 1.2rem;
+    }
+
+    .card-title {
+      font-size: var(--font-size-lg);
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .stat-number {
+      font-size: clamp(2rem, 5vw, 2.5rem);
+      font-weight: 800;
+      color: var(--primary-light);
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .stat-label {
+      color: var(--text-secondary);
+      font-size: var(--font-size-sm);
+    }
+
+    .recent-item {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm);
+      border-radius: 8px;
+      margin-bottom: var(--spacing-xs);
+      transition: background 0.3s;
+      cursor: pointer;
+    }
+
+    .recent-item:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .recent-item-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 0.9rem;
+      flex-shrink: 0;
+    }
+
+    .recent-item-content {
+      flex: 1;
+    }
+
+    .recent-item-title {
+      font-weight: 500;
+      color: var(--text);
+      font-size: var(--font-size-sm);
+      margin-bottom: 2px;
+    }
+
+    .recent-item-meta {
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+    }
+
+    .quick-action-btn {
+      background: linear-gradient(90deg, var(--primary-light), var(--primary));
+      color: white;
+      border: none;
+      padding: var(--spacing-sm) var(--spacing-md);
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-xs);
+      font-size: var(--font-size-sm);
+      width: 100%;
+      justify-content: center;
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .quick-action-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(106, 75, 255, 0.4);
+    }
+
+    .progress-ring {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto var(--spacing-md);
+    }
+
+    .progress-ring circle {
+      fill: transparent;
+      stroke: var(--primary);
+      stroke-width: 3;
+      stroke-dasharray: 251.2;
+      stroke-dashoffset: 125.6;
+      transform: rotate(-90deg);
+      transform-origin: center;
+      transition: stroke-dashoffset 1s ease;
+    }
+
+    .progress-ring-bg {
+      stroke: rgba(255, 255, 255, 0.1) !important;
+      stroke-dashoffset: 0 !important;
+    }
+
+    .achievement-badge {
+      background: var(--accent);
+      color: var(--dark);
+      padding: var(--spacing-xs) var(--spacing-sm);
+      border-radius: 15px;
+      font-weight: 600;
+      font-size: 0.75rem;
+      display: inline-block;
+      margin: 2px;
+    }
+
+    @media (max-width: 768px) {
+      .dashboard-header {
+        flex-direction: column;
+        text-align: center;
+      }
+      
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- STAR BACKGROUND -->
+  <div class="stars"></div>
+
+  <!-- Navigation -->
+  <nav class="navbar">
+    <div class="container">
+      <div class="site-logo" onclick="goToHomepage()" style="cursor: pointer;">
+        <i class="fas fa-book"></i>
+        <h2 class="site-name">ExamBlox</h2>
+      </div>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="dashboard.html" style="color: var(--primary-light);">Dashboard</a></li>
+        <li><a href="#" class="btn-login">Loading...</a></li>
+        <li><a href="#" class="btn-signup">Logout</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Dashboard Container -->
+  <div class="dashboard-container">
+    <div class="container">
+      <!-- Dashboard Header -->
+      <div class="dashboard-header">
+        <div class="user-info">
+          <h1 id="welcome-message">Welcome back!</h1>
+          <div class="user-email" id="user-email">Loading...</div>
+        </div>
+        <div class="user-plan" id="user-plan">FREE PLAN</div>
+      </div>
+
+      <!-- Dashboard Grid -->
+      <div class="dashboard-grid">
+        <!-- Statistics Card -->
+        <div class="dashboard-card">
+          <div class="card-header">
+            <div class="card-icon" style="background: var(--primary);">
+              <i class="fas fa-chart-line"></i>
+            </div>
+            <div class="card-title">Your Statistics</div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-md);">
+            <div style="text-align: center;">
+              <div class="stat-number" id="total-questions">0</div>
+              <div class="stat-label">Questions Generated</div>
+            </div>
+            <div style="text-align: center;">
+              <div class="stat-number" id="total-files">0</div>
+              <div class="stat-label">Files Processed</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Actions Card -->
+        <div class="dashboard-card">
+          <div class="card-header">
+            <div class="card-icon" style="background: var(--accent);">
+              <i class="fas fa-bolt"></i>
+            </div>
+            <div class="card-title">Quick Actions</div>
+          </div>
+          <button class="quick-action-btn" onclick="window.location.href='index.html#upload'">
+            <i class="fas fa-plus"></i>
+            Create New Questions
+          </button>
+          <button class="quick-action-btn" onclick="viewPracticeHistory()" style="background: var(--success);">
+            <i class="fas fa-history"></i>
+            View Practice History
+          </button>
+          <button class="quick-action-btn" onclick="window.location.href='index.html#pricing'" style="background: var(--warning);">
+            <i class="fas fa-crown"></i>
+            Upgrade Plan
+          </button>
+        </div>
+
+        <!-- Recent Activity Card -->
+        <div class="dashboard-card">
+          <div class="card-header">
+            <div class="card-icon" style="background: var(--success);">
+              <i class="fas fa-clock"></i>
+            </div>
+            <div class="card-title">Recent Activity</div>
+          </div>
+          <div id="recent-activities">
+            <!-- Recent activities will be populated by JavaScript -->
+          </div>
+        </div>
+
+        <!-- Progress Card -->
+        <div class="dashboard-card">
+          <div class="card-header">
+            <div class="card-icon" style="background: var(--warning);">
+              <i class="fas fa-target"></i>
+            </div>
+            <div class="card-title">Monthly Goal</div>
+          </div>
+          <div style="text-align: center;">
+            <svg class="progress-ring">
+              <circle class="progress-ring-bg" cx="40" cy="40" r="36"></circle>
+              <circle id="progress-circle" cx="40" cy="40" r="36"></circle>
+            </svg>
+            <div class="stat-number" id="goal-progress">0%</div>
+            <div class="stat-label">Questions this month</div>
+          </div>
+        </div>
+
+        <!-- Plan Usage Card -->
+        <div class="dashboard-card">
+          <div class="card-header">
+            <div class="card-icon" style="background: var(--primary);">
+              <i class="fas fa-chart-pie"></i>
+            </div>
+            <div class="card-title">Plan Usage</div>
+          </div>
+          <div id="plan-usage">
+            <div style="margin-bottom: var(--spacing-md);">
+              <div style="display: flex; justify-content: space-between; margin-bottom: var(--spacing-xs);">
+                <span>Files this month</span>
+                <span id="files-usage">0/5</span>
+              </div>
+              <div style="background: rgba(255,255,255,0.1); border-radius: 10px; height: 6px; overflow: hidden;">
+                <div id="files-progress-bar" style="background: var(--primary); height: 100%; width: 0%; transition: width 0.3s;"></div>
+              </div>
+            </div>
+            <div style="margin-bottom: var(--spacing-md);">
+              <div style="display: flex; justify-content: space-between; margin-bottom: var(--spacing-xs);">
+                <span>Questions this month</span>
+                <span id="questions-usage">0/50</span>
+              </div>
+              <div style="background: rgba(255,255,255,0.1); border-radius: 10px; height: 6px; overflow: hidden;">
+                <div id="questions-progress-bar" style="background: var(--accent); height: 100%; width: 0%; transition: width 0.3s;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Achievements Card -->
+        <div class="dashboard-card">
+          <div class="card-header">
+            <div class="card-icon" style="background: var(--accent);">
+              <i class="fas fa-trophy"></i>
+            </div>
+            <div class="card-title">Achievements</div>
+          </div>
+          <div id="achievements">
+            <!-- Achievements will be populated by JavaScript -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Dashboard functionality
+    let currentUser = null;
+
+    document.addEventListener('DOMContentLoaded', function() {
+      initializeStarsBackground();
+      loadDashboardData();
+      updateAuthUI();
+    });
+
+    function loadDashboardData() {
+      // Check if user is logged in
+      const userData = localStorage.getItem('examblox_user');
+      if (!userData) {
+        window.location.href = 'index.html';
+        return;
+      }
+
+      try {
+        currentUser = JSON.parse(userData);
+        displayUserInfo();
+        loadUserStats();
+        loadRecentActivity();
+        loadPlanUsage();
+        loadAchievements();
+      } catch (error) {
+        console.error('Error loading user data:', error);
+        window.location.href = 'index.html';
+      }
+    }
+
+    function displayUserInfo() {
+      document.getElementById('welcome-message').textContent = `Welcome back, ${currentUser.name}!`;
+      document.getElementById('user-email').textContent = currentUser.email;
+      document.getElementById('user-plan').textContent = `${currentUser.plan.toUpperCase()} PLAN`;
+      
+      // Update nav
+      const loginBtn = document.querySelector('.btn-login');
+      if (loginBtn) {
+        loginBtn.textContent = currentUser.name;
+      }
+    }
+
+    function loadUserStats() {
+      // Get user stats from localStorage
+      const userStats = JSON.parse(localStorage.getItem(`stats_${currentUser.email}`) || '{}');
+      
+      const totalQuestions = userStats.totalQuestions || 0;
+      const totalFiles = userStats.totalFiles || 0;
+      
+      document.getElementById('total-questions').textContent = totalQuestions;
+      document.getElementById('total-files').textContent = totalFiles;
+
+      // Update monthly goal progress
+      const monthlyGoal = 50; // Default goal
+      const progress = Math.min((totalQuestions / monthlyGoal) * 100, 100);
+      document.getElementById('goal-progress').textContent = `${Math.round(progress)}%`;
+      
+      // Update progress ring
+      const circle = document.getElementById('progress-circle');
+      const circumference = 2 * Math.PI * 36; // radius = 36
+      const offset = circumference - (progress / 100) * circumference;
+      circle.style.strokeDashoffset = offset;
+    }
+
+    function loadRecentActivity() {
+      const recentActivities = JSON.parse(localStorage.getItem(`activities_${currentUser.email}`) || '[]');
+      const container = document.getElementById('recent-activities');
+      
+      if (recentActivities.length === 0) {
+        container.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 20px;">No recent activity</div>';
+        return;
+      }
+
+      container.innerHTML = recentActivities.slice(0, 5).map(activity => `
+        <div class="recent-item">
+          <div class="recent-item-icon">
+            <i class="fas ${getActivityIcon(activity.type)}"></i>
+          </div>
+          <div class="recent-item-content">
+            <div class="recent-item-title">${activity.title}</div>
+            <div class="recent-item-meta">${formatDate(activity.date)}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function loadPlanUsage() {
+      const userStats = JSON.parse(localStorage.getItem(`stats_${currentUser.email}`) || '{}');
+      const currentMonth = new Date().getMonth();
+      const monthlyFiles = userStats.monthlyFiles?.[currentMonth] || 0;
+      const monthlyQuestions = userStats.monthlyQuestions?.[currentMonth] || 0;
+
+      const limits = currentUser.plan === 'free' ? { files: 5, questions: 50 } : { files: 999, questions: 999 };
+
+      document.getElementById('files-usage').textContent = `${monthlyFiles}/${limits.files}`;
+      document.getElementById('questions-usage').textContent = `${monthlyQuestions}/${limits.questions}`;
+
+      const filesProgress = Math.min((monthlyFiles / limits.files) * 100, 100);
+      const questionsProgress = Math.min((monthlyQuestions / limits.questions) * 100, 100);
+
+      document.getElementById('files-progress-bar').style.width = `${filesProgress}%`;
+      document.getElementById('questions-progress-bar').style.width = `${questionsProgress}%`;
+    }
+
+    function loadAchievements() {
+      const userStats = JSON.parse(localStorage.getItem(`stats_${currentUser.email}`) || '{}');
+      const achievements = [];
+
+      if (userStats.totalQuestions >= 10) achievements.push('Question Master');
+      if (userStats.totalFiles >= 5) achievements.push('File Explorer');
+      if (userStats.totalQuestions >= 50) achievements.push('Study Champion');
+      if (userStats.streak >= 3) achievements.push('Consistency King');
+
+      const container = document.getElementById('achievements');
+      
+      if (achievements.length === 0) {
+        container.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 20px;">No achievements yet. Keep studying!</div>';
+      } else {
+        container.innerHTML = achievements.map(achievement => 
+          `<span class="achievement-badge">${achievement}</span>`
+        ).join('');
+      }
+    }
+
+    function getActivityIcon(type) {
+      switch(type) {
+        case 'questions': return 'fa-question-circle';
+        case 'upload': return 'fa-upload';
+        case 'practice': return 'fa-play';
+        default: return 'fa-circle';
+      }
+    }
+
+    function formatDate(dateString) {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diff = now - date;
+      
+      if (diff < 60000) return 'Just now';
+      if (diff < 3600000) return `${Math.floor(diff / 60000)} min ago`;
+      if (diff < 86400000) return `${Math.floor(diff / 3600000)} hours ago`;
+      return `${Math.floor(diff / 86400000)} days ago`;
+    }
+
+    function viewPracticeHistory() {
+      showNotification('Practice history feature coming soon!', 'info');
+    }
+
+    function updateAuthUI() {
+      const signupBtn = document.querySelector('.btn-signup');
+      if (signupBtn) {
+        signupBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          logout();
+        });
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem('examblox_user');
+      window.location.href = 'index.html';
+    }
+
+    function goToHomepage() {
+      window.location.href = 'index.html';
+    }
+
+    function showNotification(message, type) {
+      const notification = document.createElement('div');
+      notification.className = 'notification notification-' + type;
+      notification.innerHTML = '<span>' + message + '</span><button>&times;</button>';
+
+      document.body.appendChild(notification);
+
+      setTimeout(function() {
+        if (document.body.contains(notification)) {
+          document.body.removeChild(notification);
+        }
+      }, 3000);
+
+      const closeBtn = notification.querySelector('button');
+      if (closeBtn) {
+        closeBtn.addEventListener('click', function() {
+          if (document.body.contains(notification)) {
+            document.body.removeChild(notification);
+          }
+        });
+      }
+    }
+
+    function initializeStarsBackground() {
+      const starsContainer = document.querySelector('.stars');
+      if (!starsContainer) return;
+      
+      for (let i = 0; i < 100; i++) {
+        const star = document.createElement('span');
+        star.style.left = Math.random() * 100 + '%';
+        star.style.top = Math.random() * 100 + '%';
+        star.style.animationDelay = Math.random() * 4 + 's';
+        starsContainer.appendChild(star);
+      }
+    }
+  </script>
+</body>
+</html>
