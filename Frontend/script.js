@@ -65,6 +65,90 @@ function updateAuthUI() {
     if (isUserLoggedIn && currentUser) {
         if (loginBtn) {
             loginBtn.textContent = currentUser.name || currentUser.email;
+            loginBtn.title = 'View dashboard';
+            loginBtn.href = 'dashboard.html';
+        }
+        if (signupBtn) {
+            signupBtn.textContent = 'Dashboard';
+            signupBtn.title = 'Go to dashboard';
+            signupBtn.href = 'dashboard.html';
+        }
+    } else {
+        if (loginBtn) {
+            loginBtn.textContent = 'Login';
+            loginBtn.title = 'Sign in to your account';
+            loginBtn.href = '#';
+        }
+        if (signupBtn) {
+            signupBtn.textContent = 'Sign Up';
+            signupBtn.title = 'Create an account';
+            loginBtn.href = '#';
+        }
+    }
+}
+
+function initializeAuth() {
+    const loginBtn = document.querySelector('.btn-login');
+    const signupBtn = document.querySelector('.btn-signup');
+
+    if (loginBtn) {
+        loginBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (isUserLoggedIn) {
+                window.location.href = 'dashboard.html';
+            } else {
+                showAuthModal('login');
+            }
+        });
+    }
+
+    if (signupBtn) {
+        signupBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (isUserLoggedIn) {
+                window.location.href = 'dashboard.html';
+            } else {
+                showAuthModal('signup');
+            }
+        });
+    }
+
+    // Make other buttons work
+    const ctaBtn = document.querySelector('.btn-cta');
+    if (ctaBtn) {
+        ctaBtn.addEventListener('click', function() {
+            if (!isUserLoggedIn) {
+                showAuthModal('signup');
+            } else {
+                document.querySelector('.upload-area').scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+    }
+
+    // Make pricing buttons work
+    const pricingBtns = document.querySelectorAll('.btn-pricing');
+    pricingBtns.forEach((btn, index) => {
+        btn.addEventListener('click', function() {
+            if (index === 0) { // Free plan
+                if (!isUserLoggedIn) {
+                    showAuthModal('signup');
+                } else {
+                    showNotification('You are already on the Free plan!', 'info');
+                }
+            } else if (index === 1) { // Premium plan
+                showNotification('Premium plan upgrade coming soon!', 'info');
+            } else { // Institutional plan
+                showNotification('Contact sales feature coming soon!', 'info');
+            }
+        });
+    });
+}UI() {
+    const loginBtn = document.querySelector('.btn-login');
+    const signupBtn = document.querySelector('.btn-signup');
+
+    if (isUserLoggedIn && currentUser) {
+        if (loginBtn) {
+            loginBtn.textContent = currentUser.name || currentUser.email;
             loginBtn.title = 'User menu';
         }
         if (signupBtn) {
@@ -821,6 +905,9 @@ async function callBackendAPI(text, questionType, numQuestions, difficulty) {
                 console.log(`Question ${index + 1}: ${question.question}`);
             });
             
+            // Update user stats
+            updateUserStats(result.data.questions.length, selectedFiles.length);
+            
             // Store questions and enhanced metadata
             const fileNames = selectedFiles.map(f => f.name).join(', ');
             const questionData = {
@@ -832,7 +919,8 @@ async function callBackendAPI(text, questionType, numQuestions, difficulty) {
                     questionType: questionType,
                     difficulty: difficulty,
                     totalQuestions: result.data.questions.length,
-                    textLength: text.length
+                    textLength: text.length,
+                    isFlashcardMode: questionType === 'Flashcards'
                 }
             };
             
