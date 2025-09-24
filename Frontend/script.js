@@ -108,30 +108,85 @@ function showFileUploadOptions(fileInput, cameraInput) {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
     if (isMobile) {
-        // Show mobile-specific options
-        const options = [
-            'Upload Files (PDF, Word, Images, etc.)',
-            'Take Photos',
-            'Cancel'
-        ];
-        
-        // Simple mobile menu (you can enhance this with a proper modal)
-        const choice = prompt(`Choose upload method:\n1. ${options[0]}\n2. ${options[1]}\n3. ${options[2]}\n\nEnter 1, 2, or 3:`);
-        
-        switch(choice) {
-            case '1':
-                fileInput.click();
-                break;
-            case '2':
-                cameraInput.click();
-                break;
-            default:
-                console.log('Upload cancelled');
-        }
+        // Show custom mobile modal instead of ugly prompt
+        showCustomUploadModal(fileInput, cameraInput);
     } else {
         // Desktop - just open file picker
         fileInput.click();
     }
+}
+
+function showCustomUploadModal(fileInput, cameraInput) {
+    // Create custom modal
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.id = 'upload-options-modal';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 400px;">
+            <h2>Choose an action</h2>
+            <div style="display: flex; flex-direction: column; gap: 20px; margin: 30px 0;">
+                <button class="upload-option-btn" id="camera-btn">
+                    <div class="option-icon" style="background: #ff3b30; border-radius: 50%; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px;">
+                        <i class="fas fa-camera" style="color: white; font-size: 24px;"></i>
+                    </div>
+                    <span>Camera</span>
+                </button>
+                <button class="upload-option-btn" id="files-btn">
+                    <div class="option-icon" style="background: #007aff; border-radius: 50%; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px;">
+                        <i class="fas fa-folder" style="color: white; font-size: 24px;"></i>
+                    </div>
+                    <span>Files</span>
+                </button>
+            </div>
+        </div>
+    `;
+
+    // Add modal styles
+    const style = document.createElement('style');
+    style.textContent = `
+        .upload-option-btn {
+            background: transparent;
+            border: none;
+            padding: 15px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: var(--text);
+            font-size: 16px;
+            font-weight: 500;
+            text-align: center;
+        }
+        .upload-option-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .upload-option-btn:active {
+            transform: scale(0.95);
+        }
+    `;
+    document.head.appendChild(style);
+
+    document.body.appendChild(modal);
+
+    // Handle button clicks
+    document.getElementById('camera-btn').addEventListener('click', function() {
+        document.body.removeChild(modal);
+        document.head.removeChild(style);
+        cameraInput.click();
+    });
+
+    document.getElementById('files-btn').addEventListener('click', function() {
+        document.body.removeChild(modal);
+        document.head.removeChild(style);
+        fileInput.click();
+    });
+
+    // Close modal when clicking outside
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+            document.head.removeChild(style);
+        }
+    });
 }
 
 function handleMultipleFileSelection(files) {
