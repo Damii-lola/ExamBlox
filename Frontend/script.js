@@ -38,22 +38,14 @@ function initializeAuth() {
     if (loginBtn) {
         loginBtn.addEventListener('click', function(e) {
             e.preventDefault();
-            if (isUserLoggedIn) {
-                showUserMenu();
-            } else {
-                showAuthModal('login');
-            }
+            showAuthModal('login');
         });
     }
 
     if (signupBtn) {
         signupBtn.addEventListener('click', function(e) {
             e.preventDefault();
-            if (isUserLoggedIn) {
-                logout();
-            } else {
-                showAuthModal('signup');
-            }
+            showAuthModal('signup');
         });
     }
 }
@@ -63,22 +55,37 @@ function updateAuthUI() {
     const signupBtn = document.querySelector('.btn-signup');
 
     if (isUserLoggedIn && currentUser) {
-        if (loginBtn) {
-            loginBtn.textContent = currentUser.name || currentUser.email;
-            loginBtn.title = 'User menu';
+        // Hide login and signup buttons
+        if (loginBtn) loginBtn.style.display = 'none';
+        if (signupBtn) signupBtn.style.display = 'none';
+        
+        // Create or update user avatar
+        let userAvatar = document.querySelector('.user-avatar');
+        if (!userAvatar) {
+            userAvatar = document.createElement('div');
+            userAvatar.className = 'user-avatar';
+            userAvatar.onclick = showUserMenu;
+            
+            // Insert after signup button or at end of nav-links
+            const navLinks = document.querySelector('.nav-links');
+            if (navLinks) {
+                navLinks.appendChild(userAvatar);
+            }
         }
-        if (signupBtn) {
-            signupBtn.textContent = 'Logout';
-            signupBtn.title = 'Sign out';
-        }
+        
+        const firstLetter = (currentUser.name || currentUser.email).charAt(0).toUpperCase();
+        userAvatar.innerHTML = `<span>${firstLetter}</span>`;
+        userAvatar.title = currentUser.name || currentUser.email;
+        
     } else {
-        if (loginBtn) {
-            loginBtn.textContent = 'Login';
-            loginBtn.title = 'Sign in to your account';
-        }
-        if (signupBtn) {
-            signupBtn.textContent = 'Sign Up';
-            signupBtn.title = 'Create an account';
+        // Show login and signup buttons
+        if (loginBtn) loginBtn.style.display = 'inline-block';
+        if (signupBtn) signupBtn.style.display = 'inline-block';
+        
+        // Remove user avatar
+        const userAvatar = document.querySelector('.user-avatar');
+        if (userAvatar) {
+            userAvatar.remove();
         }
     }
 }
