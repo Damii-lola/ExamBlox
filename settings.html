@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings - ExamBlox</title>
+  <link rel="icon" type="image/png" href="images/favicon.png">
+  <link rel="stylesheet" href="Frontend/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- STAR BACKGROUND -->
+  <div class="stars"></div>
+
+  <!-- Navigation -->
+  <nav class="navbar">
+    <div class="container">
+      <div class="site-logo" onclick="goToHomepage()" style="cursor: pointer;">
+        <i class="fas fa-book"></i>
+        <h2 class="site-name">ExamBlox</h2>
+      </div>
+      <ul class="nav-links">
+        <li><a href="dashboard.html">Dashboard</a></li>
+        <li><a href="#" class="btn-login">Login</a></li>
+        <li><a href="#" class="btn-signup">Sign Up</a></li>
+      </ul>
+      <div class="hamburger">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Settings Container -->
+  <div class="settings-container">
+    <div class="container">
+      <!-- Settings Header -->
+      <div class="settings-header">
+        <h1>Account Settings</h1>
+        <p>Manage your profile, preferences, and account settings</p>
+      </div>
+
+      <!-- Settings Content -->
+      <div class="settings-content">
+        <!-- Profile Settings -->
+        <div class="settings-section">
+          <h2>Profile Information</h2>
+          <div class="settings-card">
+            <div class="profile-section">
+              <div class="profile-avatar-large">
+                <span id="profile-letter">U</span>
+              </div>
+              <div class="profile-info">
+                <h3 id="profile-name">User Name</h3>
+                <p id="profile-email">user@example.com</p>
+                <span class="profile-plan" id="profile-plan">FREE PLAN</span>
+              </div>
+            </div>
+            
+            <form class="settings-form" id="profile-form">
+              <div class="form-group">
+                <label for="edit-name">Full Name</label>
+                <input type="text" id="edit-name" placeholder="Your full name">
+              </div>
+              
+              <div class="form-group">
+                <label for="edit-email">Email Address</label>
+                <input type="email" id="edit-email" placeholder="your@email.com">
+              </div>
+              
+              <button type="submit" class="settings-btn">Update Profile</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Security Settings -->
+        <div class="settings-section">
+          <h2>Security</h2>
+          <div class="settings-card">
+            <form class="settings-form" id="password-form">
+              <div class="form-group">
+                <label for="current-password">Current Password</label>
+                <input type="password" id="current-password" placeholder="Enter current password">
+              </div>
+              
+              <div class="form-group">
+                <label for="new-password">New Password</label>
+                <input type="password" id="new-password" placeholder="Enter new password">
+              </div>
+              
+              <div class="form-group">
+                <label for="confirm-password">Confirm New Password</label>
+                <input type="password" id="confirm-password" placeholder="Confirm new password">
+              </div>
+              
+              <button type="submit" class="settings-btn">Change Password</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Preferences -->
+        <div class="settings-section">
+          <h2>Preferences</h2>
+          <div class="settings-card">
+            <div class="preference-item">
+              <div class="preference-info">
+                <h4>Email Notifications</h4>
+                <p>Receive updates about your account and new features</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="email-notifications" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+            
+            <div class="preference-item">
+              <div class="preference-info">
+                <h4>Auto-save Generated Questions</h4>
+                <p>Automatically save your generated questions for later review</p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="auto-save" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+            
+            <div class="preference-item">
+              <div class="preference-info">
+                <h4>Default Question Difficulty</h4>
+                <p>Set your preferred difficulty level for new questions</p>
+              </div>
+              <select id="default-difficulty" class="settings-select">
+                <option value="easy">Easy</option>
+                <option value="medium" selected>Medium</option>
+                <option value="hard">Hard</option>
+                <option value="exam">Exam Level</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Data & Privacy -->
+        <div class="settings-section">
+          <h2>Data & Privacy</h2>
+          <div class="settings-card">
+            <div class="data-item">
+              <h4>Download Your Data</h4>
+              <p>Download all your generated questions and study data</p>
+              <button class="settings-btn secondary" onclick="downloadData()">Download Data</button>
+            </div>
+            
+            <div class="data-item">
+              <h4>Clear Activity History</h4>
+              <p>Remove all your recent activities and question history</p>
+              <button class="settings-btn danger" onclick="clearHistory()">Clear History</button>
+            </div>
+            
+            <div class="data-item">
+              <h4>Delete Account</h4>
+              <p>Permanently delete your account and all associated data</p>
+              <button class="settings-btn danger" onclick="deleteAccount()">Delete Account</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    /* Settings Page Styles */
+    .settings-container {
+      background: var(--darker);
+      min-height: 100vh;
+      padding-top: clamp(100px, 15vh, 140px);
+      padding-bottom: var(--spacing-2xl);
+    }
+
+    .settings-header {
+      text-align: center;
+      margin-bottom: var(--spacing-2xl);
+    }
+
+    .settings-header h1 {
+      color: var(--primary-light);
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .settings-content {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .settings-section {
+      margin-bottom: var(--spacing-2xl);
+    }
+
+    .settings-section h2 {
+      color: var(--text);
+      margin-bottom: var(--spacing-lg);
+      text-align: left;
+      background: none;
+      -webkit-text-fill-color: inherit;
+    }
+
+    .settings-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: var(--spacing-xl);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .profile-section {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-lg);
+      margin-bottom: var(--spacing-xl);
+      padding-bottom: var(--spacing-lg);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .profile-avatar-large {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 3px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .profile-avatar-large span {
+      color: white;
+      font-weight: 700;
+      font-size: 32px;
+    }
+
+    .profile-info h3 {
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .profile-info p {
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .profile-plan {
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      color: white;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .settings-form {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-lg);
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-xs);
+    }
+
+    .form-group label {
+      color: var(--text);
+      font-weight: 500;
+      font-size: var(--font-size-sm);
+    }
+
+    .form-group input,
+    .settings-select {
+      padding: 12px 16px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(21, 19, 32, 0.8);
+      color: var(--text);
+      font-family: inherit;
+      transition: border-color 0.3s;
+    }
+
+    .form-group input:focus,
+    .settings-select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(106, 75, 255, 0.2);
+    }
+
+    .settings-btn {
+      padding: 12px 24px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-family: inherit;
+    }
+
+    .settings-btn {
+      background: linear-gradient(90deg, var(--primary-light), var(--primary));
+      color: white;
+    }
+
+    .settings-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(106, 75, 255, 0.4);
+    }
+
+    .settings-btn.secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text);
+    }
+
+    .settings-btn.secondary:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .settings-btn.danger {
+      background: var(--error);
+      color: white;
+    }
+
+    .settings-btn.danger:hover {
+      box-shadow: 0 5px 15px rgba(244, 67, 54, 0.4);
+    }
+
+    .preference-item,
+    .data-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--spacing-lg) 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .preference-item:last-child,
+    .data-item:last-child {
+      border-bottom: none;
+    }
+
+    .preference-info h4,
+    .data-item h4 {
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .preference-info p,
+    .data-item p {
+      color: var(--text-secondary);
+      font-size: var(--font-size-sm);
+      margin: 0;
+    }
+
+    /* Toggle Switch */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 24px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(255, 255, 255, 0.2);
+      transition: 0.3s;
+      border-radius: 24px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: 0.3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: var(--primary);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(26px);
+    }
+
+    @media (max-width: 768px) {
+      .profile-section {
+        flex-direction: column;
+        text-align: center;
+        gap: var(--spacing-md);
+      }
+
+      .preference-item,
+      .data-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--spacing-sm);
+      }
+
+      .switch {
+        align-self: flex-end;
+      }
+    }
+  </style>
+
+  <script src="Frontend/script.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      loadSettingsData();
+      initializeSettingsForms();
+    });
+
+    function loadSettingsData() {
+      if (!isUserLoggedIn) {
+        window.location.href = 'index.html';
+        return;
+      }
+
+      // Update profile display
+      document.getElementById('profile-letter').textContent = (currentUser.name || currentUser.email).charAt(0).toUpperCase();
+      document.getElementById('profile-name').textContent = currentUser.name || 'User';
+      document.getElementById('profile-email').textContent = currentUser.email;
+      document.getElementById('profile-plan').textContent = (currentUser.plan || 'free').toUpperCase() + ' PLAN';
+
+      // Pre-fill form fields
+      document.getElementById('edit-name').value = currentUser.name || '';
+      document.getElementById('edit-email').value = currentUser.email || '';
+
+      // Load preferences
+      const preferences = JSON.parse(localStorage.getItem('examblox_preferences') || '{}');
+      document.getElementById('email-notifications').checked = preferences.emailNotifications !== false;
+      document.getElementById('auto-save').checked = preferences.autoSave !== false;
+      document.getElementById('default-difficulty').value = preferences.defaultDifficulty || 'medium';
+    }
+
+    function initializeSettingsForms() {
+      // Profile form
+      document.getElementById('profile-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        updateProfile();
+      });
+
+      // Password form
+      document.getElementById('password-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        changePassword();
+      });
+
+      // Preferences
+      document.getElementById('email-notifications').addEventListener('change', savePreferences);
+      document.getElementById('auto-save').addEventListener('change', savePreferences);
+      document.getElementById('default-difficulty').addEventListener('change', savePreferences);
+    }
+
+    function updateProfile() {
+      const name = document.getElementById('edit-name').value.trim();
+      const email = document.getElementById('edit-email').value.trim();
+
+      if (!name || !email) {
+        showNotification('Please fill in all fields', 'error');
+        return;
+      }
+
+      // Update current user
+      currentUser.name = name;
+      currentUser.email = email;
+      localStorage.setItem('examblox_user', JSON.stringify(currentUser));
+
+      // Update stored user data
+      const userData = JSON.parse(localStorage.getItem(`user_${currentUser.email}`) || '{}');
+      userData.name = name;
+      localStorage.setItem(`user_${email}`, JSON.stringify(userData));
+
+      // Update UI
+      updateAuthUI();
+      loadSettingsData();
+      
+      showNotification('Profile updated successfully!', 'success');
+    }
+
+    function changePassword() {
+      const currentPassword = document.getElementById('current-password').value;
+      const newPassword = document.getElementById('new-password').value;
+      const confirmPassword = document.getElementById('confirm-password').value;
+
+      if (!currentPassword || !newPassword || !confirmPassword) {
+        showNotification('Please fill in all password fields', 'error');
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        showNotification('New passwords do not match', 'error');
+        return;
+      }
+
+      if (newPassword.length < 6) {
+        showNotification('New password must be at least 6 characters', 'error');
+        return;
+      }
+
+      // Validate current password
+      const userData = JSON.parse(localStorage.getItem(`user_${currentUser.email}`) || '{}');
+      if (userData.password !== currentPassword) {
+        showNotification('Current password is incorrect', 'error');
+        return;
+      }
+
+      // Update password
+      userData.password = newPassword;
+      localStorage.setItem(`user_${currentUser.email}`, JSON.stringify(userData));
+
+      // Clear form
+      document.getElementById('password-form').reset();
+      
+      showNotification('Password changed successfully!', 'success');
+    }
+
+    function savePreferences() {
+      const preferences = {
+        emailNotifications: document.getElementById('email-notifications').checked,
+        autoSave: document.getElementById('auto-save').checked,
+        defaultDifficulty: document.getElementById('default-difficulty').value
+      };
+      
+      localStorage.setItem('examblox_preferences', JSON.stringify(preferences));
+      showNotification('Preferences saved', 'success');
+    }
+
+    function downloadData() {
+      const userData = {
+        profile: currentUser,
+        stats: JSON.parse(localStorage.getItem('examblox_user_stats') || '{}'),
+        activities: JSON.parse(localStorage.getItem('examblox_activities') || '[]'),
+        preferences: JSON.parse(localStorage.getItem('examblox_preferences') || '{}')
+      };
+
+      const dataStr = JSON.stringify(userData, null, 2);
+      const dataBlob = new Blob([dataStr], {type: 'application/json'});
+      const url = URL.createObjectURL(dataBlob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `examblox-data-${new Date().toISOString().split('T')[0]}.json`;
+      link.click();
+      
+      URL.revokeObjectURL(url);
+      showNotification('Data downloaded successfully!', 'success');
+    }
+
+    function clearHistory() {
+      if (confirm('Are you sure you want to clear all your activity history? This cannot be undone.')) {
+        localStorage.removeItem('examblox_activities');
+        showNotification('Activity history cleared', 'success');
+      }
+    }
+
+    function deleteAccount() {
+      if (confirm('Are you sure you want to delete your account? This will permanently delete all your data and cannot be undone.')) {
+        // Remove all user data
+        localStorage.removeItem('examblox_user');
+        localStorage.removeItem('examblox_user_stats');
+        localStorage.removeItem('examblox_activities');
+        localStorage.removeItem('examblox_preferences');
+        localStorage.removeItem(`user_${currentUser.email}`);
+        
+        showNotification('Account deleted successfully', 'success');
+        
+        // Redirect to home
+        setTimeout(() => {
+          window.location.href = 'index.html';
+        }, 2000);
+      }
+    }
+  </script>
+</body>
+</html>
