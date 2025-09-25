@@ -66,7 +66,7 @@
       <ul class="nav-links">
         <li><a href="#how">How It Works</a></li>
         <li><a href="#features">Features</a></li>
-        <li><a href="dashboard.html">Dashboard</a></li>
+        <li><a href="#testimonials">Testimonials</a></li>
         <li><a href="#pricing">Pricing</a></li>
         <li><a href="#" class="btn-login">Login</a></li>
         <li><a href="#" class="btn-signup">Sign Up</a></li>
@@ -470,16 +470,6 @@
     </div>
   </footer>
 
-  <script>
-    // Add flashcard detection and submit button hiding
-    document.addEventListener('DOMContentLoaded', function() {
-      // Check if this is flashcard mode
-      const questionData = JSON.parse(localStorage.getItem('examblox_questions') || '{}');
-      if (questionData.metadata && questionData.metadata.isFlashcardMode) {
-        document.body.classList.add('flashcard-mode');
-      }
-    });
-  </script>
   <!-- Include the JavaScript file -->
   <script src="Frontend/script.js"></script>
 </body>
