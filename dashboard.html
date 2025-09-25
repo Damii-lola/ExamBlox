@@ -21,7 +21,6 @@
         <h2 class="site-name">ExamBlox</h2>
       </div>
       <ul class="nav-links">
-        <li><a href="index.html">Home</a></li>
         <li><a href="#" class="btn-login">Login</a></li>
         <li><a href="#" class="btn-signup">Sign Up</a></li>
       </ul>
@@ -247,10 +246,19 @@
       border-bottom: none;
     }
 
-    .activity-item.placeholder {
-      justify-content: center;
-      text-align: center;
+    .activity-item.clickable:hover {
+      background: rgba(255, 255, 255, 0.05);
+      transform: translateX(5px);
+    }
+
+    .activity-arrow {
+      color: var(--text-secondary);
+      font-size: 0.8rem;
       opacity: 0.7;
+    }
+
+    .activity-item.clickable .activity-arrow {
+      opacity: 1;
     }
 
     .activity-icon {
@@ -439,16 +447,51 @@
       container.innerHTML = '';
       activities.slice(0, 5).forEach(activity => {
         const item = document.createElement('div');
-        item.className = 'activity-item';
+        item.className = 'activity-item clickable';
+        item.style.cursor = 'pointer';
         item.innerHTML = `
           <div class="activity-icon"><i class="${activity.icon}"></i></div>
           <div class="activity-content">
             <p>${activity.title}</p>
             <small>${activity.date}</small>
           </div>
+          <div class="activity-arrow">
+            <i class="fas fa-chevron-right"></i>
+          </div>
         `;
+        
+        // Add click handler to view questions
+        item.addEventListener('click', function() {
+          if (activity.questions && activity.questions.length > 0) {
+            viewSavedQuestions(activity);
+          }
+        });
+        
         container.appendChild(item);
       });
+    }
+
+    function viewSavedQuestions(activity) {
+      // Prepare questions data for viewing
+      const questionData = {
+        questions: activity.questions,
+        metadata: {
+          fileName: `Previous Session: ${activity.details.files.join(', ')}`,
+          questionType: activity.details.questionType,
+          difficulty: activity.details.difficulty,
+          totalQuestions: activity.questions.length,
+          generatedAt: activity.timestamp,
+          sessionId: activity.id
+        }
+      };
+      
+      // Save to localStorage and navigate to questions page
+      localStorage.setItem('examblox_questions', JSON.stringify(questionData));
+      showNotification('Loading previous questions...', 'success');
+      
+      setTimeout(() => {
+        window.location.href = 'questions.html';
+      }, 1000);
     }
 
     function showUpgradeModal() {
