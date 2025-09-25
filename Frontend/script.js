@@ -53,6 +53,7 @@ function initializeAuth() {
 function updateAuthUI() {
     const loginBtn = document.querySelector('.btn-login');
     const signupBtn = document.querySelector('.btn-signup');
+    const navLinks = document.querySelector('.nav-links');
 
     if (isUserLoggedIn && currentUser) {
         // Hide login and signup buttons
@@ -65,34 +66,36 @@ function updateAuthUI() {
             existingDropdown.remove();
         }
         
-        // Create user dropdown
-        const userDropdown = document.createElement('div');
+        // Create user dropdown element
+        const userDropdown = document.createElement('li');
         userDropdown.className = 'user-dropdown';
         
         const firstLetter = (currentUser.name || currentUser.email).charAt(0).toUpperCase();
+        
+        // Create the dropdown HTML structure
         userDropdown.innerHTML = `
-            <div class="user-avatar">
+            <div class="user-avatar" id="user-avatar-btn">
                 <span>${firstLetter}</span>
             </div>
-            <div class="user-dropdown-content">
+            <div class="user-dropdown-content" id="user-dropdown-menu">
                 <div class="dropdown-header">
                     <div class="dropdown-avatar">
                         <span>${firstLetter}</span>
                     </div>
                     <h4>${currentUser.name || 'User'}</h4>
                     <p>${currentUser.email}</p>
-                    <span class="dropdown-plan">${(currentUser.plan || 'free').toUpperCase()} Plan</span>
+                    <span class="dropdown-plan">${(currentUser.plan || 'free').toUpperCase()} PLAN</span>
                 </div>
                 <div class="dropdown-menu">
-                    <button class="dropdown-item" data-action="dashboard">
+                    <button class="dropdown-item" id="dropdown-dashboard">
                         <i class="fas fa-tachometer-alt"></i>
                         Dashboard
                     </button>
-                    <button class="dropdown-item" data-action="settings">
+                    <button class="dropdown-item" id="dropdown-settings">
                         <i class="fas fa-cog"></i>
                         Settings
                     </button>
-                    <button class="dropdown-item danger" data-action="logout">
+                    <button class="dropdown-item danger" id="dropdown-logout">
                         <i class="fas fa-sign-out-alt"></i>
                         Sign Out
                     </button>
@@ -100,31 +103,14 @@ function updateAuthUI() {
             </div>
         `;
         
-        // Insert at end of nav-links
-        const navLinks = document.querySelector('.nav-links');
+        // Add to navigation
         if (navLinks) {
             navLinks.appendChild(userDropdown);
         }
         
-        // Add event listeners after DOM insertion
+        // Bind events after a short delay to ensure DOM is ready
         setTimeout(() => {
-            const avatar = userDropdown.querySelector('.user-avatar');
-            const dropdownItems = userDropdown.querySelectorAll('.dropdown-item');
-            
-            if (avatar) {
-                avatar.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    toggleUserDropdown();
-                });
-            }
-            
-            dropdownItems.forEach(item => {
-                item.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    const action = this.getAttribute('data-action');
-                    handleDropdownAction(action);
-                });
-            });
+            bindDropdownEvents();
         }, 100);
         
     } else {
@@ -140,47 +126,90 @@ function updateAuthUI() {
     }
 }
 
-function toggleUserDropdown() {
-    const dropdown = document.querySelector('.user-dropdown-content');
+function bindDropdownEvents() {
+    // Avatar click handler
+    const avatarBtn = document.getElementById('user-avatar-btn');
+    if (avatarBtn) {
+        avatarBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleDropdown();
+        });
+    }
+    
+    // Dashboard button
+    const dashboardBtn = document.getElementById('dropdown-dashboard');
+    if (dashboardBtn) {
+        dashboardBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            closeDropdown();
+            window.location.href = 'dashboard.html';
+        });
+    }
+    
+    // Settings button
+    const settingsBtn = document.getElementById('dropdown-settings');
+    if (settingsBtn) {
+        settingsBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            closeDropdown();
+            window.location.href = 'settings.html';
+        });
+    }
+    
+    // Logout button
+    const logoutBtn = document.getElementById('dropdown-logout');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            closeDropdown();
+            confirmLogout();
+        });
+    }
+}
+
+function toggleDropdown() {
+    const dropdown = document.getElementById('user-dropdown-menu');
     if (dropdown) {
         dropdown.classList.toggle('show');
     }
 }
 
-function handleDropdownAction(action) {
-    const dropdown = document.querySelector('.user-dropdown-content');
+function closeDropdown() {
+    const dropdown = document.getElementById('user-dropdown-menu');
     if (dropdown) {
         dropdown.classList.remove('show');
     }
-    
-    switch(action) {
-        case 'dashboard':
-            goToDashboard();
-            break;
-        case 'settings':
-            goToSettings();
-            break;
-        case 'logout':
-            logout();
-            break;
-    }
 }
 
-// Close dropdown when clicking outside
+function confirmLogout() {
+    logout();
+}
+
+// Global click handler to close dropdown
 document.addEventListener('click', function(event) {
     const dropdown = document.querySelector('.user-dropdown');
-    const dropdownContent = document.querySelector('.user-dropdown-content');
+    const dropdownMenu = document.getElementById('user-dropdown-menu');
     
-    if (dropdown && dropdownContent && !dropdown.contains(event.target)) {
-        dropdownContent.classList.remove('show');
+    // If clicking outside the dropdown, close it
+    if (dropdown && dropdownMenu && !dropdown.contains(event.target)) {
+        dropdownMenu.classList.remove('show');
     }
 });
 
-// Prevent dropdown from closing when clicking inside
+// Prevent dropdown from closing when clicking inside the dropdown menu
 document.addEventListener('click', function(event) {
-    const dropdownContent = document.querySelector('.user-dropdown-content');
-    if (dropdownContent && dropdownContent.contains(event.target)) {
-        event.stopPropagation();
+    const dropdownMenu = document.getElementById('user-dropdown-menu');
+    if (dropdownMenu && dropdownMenu.contains(event.target)) {
+        // Don't close if clicking inside dropdown
+        const isButton = event.target.classList.contains('dropdown-item') || 
+                         event.target.closest('.dropdown-item');
+        if (!isButton) {
+            event.stopPropagation();
+        }
     }
 });
 
