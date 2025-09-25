@@ -106,15 +106,15 @@ function initializeButtonHandlers() {
 }
 
 function handleGenerateQuestions() {
-    // Check authentication using global auth manager
-    if (!authManager || !authManager.isLoggedIn) {
-        authManager.showNotification('Please sign in to generate questions', 'error');
-        authManager.showAuthModal('login');
+    // Check authentication first
+    if (!isUserLoggedIn) {
+        showNotification('Please sign in to generate questions', 'error');
+        showAuthModal('login');
         return;
     }
 
     if (selectedFiles.length === 0 || !totalExtractedText) {
-        authManager.showNotification('Please select files first', 'error');
+        showNotification('Please select files first', 'error');
         return;
     }
 
@@ -124,7 +124,7 @@ function handleGenerateQuestions() {
     const difficulty = difficultySelects.length > 1 ? difficultySelects[1].value : 'Medium';
 
     console.log('Generate button clicked!');
-    console.log('User:', authManager.currentUser.email);
+    console.log('User:', currentUser.email);
     console.log('Question Type:', questionType);
     console.log('Number of Questions:', numQuestions);
     console.log('Difficulty:', difficulty);
@@ -132,18 +132,19 @@ function handleGenerateQuestions() {
     console.log('Total Pages:', extractedTexts.length);
     console.log('Total Text Length:', totalExtractedText.length, 'characters');
 
-    authManager.showNotification('Connecting to backend...', 'info');
+    showNotification('Connecting to backend...', 'info');
     showProcessingProgress();
     callBackendAPI(totalExtractedText, questionType, numQuestions, difficulty);
 }
 
-// Update user stats using global auth
+// Update user stats after successful question generation
 function updateUserStats(questionCount, fileCount) {
-    if (!authManager || !authManager.currentUser) return;
+    if (!currentUser) return;
 
     const currentMonth = new Date().getMonth();
-    const statsKey = `stats_${authManager.currentUser.email}`;
-    const activitiesKey = `activities_${authManager.currentUser.email}`;
+    const currentYear = new Date().getFullYear();
+    const statsKey = `stats_${currentUser.email}`;
+    const activitiesKey = `activities_${currentUser.email}`;
     
     // Get existing stats
     const existingStats = JSON.parse(localStorage.getItem(statsKey) || '{}');
@@ -175,7 +176,7 @@ function updateUserStats(questionCount, fileCount) {
         fileCount
     };
     
-    const updatedActivities = [newActivity, ...existingActivities].slice(0, 20);
+    const updatedActivities = [newActivity, ...existingActivities].slice(0, 20); // Keep last 20 activities
     
     // Save to localStorage
     localStorage.setItem(statsKey, JSON.stringify(newStats));
