@@ -1,3 +1,5 @@
+<!-- questions.html -->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,6 +10,351 @@
   <link rel="stylesheet" href="Frontend/style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    /* Questions Page Specific Styles */
+    .questions-container {
+      background: var(--darker);
+      min-height: 100vh;
+      padding-top: 100px;
+    }
+
+    .questions-header {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: 30px;
+      margin-bottom: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      text-align: center;
+    }
+
+    .questions-header h1 {
+      color: var(--primary-light);
+      margin-bottom: 10px;
+      font-size: 2rem;
+    }
+
+    .questions-meta {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+
+    .meta-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .meta-item i {
+      color: var(--accent);
+    }
+
+    .question-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: 30px;
+      margin-bottom: 25px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.3s;
+      position: relative;
+    }
+
+    .question-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .question-number {
+      position: absolute;
+      top: -12px;
+      left: 20px;
+      background: var(--primary);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .question-text {
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: var(--text);
+      line-height: 1.6;
+      margin-bottom: 20px;
+      padding-right: 60px;
+    }
+
+    .question-options {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .option-item {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 15px 20px;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .option-item:hover {
+      background: rgba(106, 75, 255, 0.1);
+      border-color: var(--primary-light);
+    }
+
+    .option-item.selected {
+      background: rgba(106, 75, 255, 0.2);
+      border-color: var(--primary);
+      color: var(--primary-light);
+    }
+
+    .option-item.correct {
+      background: rgba(76, 175, 80, 0.2);
+      border-color: var(--success);
+      color: var(--success);
+    }
+
+    .option-item.incorrect {
+      background: rgba(244, 67, 54, 0.2);
+      border-color: var(--error);
+      color: var(--error);
+    }
+
+    .option-letter {
+      background: var(--primary);
+      color: white;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 0.9rem;
+      flex-shrink: 0;
+    }
+
+    .option-item.correct .option-letter {
+      background: var(--success);
+    }
+
+    .option-item.incorrect .option-letter {
+      background: var(--error);
+    }
+
+    .option-text {
+      flex: 1;
+    }
+
+    .question-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .show-explanation-btn, .next-question-btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 25px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .show-explanation-btn:hover, .next-question-btn:hover {
+      background: var(--primary-light);
+      transform: translateY(-1px);
+    }
+
+    .explanation {
+      background: rgba(77, 255, 243, 0.1);
+      border-left: 4px solid var(--accent);
+      padding: 15px 20px;
+      border-radius: 8px;
+      margin-top: 15px;
+      display: none;
+    }
+
+    .explanation.show {
+      display: block;
+      animation: slideDown 0.3s ease-out;
+    }
+
+    .explanation h4 {
+      color: var(--accent);
+      margin-bottom: 8px;
+      font-size: 0.95rem;
+    }
+
+    .explanation p {
+      color: var(--text-secondary);
+      line-height: 1.5;
+      margin: 0;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .progress-bar-container {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      height: 8px;
+      margin: 20px 0;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      height: 100%;
+      border-radius: 10px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+
+    .progress-text {
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      margin-top: 10px;
+    }
+
+    .quiz-controls {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      display: flex;
+      gap: 15px;
+    }
+
+    .control-btn {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text);
+      padding: 12px 20px;
+      border-radius: 25px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .control-btn:hover {
+      background: var(--primary);
+      color: white;
+      transform: translateY(-2px);
+    }
+
+    .true-false-options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+
+    .short-answer-input {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 15px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 1rem;
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    .short-answer-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(106, 75, 255, 0.2);
+    }
+
+    .flashcard-container {
+      text-align: center;
+      padding: 40px 20px;
+      cursor: pointer;
+      min-height: 200px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      position: relative;
+    }
+
+    .flashcard-front, .flashcard-back {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 40px 20px;
+      transition: transform 0.6s;
+      backface-visibility: hidden;
+    }
+
+    .flashcard-back {
+      transform: rotateY(180deg);
+      background: rgba(77, 255, 243, 0.1);
+    }
+
+    .flashcard-container.flipped .flashcard-front {
+      transform: rotateY(180deg);
+    }
+
+    .flashcard-container.flipped .flashcard-back {
+      transform: rotateY(0deg);
+    }
+
+    @media (max-width: 768px) {
+      .questions-meta {
+        gap: 15px;
+      }
+      
+      .question-text {
+        padding-right: 0;
+      }
+      
+      .quiz-controls {
+        position: static;
+        margin-top: 30px;
+        justify-content: center;
+      }
+    }
+  </style>
 </head>
 <body>
   <!-- STAR BACKGROUND -->
@@ -22,7 +369,6 @@
       </div>
       <ul class="nav-links">
         <li><a href="index.html">Home</a></li>
-        <li><a href="dashboard.html">Dashboard</a></li>
         <li><a href="#" class="btn-login">Login</a></li>
         <li><a href="#" class="btn-signup">Sign Up</a></li>
       </ul>
@@ -68,7 +414,7 @@
         <!-- Questions will be dynamically inserted here -->
       </div>
 
-      <!-- Submit Quiz Button (Hidden for flashcards) -->
+      <!-- Submit Quiz Button -->
       <div style="text-align: center; margin: var(--spacing-xl) 0;">
         <button class="control-btn" id="submit-quiz-btn" onclick="submitQuiz()" style="background: var(--success); font-size: var(--font-size-base); padding: var(--spacing-sm) var(--spacing-xl);">
           <i class="fas fa-check-circle"></i>
@@ -94,15 +440,12 @@
     </div>
   </div>
 
-  <!-- Include the global auth script first -->
-  <script src="Frontend/auth.js"></script>
   <script>
     // Global variables for quiz state
     let questions = [];
     let currentQuestionIndex = 0;
     let userAnswers = {};
     let showingExplanations = {};
-    let isFlashcardMode = false;
 
     // Initialize questions page
     document.addEventListener('DOMContentLoaded', function() {
@@ -118,15 +461,6 @@
       
       displayCurrentQuestion();
       updateProgress();
-      
-      // Hide submit button for flashcards
-      if (isFlashcardMode) {
-        document.body.classList.add('flashcard-mode');
-        const submitBtn = document.getElementById('submit-quiz-btn');
-        if (submitBtn) {
-          submitBtn.style.display = 'none';
-        }
-      }
     });
 
     function loadQuestions() {
@@ -135,9 +469,6 @@
       if (storedQuestions) {
         const questionData = JSON.parse(storedQuestions);
         questions = questionData.questions || [];
-        
-        // Check if this is flashcard mode
-        isFlashcardMode = questionData.metadata && questionData.metadata.isFlashcardMode;
         
         // Update metadata
         if (questionData.metadata) {
@@ -204,7 +535,7 @@
       const questionsDisplay = document.getElementById('questions-display');
       
       let questionHTML = `
-        <div class="question-card ${question.type === 'Flashcards' ? 'flashcard-container' : ''}">
+        <div class="question-card">
           <div class="question-number">Question ${currentQuestionIndex + 1}</div>
           <div class="question-text">${question.question}</div>
       `;
@@ -258,27 +589,34 @@
         
         questionHTML += '</div>';
         
+      } else if (question.type === 'Short Answer') {
+        const userAnswer = userAnswers[question.id] || '';
+        questionHTML += `
+          <textarea class="short-answer-input" 
+                    placeholder="Type your answer here..." 
+                    onchange="saveShortAnswer(${question.id}, this.value)"
+                    id="short-answer-${question.id}">${userAnswer}</textarea>
+        `;
+        
       } else if (question.type === 'Flashcards') {
         const isFlipped = showingExplanations[question.id];
         questionHTML += `
-          <div class="flashcard-front">
-            <h3>Click to reveal answer</h3>
-            <p style="margin-top: 20px; color: var(--text-secondary);">
-              <i class="fas fa-mouse-pointer"></i> Tap the card to flip
-            </p>
-          </div>
-          <div class="flashcard-back">
-            <h3 style="color: var(--accent); margin-bottom: 15px;">Answer</h3>
-            <p>${question.answer || question.explanation}</p>
+          <div class="flashcard-container ${isFlipped ? 'flipped' : ''}" onclick="flipFlashcard(${question.id})">
+            <div class="flashcard-front">
+              <h3>Click to reveal answer</h3>
+              <p style="margin-top: 20px; color: var(--text-secondary);">
+                <i class="fas fa-mouse-pointer"></i> Tap the card to flip
+              </p>
+            </div>
+            <div class="flashcard-back">
+              <h3 style="color: var(--accent); margin-bottom: 15px;">Answer</h3>
+              <p>${question.answer || question.explanation}</p>
+            </div>
           </div>
         `;
-        
-        // Make entire card clickable for flashcards
-        questionHTML = questionHTML.replace('<div class="question-card flashcard-container">', 
-          `<div class="question-card flashcard-container ${isFlipped ? 'flipped' : ''}" onclick="flipFlashcard(${question.id})">`);
       }
 
-      // Add explanation section (not for flashcards)
+      // Add explanation section
       if (question.explanation && question.type !== 'Flashcards') {
         questionHTML += `
           <div class="explanation ${showingExplanations[question.id] ? 'show' : ''}" id="explanation-${question.id}">
@@ -288,20 +626,19 @@
         `;
       }
 
-      // Add question actions (not for flashcards)
-      if (question.type !== 'Flashcards') {
-        questionHTML += `
-          <div class="question-actions">
-            <button class="show-explanation-btn" onclick="toggleExplanation(${question.id})">
-              <i class="fas fa-info-circle"></i>
-              ${showingExplanations[question.id] ? 'Hide' : 'Show'} Explanation
-            </button>
-            <div style="color: var(--text-secondary); font-size: 0.9rem;">
-              ${getUserAnswerStatus(question)}
-            </div>
+      // Add question actions
+      questionHTML += `
+        <div class="question-actions">
+          <button class="show-explanation-btn" onclick="toggleExplanation(${question.id})" 
+                  ${question.type === 'Flashcards' ? 'style="display:none"' : ''}>
+            <i class="fas fa-info-circle"></i>
+            ${showingExplanations[question.id] ? 'Hide' : 'Show'} Explanation
+          </button>
+          <div style="color: var(--text-secondary); font-size: 0.9rem;">
+            ${getUserAnswerStatus(question)}
           </div>
-        `;
-      }
+        </div>
+      `;
 
       questionHTML += '</div>';
       questionsDisplay.innerHTML = questionHTML;
@@ -323,6 +660,11 @@
       updateProgress();
     }
 
+    function saveShortAnswer(questionId, answer) {
+      userAnswers[questionId] = answer.trim();
+      updateProgress();
+    }
+
     function flipFlashcard(questionId) {
       showingExplanations[questionId] = !showingExplanations[questionId];
       displayCurrentQuestion();
@@ -341,8 +683,6 @@
     }
 
     function submitQuiz() {
-      if (isFlashcardMode) return; // No quiz submission for flashcards
-      
       const totalQuestions = questions.length;
       const answeredQuestions = Object.keys(userAnswers).filter(id => 
         userAnswers[id] !== undefined && userAnswers[id] !== ''
@@ -396,9 +736,7 @@
       
       if (currentQuestionIndex === questions.length - 1) {
         nextBtn.style.display = 'none';
-        if (!isFlashcardMode) {
-          finishBtn.style.display = 'flex';
-        }
+        finishBtn.style.display = 'flex';
       } else {
         nextBtn.style.display = 'flex';
         finishBtn.style.display = 'none';
@@ -406,12 +744,6 @@
     }
 
     function finishQuiz() {
-      if (isFlashcardMode) {
-        alert('Flashcard review completed! Great job studying.');
-        window.location.href = 'index.html';
-        return;
-      }
-      
       const totalQuestions = questions.length;
       const answeredQuestions = Object.keys(userAnswers).length;
       
@@ -429,13 +761,15 @@
         } else if (question.type === 'True/False') {
           if (userAnswer === question.correctAnswer) correctAnswers++;
         }
+        // Short Answer and Flashcards don't auto-grade
       });
       
       const percentage = Math.round((correctAnswers / totalQuestions) * 100);
       
       alert(`Quiz Complete!\n\nScore: ${correctAnswers}/${totalQuestions} (${percentage}%)\nAnswered: ${answeredQuestions}/${totalQuestions} questions`);
       
-      window.location.href = 'index.html';
+      // Could redirect to results page or home
+      // window.location.href = 'index.html';
     }
 
     // Navigate to homepage
