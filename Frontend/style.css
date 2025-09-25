@@ -131,6 +131,34 @@ small { font-size: var(--font-size-sm); }
   line-height: 1;
 }
 
+/* User Avatar Styles */
+.user-avatar {
+  width: clamp(35px, 8vw, 40px);
+  height: clamp(35px, 8vw, 40px);
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 2px 8px rgba(106, 75, 255, 0.3);
+}
+
+.user-avatar:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(106, 75, 255, 0.4);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.user-avatar span {
+  color: white;
+  font-weight: 700;
+  font-size: clamp(14px, 3vw, 16px);
+  text-transform: uppercase;
+}
+
 .nav-links {
   display: flex;
   list-style: none;
