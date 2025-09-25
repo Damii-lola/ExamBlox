@@ -59,35 +59,84 @@ function updateAuthUI() {
         if (loginBtn) loginBtn.style.display = 'none';
         if (signupBtn) signupBtn.style.display = 'none';
         
-        // Create or update user avatar
-        let userAvatar = document.querySelector('.user-avatar');
-        if (!userAvatar) {
-            userAvatar = document.createElement('div');
-            userAvatar.className = 'user-avatar';
-            userAvatar.onclick = showUserMenu;
+        // Create or update user dropdown
+        let userDropdown = document.querySelector('.user-dropdown');
+        if (!userDropdown) {
+            userDropdown = document.createElement('div');
+            userDropdown.className = 'user-dropdown';
             
-            // Insert after signup button or at end of nav-links
+            const firstLetter = (currentUser.name || currentUser.email).charAt(0).toUpperCase();
+            userDropdown.innerHTML = `
+                <div class="user-avatar" onclick="toggleUserDropdown()">
+                    <span>${firstLetter}</span>
+                </div>
+                <div class="user-dropdown-content" id="user-dropdown-content">
+                    <div class="dropdown-header">
+                        <div class="dropdown-avatar">
+                            <span>${firstLetter}</span>
+                        </div>
+                        <h4>${currentUser.name || 'User'}</h4>
+                        <p>${currentUser.email}</p>
+                        <span class="dropdown-plan">${(currentUser.plan || 'free').toUpperCase()} Plan</span>
+                    </div>
+                    <div class="dropdown-menu">
+                        <button class="dropdown-item" onclick="goToDashboard()">
+                            <i class="fas fa-tachometer-alt"></i>
+                            Dashboard
+                        </button>
+                        <button class="dropdown-item" onclick="goToSettings()">
+                            <i class="fas fa-cog"></i>
+                            Settings
+                        </button>
+                        <button class="dropdown-item danger" onclick="logout()">
+                            <i class="fas fa-sign-out-alt"></i>
+                            Sign Out
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // Insert at end of nav-links
             const navLinks = document.querySelector('.nav-links');
             if (navLinks) {
-                navLinks.appendChild(userAvatar);
+                navLinks.appendChild(userDropdown);
             }
         }
-        
-        const firstLetter = (currentUser.name || currentUser.email).charAt(0).toUpperCase();
-        userAvatar.innerHTML = `<span>${firstLetter}</span>`;
-        userAvatar.title = currentUser.name || currentUser.email;
         
     } else {
         // Show login and signup buttons
         if (loginBtn) loginBtn.style.display = 'inline-block';
         if (signupBtn) signupBtn.style.display = 'inline-block';
         
-        // Remove user avatar
-        const userAvatar = document.querySelector('.user-avatar');
-        if (userAvatar) {
-            userAvatar.remove();
+        // Remove user dropdown
+        const userDropdown = document.querySelector('.user-dropdown');
+        if (userDropdown) {
+            userDropdown.remove();
         }
     }
+}
+
+function toggleUserDropdown() {
+    const dropdown = document.getElementById('user-dropdown-content');
+    if (dropdown) {
+        dropdown.classList.toggle('show');
+    }
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(event) {
+    const dropdown = document.querySelector('.user-dropdown');
+    if (dropdown && !dropdown.contains(event.target)) {
+        const dropdownContent = document.getElementById('user-dropdown-content');
+        if (dropdownContent) {
+            dropdownContent.classList.remove('show');
+        }
+    }
+});
+
+function goToSettings() {
+    window.location.href = 'settings.html';
+    toggleUserDropdown();
 }
 
 function showAuthModal(type) {
@@ -828,6 +877,12 @@ async function callBackendAPI(text, questionType, numQuestions, difficulty) {
                 console.log(`Question ${index + 1}: ${question.question}`);
             });
             
+            // Update user stats
+            updateUserStats(selectedFiles.length, result.data.questions.length);
+            
+            // Save to recent activities
+            saveToRecentActivities(selectedFiles, result.data.questions, questionType, difficulty);
+            
             // Store questions and enhanced metadata
             const fileNames = selectedFiles.map(f => f.name).join(', ');
             const questionData = {
@@ -839,7 +894,9 @@ async function callBackendAPI(text, questionType, numQuestions, difficulty) {
                     questionType: questionType,
                     difficulty: difficulty,
                     totalQuestions: result.data.questions.length,
-                    textLength: text.length
+                    textLength: text.length,
+                    generatedAt: new Date().toISOString(),
+                    sessionId: Date.now().toString()
                 }
             };
             
@@ -867,6 +924,53 @@ async function callBackendAPI(text, questionType, numQuestions, difficulty) {
             document.body.removeChild(progressModal);
         }
     }
+}
+
+function updateUserStats(filesProcessed, questionsGenerated) {
+    if (!isUserLoggedIn) return;
+    
+    const stats = JSON.parse(localStorage.getItem('examblox_user_stats') || '{}');
+    
+    stats.totalQuestions = (stats.totalQuestions || 0) + questionsGenerated;
+    stats.filesProcessed = (stats.filesProcessed || 0) + filesProcessed;
+    stats.studySessions = (stats.studySessions || 0) + 1;
+    stats.monthlyQuestions = (stats.monthlyQuestions || 0) + questionsGenerated;
+    stats.monthlyFiles = (stats.monthlyFiles || 0) + filesProcessed;
+    stats.lastActivity = new Date().toISOString();
+    
+    localStorage.setItem('examblox_user_stats', JSON.stringify(stats));
+}
+
+function saveToRecentActivities(files, questions, questionType, difficulty) {
+    if (!isUserLoggedIn) return;
+    
+    const activities = JSON.parse(localStorage.getItem('examblox_activities') || '[]');
+    
+    const fileNames = files.length === 1 ? files[0].name : `${files.length} files`;
+    const activity = {
+        id: Date.now(),
+        icon: 'fas fa-question-circle',
+        title: `Generated ${questions.length} ${questionType} questions from ${fileNames}`,
+        date: new Date().toLocaleDateString(),
+        timestamp: new Date().toISOString(),
+        type: 'question_generation',
+        details: {
+            files: files.map(f => f.name),
+            questionType: questionType,
+            difficulty: difficulty,
+            questionCount: questions.length
+        },
+        questions: questions // Store questions for later access
+    };
+    
+    activities.unshift(activity); // Add to beginning
+    
+    // Keep only last 50 activities
+    if (activities.length > 50) {
+        activities.splice(50);
+    }
+    
+    localStorage.setItem('examblox_activities', JSON.stringify(activities));
 }
 
 function showProcessingProgress() {
