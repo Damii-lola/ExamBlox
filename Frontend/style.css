@@ -1912,3 +1912,154 @@ button:focus, input:focus, select:focus, textarea:focus {
   }
   
   .step
+
+/* Add these new CSS rules to the end of your existing style.css file */
+
+/* User Dropdown Styles - Added to existing CSS */
+
+/* User Avatar Container */
+.user-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+/* Dropdown Content - HIDDEN BY DEFAULT */
+.user-dropdown-content {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: var(--dark-light);
+  backdrop-filter: blur(15px);
+  border-radius: 12px;
+  min-width: 220px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  z-index: 1000;
+  margin-top: 8px;
+  
+  /* CRITICAL: Hidden by default */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Show dropdown when NOT hidden */
+.user-dropdown-content:not(.hidden) {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+/* Dropdown arrow */
+.user-dropdown-content::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  right: 18px;
+  width: 12px;
+  height: 12px;
+  background: var(--dark-light);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-bottom: none;
+  border-right: none;
+  transform: rotate(45deg);
+  z-index: -1;
+}
+
+/* Dropdown Header */
+.dropdown-header {
+  padding: var(--spacing-md);
+  text-align: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dropdown-header h4 {
+  color: var(--text);
+  font-size: var(--font-size-base);
+  margin-bottom: var(--spacing-xs);
+  font-weight: 600;
+}
+
+.dropdown-plan {
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+/* Dropdown Menu */
+.dropdown-menu {
+  padding: var(--spacing-sm);
+}
+
+.dropdown-item {
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  text-align: left;
+  margin-bottom: var(--spacing-xs);
+}
+
+.dropdown-item:last-child {
+  margin-bottom: 0;
+}
+
+.dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--primary-light);
+}
+
+.dropdown-item.danger:hover {
+  background: rgba(244, 67, 54, 0.15);
+  color: var(--error);
+}
+
+.dropdown-item i {
+  width: 16px;
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: inherit;
+}
+
+/* Mobile Responsive for User Dropdown */
+@media (max-width: 767px) {
+  .user-dropdown-content {
+    right: -10px;
+    min-width: 200px;
+  }
+  
+  .user-dropdown-content::before {
+    right: 25px;
+  }
+  
+  .dropdown-item {
+    padding: var(--spacing-sm);
+    font-size: var(--font-size-base);
+  }
+}
+
+/* Ensure dropdown appears above other content */
+.user-dropdown {
+  z-index: 1001;
+}
+
+/* Additional utility class to ensure hidden state */
+.hidden {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transform: translateY(-10px) !important;
+}
