@@ -1957,7 +1957,7 @@ button:focus, input:focus, select:focus, textarea:focus {
   content: '';
   position: absolute;
   top: -6px;
-  right: 25px; /* Moved closer to align with center of user icon */
+  right: 100px; /* Moved closer to align with center of user icon */
   width: 12px;
   height: 12px;
   background: var(--dark-light);
