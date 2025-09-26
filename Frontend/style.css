@@ -163,7 +163,7 @@ small { font-size: var(--font-size-sm); }
   display: flex;
   list-style: none;
   gap: clamp(1rem, 3vw, 25px);
-  align-items: center;
+  align-items: auto;
   flex-wrap: wrap;
 }
 
