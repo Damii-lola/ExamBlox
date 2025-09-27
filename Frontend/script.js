@@ -1,4 +1,4 @@
-// script.js - Complete Updated Version with All Fixes
+// script.js - Complete Fixed Version with All Issues Resolved
 
 // Authentication state
 let isUserLoggedIn = false;
@@ -26,12 +26,14 @@ function checkAuthState() {
             updateAuthUI();
             console.log('User is logged in:', currentUser.email);
             
-            // Check for admin status
+            // Check for admin status and set permanent pro plan
             if (currentUser.username === 'damii-lola') {
                 currentUser.role = 'admin';
+                currentUser.plan = 'premium'; // Permanent pro plan
                 currentUser.permissions = ['all'];
+                currentUser.isPermanentPro = true;
                 localStorage.setItem('examblox_user', JSON.stringify(currentUser));
-                console.log('Admin privileges granted to damii-lola');
+                console.log('Admin privileges and permanent pro plan granted to damii-lola');
             }
         } catch (error) {
             console.error('Error parsing user data:', error);
@@ -214,7 +216,226 @@ function confirmLogout() {
 }
 
 function showAdminPanel() {
-    alert('Admin Panel coming soon! You have full admin privileges.');
+    // Create comprehensive admin panel
+    const modal = document.createElement('div');
+    modal.className = 'admin-panel-modal';
+    modal.id = 'admin-panel';
+    
+    const totalUsers = Object.keys(localStorage).filter(key => key.startsWith('user_')).length;
+    const totalActivities = JSON.parse(localStorage.getItem('examblox_activities') || '[]').length;
+    const systemStats = getSystemStats();
+    
+    modal.innerHTML = `
+        <div class="admin-panel-content">
+            <div class="admin-panel-header">
+                <div class="admin-panel-title">
+                    <i class="fas fa-crown"></i>
+                    Admin Control Panel
+                </div>
+                <button class="admin-close" onclick="closeAdminPanel()">&times;</button>
+            </div>
+            
+            <div class="admin-grid">
+                <div class="admin-card">
+                    <div class="admin-card-header">
+                        <div class="admin-card-icon"><i class="fas fa-users"></i></div>
+                        <h3>Total Users</h3>
+                    </div>
+                    <div class="admin-stat">${totalUsers}</div>
+                    <p>Registered users in the system</p>
+                </div>
+                
+                <div class="admin-card">
+                    <div class="admin-card-header">
+                        <div class="admin-card-icon"><i class="fas fa-chart-bar"></i></div>
+                        <h3>Total Activities</h3>
+                    </div>
+                    <div class="admin-stat">${totalActivities}</div>
+                    <p>Questions generated across all users</p>
+                </div>
+                
+                <div class="admin-card">
+                    <div class="admin-card-header">
+                        <div class="admin-card-icon"><i class="fas fa-database"></i></div>
+                        <h3>Storage Usage</h3>
+                    </div>
+                    <div class="admin-stat">${systemStats.storageUsed}KB</div>
+                    <p>Local storage utilization</p>
+                </div>
+                
+                <div class="admin-card">
+                    <div class="admin-card-header">
+                        <div class="admin-card-icon"><i class="fas fa-server"></i></div>
+                        <h3>System Status</h3>
+                    </div>
+                    <div class="admin-stat" style="color: #4CAF50;">ONLINE</div>
+                    <p>All systems operational</p>
+                </div>
+            </div>
+            
+            <div style="margin-top: 30px;">
+                <h3 style="color: #ff6b35; margin-bottom: 20px;">User Management</h3>
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Plan</th>
+                            <th>Joined</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-table-body">
+                        ${generateUsersTable()}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="admin-actions">
+                <button class="admin-btn" onclick="exportUserData()">
+                    <i class="fas fa-download"></i>
+                    Export Data
+                </button>
+                <button class="admin-btn" onclick="clearSystemCache()">
+                    <i class="fas fa-trash"></i>
+                    Clear Cache
+                </button>
+                <button class="admin-btn" onclick="generateSystemReport()">
+                    <i class="fas fa-file-alt"></i>
+                    System Report
+                </button>
+                <button class="admin-btn" onclick="broadcastMessage()">
+                    <i class="fas fa-bullhorn"></i>
+                    Broadcast Message
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
+
+function generateUsersTable() {
+    let tableHTML = '';
+    const userKeys = Object.keys(localStorage).filter(key => key.startsWith('user_'));
+    
+    userKeys.forEach(key => {
+        try {
+            const userData = JSON.parse(localStorage.getItem(key));
+            const joinDate = new Date(userData.createdAt || Date.now()).toLocaleDateString();
+            
+            tableHTML += `
+                <tr>
+                    <td>${userData.username || 'N/A'}</td>
+                    <td>${userData.email}</td>
+                    <td><span style="color: ${userData.plan === 'premium' ? '#4CAF50' : '#ff9800'}">${(userData.plan || 'free').toUpperCase()}</span></td>
+                    <td>${joinDate}</td>
+                    <td>
+                        <button class="admin-btn" style="padding: 5px 10px; font-size: 0.8rem;" onclick="promoteUser('${userData.email}')">
+                            <i class="fas fa-user-plus"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        } catch (e) {
+            console.error('Error parsing user data:', e);
+        }
+    });
+    
+    return tableHTML || '<tr><td colspan="5">No users found</td></tr>';
+}
+
+function getSystemStats() {
+    let totalSize = 0;
+    for (let key in localStorage) {
+        if (localStorage.hasOwnProperty(key)) {
+            totalSize += localStorage[key].length;
+        }
+    }
+    
+    return {
+        storageUsed: Math.round(totalSize / 1024)
+    };
+}
+
+function closeAdminPanel() {
+    const modal = document.getElementById('admin-panel');
+    if (modal) {
+        document.body.removeChild(modal);
+    }
+}
+
+function exportUserData() {
+    const userData = {};
+    Object.keys(localStorage).forEach(key => {
+        userData[key] = localStorage.getItem(key);
+    });
+    
+    const dataStr = JSON.stringify(userData, null, 2);
+    const dataBlob = new Blob([dataStr], {type: 'application/json'});
+    const url = URL.createObjectURL(dataBlob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `examblox-admin-export-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    
+    URL.revokeObjectURL(url);
+    showNotification('User data exported successfully!', 'success');
+}
+
+function clearSystemCache() {
+    if (confirm('Are you sure you want to clear the system cache? This will log out all users except admins.')) {
+        const adminData = localStorage.getItem('examblox_user');
+        
+        // Clear everything except admin data
+        Object.keys(localStorage).forEach(key => {
+            if (!key.includes('damii-lola')) {
+                localStorage.removeItem(key);
+            }
+        });
+        
+        // Restore admin session
+        localStorage.setItem('examblox_user', adminData);
+        
+        showNotification('System cache cleared successfully!', 'success');
+        closeAdminPanel();
+    }
+}
+
+function generateSystemReport() {
+    const report = {
+        timestamp: new Date().toISOString(),
+        totalUsers: Object.keys(localStorage).filter(key => key.startsWith('user_')).length,
+        systemStats: getSystemStats(),
+        adminUser: currentUser.username,
+        version: '1.0.0'
+    };
+    
+    const reportStr = JSON.stringify(report, null, 2);
+    console.log('System Report Generated:', reportStr);
+    showNotification('System report generated and logged to console', 'info');
+}
+
+function broadcastMessage() {
+    const message = prompt('Enter message to broadcast to all users:');
+    if (message) {
+        // In a real system, this would send notifications
+        showNotification('Message would be broadcast to all users: "' + message + '"', 'info');
+    }
+}
+
+function promoteUser(email) {
+    const userData = JSON.parse(localStorage.getItem(`user_${email}`));
+    if (userData) {
+        userData.plan = 'premium';
+        localStorage.setItem(`user_${email}`, JSON.stringify(userData));
+        showNotification(`User ${email} promoted to premium!`, 'success');
+        
+        // Refresh admin panel
+        closeAdminPanel();
+        setTimeout(() => showAdminPanel(), 300);
+    }
 }
 
 // Global click handler to close dropdown when clicking outside
@@ -253,33 +474,6 @@ function showAuthModal(type) {
             <h2>${isLogin ? 'Welcome Back' : 'Create Account'}</h2>
             <p class="modal-subtitle">${isLogin ? 'Sign in to your ExamBlox account' : 'Join thousands of students using ExamBlox'}</p>
             
-            <!-- Social Login Options -->
-            <div class="social-login" style="margin-bottom: 20px;">
-                <button type="button" class="social-btn google-btn" onclick="loginWithGoogle()" style="width: 100%; margin-bottom: 10px; padding: 12px; border: 1px solid #ddd; border-radius: 8px; background: white; color: #333; display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; font-weight: 500;">
-                    <svg width="20" height="20" viewBox="0 0 24 24">
-                        <path fill="#4285f4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                        <path fill="#34a853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                        <path fill="#fbbc05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                        <path fill="#ea4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                    </svg>
-                    Continue with Google
-                </button>
-                <button type="button" class="social-btn microsoft-btn" onclick="loginWithMicrosoft()" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; background: #0078d4; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer; font-weight: 500;">
-                    <svg width="20" height="20" viewBox="0 0 23 23">
-                        <path fill="#f3f3f3" d="M0 0h11v11H0z"/>
-                        <path fill="#f3f3f3" d="M12 0h11v11H12z"/>
-                        <path fill="#f3f3f3" d="M0 12h11v11H0z"/>
-                        <path fill="#f3f3f3" d="M12 12h11v11H12z"/>
-                    </svg>
-                    Continue with Microsoft
-                </button>
-            </div>
-            
-            <div style="text-align: center; margin: 20px 0; color: var(--text-secondary);">
-                <span style="background: var(--darker); padding: 0 15px;">or continue with email</span>
-                <hr style="margin: 0; border: none; border-top: 1px solid rgba(255,255,255,0.1); position: relative; top: -12px; z-index: -1;">
-            </div>
-            
             <form id="auth-form" style="display: flex; flex-direction: column; gap: 20px;">
                 ${!isLogin ? '<input type="text" id="auth-username" placeholder="Username" required style="padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(21,19,32,0.8); color: var(--text);">' : ''}
                 ${!isLogin ? '<input type="text" id="auth-name" placeholder="Full Name" required style="padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(21,19,32,0.8); color: var(--text);">' : ''}
@@ -317,16 +511,6 @@ function showAuthModal(type) {
     });
 }
 
-function loginWithGoogle() {
-    // Simulate Google login
-    showNotification('Google login coming soon!', 'info');
-}
-
-function loginWithMicrosoft() {
-    // Simulate Microsoft login
-    showNotification('Microsoft login coming soon!', 'info');
-}
-
 async function handleAuth(isLogin) {
     const emailUsername = document.getElementById('auth-email-username').value.trim();
     const password = document.getElementById('auth-password').value;
@@ -354,7 +538,7 @@ async function handleAuth(isLogin) {
             return;
         }
         
-        // Check if username already exists
+        // Check if username already exists (BOTH username and email uniqueness)
         if (await checkUsernameExists(username)) {
             showNotification('Username already exists. Please choose another one.', 'error');
             return;
@@ -386,11 +570,11 @@ async function handleAuth(isLogin) {
             email: emailUsername,
             password: password,
             createdAt: new Date().toISOString(),
-            plan: 'free',
+            plan: username === 'damii-lola' ? 'premium' : 'free', // Admin gets premium
             role: username === 'damii-lola' ? 'admin' : 'user'
         };
         
-        // Store user data
+        // Store user data with BOTH email and username mapping
         localStorage.setItem(`user_${emailUsername}`, JSON.stringify(userData));
         localStorage.setItem(`username_${username}`, emailUsername); // Map username to email
         
@@ -441,10 +625,12 @@ function loginUser(userData) {
         loginTime: new Date().toISOString()
     };
     
-    // Special admin privileges for damii-lola
+    // Special admin privileges and permanent pro plan for damii-lola
     if (currentUser.username === 'damii-lola') {
         currentUser.role = 'admin';
+        currentUser.plan = 'premium'; // Permanent pro plan
         currentUser.permissions = ['all'];
+        currentUser.isPermanentPro = true;
     }
     
     isUserLoggedIn = true;
@@ -1171,7 +1357,7 @@ function initializeFAQ() {
 // Initialize Footer Links
 function initializeFooterLinks() {
     // Product links
-    const productLinks = document.querySelectorAll('a[href="#features"], a[href="#pricing"], a[href="#testimonials"]');
+    const productLinks = document.querySelectorAll('a[href="#features"], a[href="#pricing"], a[href="#testimonials"], a[href="#use-cases"]');
     productLinks.forEach(link => {
         link.addEventListener('click', function(e) {
             e.preventDefault();
@@ -1179,84 +1365,31 @@ function initializeFooterLinks() {
             const targetElement = document.getElementById(targetId);
             if (targetElement) {
                 targetElement.scrollIntoView({ behavior: 'smooth' });
+            } else {
+                showNotification('Section coming soon!', 'info');
             }
         });
     });
 
     // Resource links - Create placeholder pages
-    const blogLink = document.querySelector('a[href="#blog"]');
-    if (blogLink) {
-        blogLink.addEventListener('click', function(e) {
+    const resourceLinks = document.querySelectorAll('a[href="#blog"], a[href="#tutorials"], a[href="#documentation"], a[href="#support"]');
+    resourceLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
             e.preventDefault();
-            showNotification('Blog coming soon!', 'info');
+            const section = this.getAttribute('href').substring(1);
+            showNotification(`${section.charAt(0).toUpperCase() + section.slice(1)} coming soon!`, 'info');
         });
-    }
-
-    const tutorialsLink = document.querySelector('a[href="#tutorials"]');
-    if (tutorialsLink) {
-        tutorialsLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            showNotification('Tutorials coming soon!', 'info');
-        });
-    }
-
-    const docsLink = document.querySelector('a[href="#documentation"]');
-    if (docsLink) {
-        docsLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            showNotification('Documentation coming soon!', 'info');
-        });
-    }
-
-    const supportLink = document.querySelector('a[href="#support"]');
-    if (supportLink) {
-        supportLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            showNotification('Support page coming soon!', 'info');
-        });
-    }
+    });
 
     // Company links
-    const aboutLink = document.querySelector('a[href="#about"]');
-    if (aboutLink) {
-        aboutLink.addEventListener('click', function(e) {
+    const companyLinks = document.querySelectorAll('a[href="#about"], a[href="#careers"], a[href="#privacy"], a[href="#terms"]');
+    companyLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
             e.preventDefault();
-            showNotification('About page coming soon!', 'info');
+            const section = this.getAttribute('href').substring(1);
+            showNotification(`${section.charAt(0).toUpperCase() + section.slice(1)} page coming soon!`, 'info');
         });
-    }
-
-    const careersLink = document.querySelector('a[href="#careers"]');
-    if (careersLink) {
-        careersLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            showNotification('Careers page coming soon!', 'info');
-        });
-    }
-
-    const privacyLink = document.querySelector('a[href="#privacy"]');
-    if (privacyLink) {
-        privacyLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            showNotification('Privacy Policy coming soon!', 'info');
-        });
-    }
-
-    const termsLink = document.querySelector('a[href="#terms"]');
-    if (termsLink) {
-        termsLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            showNotification('Terms of Service coming soon!', 'info');
-        });
-    }
-
-    // Use Cases link
-    const useCasesLink = document.querySelector('a[href="#use-cases"]');
-    if (useCasesLink) {
-        useCasesLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            showNotification('Use Cases page coming soon!', 'info');
-        });
-    }
+    });
 }
 
 // Global variables for file handling
@@ -1265,4 +1398,4 @@ let extractedTexts = [];
 let totalExtractedText = '';
 
 console.log('ExamBlox Enhanced script loaded successfully!');
-console.log('Features: Multiple file upload, camera capture, multi-page support, improved auth system');
+console.log('Features: Enhanced admin panel, permanent pro for damii-lola, fixed authentication, removed PPT support');
