@@ -1,5 +1,3 @@
-<!-- index.html -->
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -49,6 +47,18 @@
         transform: translateY(calc(100vh + 20px)); 
         opacity: 0;
       }
+    }
+
+    /* Admin badge styling */
+    .dropdown-admin {
+      background: linear-gradient(90deg, #ff6b35, #f7931e);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 8px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      display: inline-block;
+      margin-top: 4px;
     }
   </style>
 </head>
@@ -108,7 +118,7 @@
         <div class="upload-box">
           <div class="upload-header">
             <h3>Create Questions from Your Files</h3>
-            <p>Supported formats: PDF, DOCX, PPT, TXT, JPG, PNG</p>
+            <p>Supported formats: PDF, DOCX, TXT, JPG, PNG</p>
           </div>
           
           <div class="upload-area">
@@ -187,7 +197,7 @@
             <i class="fas fa-upload"></i>
           </div>
           <h3>Upload Your File</h3>
-          <p>Upload PDFs, Word documents, presentations, or images. Our AI extracts text and key concepts automatically.</p>
+          <p>Upload PDFs, Word documents, images, or text files. Our AI extracts text and key concepts automatically.</p>
         </div>
         
         <div class="step">
@@ -221,7 +231,7 @@
         <div class="feature-card">
           <div class="feature-icon"><i class="fas fa-file-alt"></i></div>
           <h3>Multiple File Format Support</h3>
-          <p>Upload PDFs, DOCX, PPT, images, and more. Our AI can process virtually any study material.</p>
+          <p>Upload PDFs, DOCX, images, text files, and more. Our AI can process virtually any study material.</p>
         </div>
         
         <div class="feature-card">
@@ -257,7 +267,7 @@
     </div>
   </section>
 
-  <!-- Testimonials - FIXED ORDER -->
+  <!-- Testimonials -->
   <section id="testimonials" class="testimonials">
     <div class="container">
       <h2>What Our Users Say</h2>
@@ -283,7 +293,7 @@
           </div>
         </div>
         
-        <!-- Emily Rodriguez - SECOND (moved to middle) -->
+        <!-- Emily Rodriguez - SECOND -->
         <div class="testimonial-card">
           <div class="testimonial-content">
             <div class="stars">
@@ -324,7 +334,7 @@
     </div>
   </section>
 
-  <!-- Pricing - FIXED ORDER: Free → Premium → Institutional -->
+  <!-- Pricing -->
   <section id="pricing" class="pricing">
     <div class="container">
       <h2>Simple, Transparent Pricing</h2>
@@ -336,40 +346,6 @@
           <div class="pricing-header"><h3>Free</h3><p>For trying out basic features</p></div>
           <div class="price">$0<span>/month</span></div>
           <ul class="features-list">
-            <li><i class="fas fa-check"></i> 5 PDF uploads per month</li>
-            <li><i class="fas fa-check"></i> Up to 10 questions per upload</li>
-            <li><i class="fas fa-check"></i> Multiple choice questions only</li>
-            <li><i class="fas fa-check"></i> Medium difficulty only</li>
-            <li><i class="fas fa-times"></i> No AI grading</li>
-            <li><i class="fas fa-times"></i> No progress tracking</li>
-          </ul>
-          <button class="btn-pricing">Get Started</button>
-        </div>
-        
-        <!-- Premium Plan - SECOND (with popular badge back) -->
-        <div class="pricing-card popular">
-          <div class="popular-badge">MOST POPULAR</div>
-          <div class="pricing-header"><h3>Premium</h3><p>For serious students</p></div>
-          <div class="price">$5<span>/month</span></div>
-          <ul class="features-list">
-            <li><i class="fas fa-check"></i> Unlimited uploads</li>
-            <li><i class="fas fa-check"></i> Up to 100 questions per upload</li>
-            <li><i class="fas fa-check"></i> All question types</li>
-            <li><i class="fas fa-check"></i> Adjustable difficulty</li>
-            <li><i class="fas fa-check"></i> Advanced AI grading</li>
-            <li><i class="fas fa-check"></i> Progress tracking & analytics</li>
-            <li><i class="fas fa-check"></i> Personal dashboard</li>
-          </ul>
-          <button class="btn-pricing" onclick="window.open('#', '_blank')">Subscribe Now</button>
-        </div>
-        
-        <!-- Institutional Plan - THIRD (moved to end) -->
-        <div class="pricing-card">
-          <div class="pricing-header"><h3>Institutional</h3><p>For schools & organizations</p></div>
-          <div class="price">Custom</div>
-          <ul class="features-list">
-            <li><i class="fas fa-check"></i> Everything in Premium</li>
-            <li><i class="fas fa-check"></i> Multiple teacher accounts</li>
             <li><i class="fas fa-check"></i> Student management</li>
             <li><i class="fas fa-check"></i> Classroom analytics</li>
             <li><i class="fas fa-check"></i> Custom branding</li>
@@ -389,7 +365,7 @@
       <div class="faq-grid">
         <div class="faq-item">
           <div class="faq-question"><h3>What file formats does ExamBlox support?</h3></div>
-          <div class="faq-answer"><p>We support PDF, DOCX, PPT, JPG, and PNG files. Our AI can extract text from these formats to generate relevant questions.</p></div>
+          <div class="faq-answer"><p>We support PDF, DOCX, TXT, JPG, and PNG files. Our AI can extract text from these formats to generate relevant questions.</p></div>
         </div>
         
         <div class="faq-item">
@@ -439,30 +415,30 @@
         <div class="footer-section">
           <h4>Product</h4>
           <ul>
-            <li><a href="#">Features</a></li>
-            <li><a href="#">Pricing</a></li>
-            <li><a href="#">Use Cases</a></li>
-            <li><a href="#">Testimonials</a></li>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#pricing">Pricing</a></li>
+            <li><a href="#use-cases">Use Cases</a></li>
+            <li><a href="#testimonials">Testimonials</a></li>
           </ul>
         </div>
         
         <div class="footer-section">
           <h4>Resources</h4>
           <ul>
-            <li><a href="#">Blog</a></li>
-            <li><a href="#">Tutorials</a></li>
-            <li><a href="#">Documentation</a></li>
-            <li><a href="#">Support</a></li>
+            <li><a href="#blog">Blog</a></li>
+            <li><a href="#tutorials">Tutorials</a></li>
+            <li><a href="#documentation">Documentation</a></li>
+            <li><a href="#support">Support</a></li>
           </ul>
         </div>
         
         <div class="footer-section">
           <h4>Company</h4>
           <ul>
-            <li><a href="#">About Us</a></li>
-            <li><a href="#">Careers</a></li>
-            <li><a href="#">Privacy Policy</a></li>
-            <li><a href="#">Terms of Service</a></li>
+            <li><a href="#about">About Us</a></li>
+            <li><a href="#careers">Careers</a></li>
+            <li><a href="#privacy">Privacy Policy</a></li>
+            <li><a href="#terms">Terms of Service</a></li>
           </ul>
         </div>
       </div>
@@ -476,4 +452,38 @@
   <!-- Include the JavaScript file -->
   <script src="Frontend/script.js"></script>
 </body>
-</html>
+</html>check"></i> 5 PDF uploads per month</li>
+            <li><i class="fas fa-check"></i> Up to 10 questions per upload</li>
+            <li><i class="fas fa-check"></i> Multiple choice questions only</li>
+            <li><i class="fas fa-check"></i> Medium difficulty only</li>
+            <li><i class="fas fa-times"></i> No AI grading</li>
+            <li><i class="fas fa-times"></i> No progress tracking</li>
+          </ul>
+          <button class="btn-pricing">Get Started</button>
+        </div>
+        
+        <!-- Premium Plan - SECOND -->
+        <div class="pricing-card popular">
+          <div class="popular-badge">MOST POPULAR</div>
+          <div class="pricing-header"><h3>Premium</h3><p>For serious students</p></div>
+          <div class="price">$5<span>/month</span></div>
+          <ul class="features-list">
+            <li><i class="fas fa-check"></i> Unlimited uploads</li>
+            <li><i class="fas fa-check"></i> Up to 100 questions per upload</li>
+            <li><i class="fas fa-check"></i> All question types</li>
+            <li><i class="fas fa-check"></i> Adjustable difficulty</li>
+            <li><i class="fas fa-check"></i> Advanced AI grading</li>
+            <li><i class="fas fa-check"></i> Progress tracking & analytics</li>
+            <li><i class="fas fa-check"></i> Personal dashboard</li>
+          </ul>
+          <button class="btn-pricing" onclick="window.open('#', '_blank')">Subscribe Now</button>
+        </div>
+        
+        <!-- Institutional Plan - THIRD -->
+        <div class="pricing-card">
+          <div class="pricing-header"><h3>Institutional</h3><p>For schools & organizations</p></div>
+          <div class="price">Custom</div>
+          <ul class="features-list">
+            <li><i class="fas fa-check"></i> Everything in Premium</li>
+            <li><i class="fas fa-check"></i> Multiple teacher accounts</li>
+            <li><i class="fas fa-
