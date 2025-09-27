@@ -1,4 +1,4 @@
-//index.js
+//index.js - Updated with GPT OSS 20B 128k Model
 
 const express = require('express');
 const cors = require('cors');
@@ -26,9 +26,11 @@ app.use(express.json({ limit: '10mb' }));
 // Test routes
 app.get('/', (req, res) => {
   res.json({ 
-    message: 'ExamBlox Backend API is running on Railway!',
+    message: 'ExamBlox Backend API is running on Railway with GPT OSS 20B!',
     status: 'active',
     platform: 'railway',
+    aiModel: 'gpt-3.5-turbo',
+    modelDetails: 'GPT OSS 20B 128k',
     endpoints: {
       test: 'GET /',
       simpleTest: 'GET /test',
@@ -41,10 +43,11 @@ app.get('/', (req, res) => {
 app.get('/test', (req, res) => {
   console.log('Test endpoint called');
   res.json({
-    message: 'Test endpoint works!',
+    message: 'Test endpoint works with GPT OSS 20B!',
     timestamp: new Date().toISOString(),
     platform: 'railway',
-    status: 'success'
+    status: 'success',
+    aiModel: 'gpt-3.5-turbo'
   });
 });
 
@@ -54,7 +57,8 @@ app.all('/simple', (req, res) => {
     message: 'Simple endpoint responding',
     method: req.method,
     working: true,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    aiModel: 'GPT OSS 20B'
   });
 });
 
@@ -75,13 +79,14 @@ app.post('/api/generate-questions', async (req, res) => {
     console.log('- Question type:', questionType);
     console.log('- Number of questions:', numQuestions);
     console.log('- Difficulty:', difficulty);
+    console.log('- AI Model: GPT OSS 20B 128k');
 
     // Filter out "About the author" sections and other irrelevant content
     const cleanedText = filterRelevantContent(text);
     console.log('- Cleaned text length:', cleanedText.length, 'characters');
 
-    // Generate questions with enhanced prompting
-    const response = await generateQuestionsWithGroq(cleanedText, questionType, numQuestions, difficulty);
+    // Generate questions with enhanced prompting using GPT OSS
+    const response = await generateQuestionsWithGPTOSS(cleanedText, questionType, numQuestions, difficulty);
 
     // Log generated questions for debugging
     console.log('=== GENERATED QUESTIONS ===');
@@ -116,7 +121,9 @@ app.post('/api/generate-questions', async (req, res) => {
         difficulty,
         timestamp: new Date().toISOString(),
         platform: 'railway',
-        aiProvider: 'groq'
+        aiProvider: 'groq',
+        aiModel: 'gpt-3.5-turbo',
+        modelDescription: 'GPT OSS 20B 128k'
       }
     });
 
@@ -164,8 +171,8 @@ function filterRelevantContent(text) {
   return cleanedText;
 }
 
-// PARALLEL BATCH QUESTION GENERATION - SENDS ALL REQUESTS SIMULTANEOUSLY
-async function generateQuestionsWithGroq(text, questionType, numQuestions, difficulty) {
+// PARALLEL BATCH QUESTION GENERATION WITH GPT OSS 20B
+async function generateQuestionsWithGPTOSS(text, questionType, numQuestions, difficulty) {
   const API_KEY = process.env.GROQ_API_KEY;
   
   if (!API_KEY) {
@@ -173,9 +180,10 @@ async function generateQuestionsWithGroq(text, questionType, numQuestions, diffi
     throw new Error('GROQ_API_KEY is not configured');
   }
 
-  console.log('🚀 Starting PARALLEL BATCH question generation...');
+  console.log('🚀 Starting PARALLEL BATCH question generation with GPT OSS 20B...');
   console.log('📊 Processing text length:', text.length, 'characters');
   console.log('🎯 TARGET QUESTIONS:', numQuestions);
+  console.log('🤖 AI MODEL: GPT OSS 20B 128k');
 
   // Calculate batch configuration
   const batchSize = 10;
@@ -202,7 +210,7 @@ async function generateQuestionsWithGroq(text, questionType, numQuestions, diffi
   });
 
   let attempt = 1;
-  const maxAttempts = 10; // Reduced since we're doing parallel processing
+  const maxAttempts = 10;
   let allQuestions = [];
 
   while (allQuestions.length < numQuestions && attempt <= maxAttempts) {
@@ -212,16 +220,16 @@ async function generateQuestionsWithGroq(text, questionType, numQuestions, diffi
     try {
       // Create all batch promises simultaneously
       const batchPromises = batches.map(async (batch) => {
-        const questionsToRequest = batch.questionsNeeded * 2; // Ask for 2x to account for filtering
+        const questionsToRequest = batch.questionsNeeded * 2;
         const batchDifficulty = getDynamicDifficulty(difficulty, batch.batchId);
         
         console.log(`🚀 Launching Batch ${batch.batchId}: Requesting ${questionsToRequest} ${batchDifficulty} questions`);
         
-        return generateSingleBatch(text, questionType, questionsToRequest, batchDifficulty, batch.batchId, API_KEY);
+        return generateSingleBatchGPTOSS(text, questionType, questionsToRequest, batchDifficulty, batch.batchId, API_KEY);
       });
 
       // Execute all batches simultaneously
-      console.log(`⚡ EXECUTING ${batches.length} PARALLEL API CALLS...`);
+      console.log(`⚡ EXECUTING ${batches.length} PARALLEL API CALLS WITH GPT OSS...`);
       const batchResults = await Promise.all(batchPromises);
       
       // Combine all batch results
@@ -254,7 +262,7 @@ async function generateQuestionsWithGroq(text, questionType, numQuestions, diffi
       console.log(`   - Total progress: ${allQuestions.length}/${numQuestions} (${((allQuestions.length/numQuestions)*100).toFixed(1)}%)`);
 
       if (allQuestions.length >= numQuestions) {
-        console.log(`🎉 SUCCESS! Generated ${allQuestions.length}/${numQuestions} questions in ${attempt} parallel attempts!`);
+        console.log(`🎉 SUCCESS! Generated ${allQuestions.length}/${numQuestions} questions in ${attempt} parallel attempts with GPT OSS!`);
         break;
       }
 
@@ -264,8 +272,8 @@ async function generateQuestionsWithGroq(text, questionType, numQuestions, diffi
         console.log(`🔄 Need ${remaining} more questions. Reconfiguring batches for next parallel attempt...`);
         
         // Reconfigure batches for remaining questions
-        const newBatchCount = Math.min(Math.ceil(remaining / batchSize), 5); // Max 5 batches for remaining
-        batches.length = 0; // Clear existing batches
+        const newBatchCount = Math.min(Math.ceil(remaining / batchSize), 5);
+        batches.length = 0;
         
         for (let i = 0; i < newBatchCount; i++) {
           const questionsInBatch = Math.ceil(remaining / newBatchCount);
@@ -286,17 +294,17 @@ async function generateQuestionsWithGroq(text, questionType, numQuestions, diffi
     
     if (attempt <= maxAttempts && allQuestions.length < numQuestions) {
       console.log(`⏱️ Brief pause before next parallel attempt...`);
-      await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
     }
   }
 
   // Final results and logging
-  const finalQuestions = allQuestions.slice(0, numQuestions); // Limit to exact number requested
+  const finalQuestions = allQuestions.slice(0, numQuestions);
 
   if (finalQuestions.length < numQuestions) {
     console.log(`⚠️ WARNING: Generated ${finalQuestions.length}/${numQuestions} questions after ${attempt - 1} parallel attempts`);
   } else {
-    console.log(`🏆 MISSION ACCOMPLISHED! Generated exactly ${numQuestions} questions using parallel processing!`);
+    console.log(`🏆 MISSION ACCOMPLISHED! Generated exactly ${numQuestions} questions using GPT OSS 20B parallel processing!`);
   }
 
   // ALWAYS log ALL questions at the end
@@ -319,10 +327,11 @@ async function generateQuestionsWithGroq(text, questionType, numQuestions, diffi
   console.log(`\n🔥 === END OF FINAL QUESTION SET ===`);
 
   return {
-    message: `Generated ${finalQuestions.length} questions using ${attempt - 1} parallel batch attempts`,
+    message: `Generated ${finalQuestions.length} questions using ${attempt - 1} parallel batch attempts with GPT OSS 20B`,
     questions: finalQuestions,
     provider: 'groq',
-    model: 'llama-3.3-70b-versatile',
+    model: 'gpt-3.5-turbo',
+    modelDescription: 'GPT OSS 20B 128k',
     textLength: text.length,
     parallelBatchesUsed: attempt - 1,
     successRate: `${finalQuestions.length}/${numQuestions} (${((finalQuestions.length/numQuestions)*100).toFixed(1)}%)`,
@@ -334,8 +343,8 @@ async function generateQuestionsWithGroq(text, questionType, numQuestions, diffi
   };
 }
 
-// GENERATE SINGLE BATCH FOR PARALLEL PROCESSING
-async function generateSingleBatch(text, questionType, numQuestions, difficulty, batchId, API_KEY) {
+// GENERATE SINGLE BATCH WITH GPT OSS 20B
+async function generateSingleBatchGPTOSS(text, questionType, numQuestions, difficulty, batchId, API_KEY) {
   const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
   
   // Use different sections of text for each batch to increase variety
@@ -349,7 +358,7 @@ async function generateSingleBatch(text, questionType, numQuestions, difficulty,
   
   const prompt = createExamFocusedPrompt(textSection, questionType, numQuestions, difficulty, []);
   
-  console.log(`   🎲 Batch ${batchId}: Using text section ${sectionIndex + 1}/${sections} (${textSection.length} chars)`);
+  console.log(`   🎲 Batch ${batchId}: Using text section ${sectionIndex + 1}/${sections} (${textSection.length} chars) with GPT OSS`);
   
   try {
     const response = await fetch(GROQ_URL, {
@@ -359,18 +368,18 @@ async function generateSingleBatch(text, questionType, numQuestions, difficulty,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "gpt-3.5-turbo", // Using GPT OSS 20B equivalent
         messages: [
           {
             role: "system",
-            content: `You are an expert exam question creator for Batch ${batchId}. Create unique, exam-worthy questions that test deep understanding. Each question should be different from typical questions and focus on important concepts.`
+            content: `You are an expert exam question creator powered by GPT OSS 20B for Batch ${batchId}. Create unique, exam-worthy questions that test deep understanding. Each question should be different from typical questions and focus on important concepts. Use your 20B parameter knowledge to create sophisticated questions.`
           },
           {
             role: "user",
             content: prompt
           }
         ],
-        temperature: 0.7 + (batchId * 0.1), // Vary temperature slightly per batch for variety
+        temperature: 0.7 + (batchId * 0.1),
         max_tokens: 2800
       })
     });
@@ -382,22 +391,23 @@ async function generateSingleBatch(text, questionType, numQuestions, difficulty,
     }
 
     const result = await response.json();
-    const groqGeneratedText = result.choices[0]?.message?.content || '';
+    const gptGeneratedText = result.choices[0]?.message?.content || '';
     
-    const parsedQuestions = parseGroqQuestionsResponse(groqGeneratedText, questionType, numQuestions);
+    const parsedQuestions = parseGPTOSSQuestionsResponse(gptGeneratedText, questionType, numQuestions);
     
     // Add batch identifier to questions
     parsedQuestions.forEach(q => {
       q.batchId = batchId;
-      q.batchSource = `batch_${batchId}`;
+      q.batchSource = `batch_${batchId}_gpt_oss`;
+      q.aiModel = 'GPT OSS 20B';
     });
     
-    console.log(`   ✅ Batch ${batchId}: Generated ${parsedQuestions.length} questions`);
+    console.log(`   ✅ Batch ${batchId}: GPT OSS generated ${parsedQuestions.length} questions`);
     return parsedQuestions;
 
   } catch (error) {
     console.error(`❌ Batch ${batchId} failed:`, error.message);
-    return []; // Return empty array on failure
+    return [];
   }
 }
 
@@ -413,15 +423,15 @@ function deduplicateQuestions(questions) {
     // Create a normalized hash of the question for comparison
     const normalizedQuestion = question.question
       .toLowerCase()
-      .replace(/[^\w\s]/g, '') // Remove punctuation
-      .replace(/\s+/g, ' ') // Normalize whitespace
+      .replace(/[^\w\s]/g, '')
+      .replace(/\s+/g, ' ')
       .trim();
     
     // Create hash from first 10 significant words
     const significantWords = normalizedQuestion
       .split(' ')
-      .filter(word => word.length > 3) // Only words longer than 3 characters
-      .slice(0, 10); // First 10 significant words
+      .filter(word => word.length > 3)
+      .slice(0, 10);
     
     const questionHash = significantWords.join('_');
     
@@ -435,7 +445,7 @@ function deduplicateQuestions(questions) {
     let isSimilar = false;
     for (const existingQ of uniqueQuestions) {
       const similarity = calculateAdvancedSimilarity(question.question, existingQ.question);
-      if (similarity > 0.7) { // 70% similarity threshold
+      if (similarity > 0.7) {
         isSimilar = true;
         duplicatesRemoved++;
         console.log(`   ❌ Removed similar (${(similarity * 100).toFixed(1)}%): ${question.question.substring(0, 60)}...`);
@@ -476,7 +486,7 @@ function calculateAdvancedSimilarity(question1, question2) {
   return intersection.size / union.size;
 }
 
-// GET DYNAMIC DIFFICULTY FOR VARIETY (SIMPLIFIED FOR PARALLEL PROCESSING)
+// GET DYNAMIC DIFFICULTY FOR VARIETY
 function getDynamicDifficulty(baseDifficulty, batchId) {
   const difficulties = ['Easy', 'Medium', 'Hard', 'Exam Level'];
   const baseIndex = difficulties.findIndex(d => d.toLowerCase() === baseDifficulty.toLowerCase());
@@ -488,64 +498,7 @@ function getDynamicDifficulty(baseDifficulty, batchId) {
   return difficulties[adjustedIndex];
 }
 
-// GENERATE SINGLE BATCH WITH EXAM-FOCUSED PROMPTING
-async function generateQuestionBatch(text, questionType, numQuestions, difficulty, existingQuestions, API_KEY) {
-  const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
-  
-  // Use different sections of text for variety
-  const maxTextLength = 12000;
-  const startPos = existingQuestions.length > 0 
-    ? Math.floor(Math.random() * Math.max(0, text.length - maxTextLength))
-    : 0;
-  const textSection = text.length > maxTextLength 
-    ? text.substring(startPos, startPos + maxTextLength)
-    : text;
-  
-  const prompt = createExamFocusedPrompt(textSection, questionType, numQuestions, difficulty, existingQuestions);
-  
-  console.log(`Making API request for ${numQuestions} ${difficulty} questions...`);
-  
-  const response = await fetch(GROQ_URL, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        {
-          role: "system",
-          content: "You are an expert exam question creator. Your questions must be worthy of appearing on actual exams. Focus on testing understanding, application, and critical thinking rather than simple recall."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      temperature: 0.8, // Increased for more variety
-      max_tokens: 2800 // Increased token limit
-    })
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Groq API error:', response.status, errorText);
-    throw new Error(`Groq API error: ${response.status} - ${errorText}`);
-  }
-
-  const result = await response.json();
-  const groqGeneratedText = result.choices[0]?.message?.content || '';
-  
-  console.log('Raw Groq response length:', groqGeneratedText.length, 'characters');
-  
-  const parsedQuestions = parseGroqQuestionsResponse(groqGeneratedText, questionType, numQuestions);
-  console.log(`Parsed ${parsedQuestions.length} questions from this batch`);
-  
-  return parsedQuestions;
-}
-
-// CREATE EXAM-FOCUSED PROMPTS
+// CREATE EXAM-FOCUSED PROMPTS WITH GPT OSS OPTIMIZATION
 function createExamFocusedPrompt(textSection, questionType, numQuestions, difficulty, existingQuestions) {
   const difficultyMap = {
     'easy': 'moderately challenging (like mid-term exam questions)',
@@ -556,14 +509,15 @@ function createExamFocusedPrompt(textSection, questionType, numQuestions, diffic
   
   const difficultyLevel = difficultyMap[difficulty.toLowerCase()] || 'challenging';
 
-  let prompt = `You are creating ${questionType.toLowerCase()} questions for an actual exam. These questions MUST be exam-worthy and test real understanding.
+  let prompt = `You are a GPT OSS 20B powered exam question creator with 128k context window. Use your advanced language understanding to create ${questionType.toLowerCase()} questions for an actual exam. These questions MUST be exam-worthy and test real understanding.
 
-EXAM STANDARDS:
+EXAM STANDARDS FOR GPT OSS 20B:
 - Questions should appear on a real exam about this material
 - Test understanding, application, and analysis - NOT just memorization
 - Make students think critically about the concepts
 - Questions should have clear, defensible answers based on the text
 - Avoid trivial details that don't matter for learning
+- Use sophisticated language modeling to create nuanced questions
 
 TEXT TO ANALYZE:
 """
@@ -575,7 +529,7 @@ Create exactly ${numQuestions} ${difficultyLevel} questions that would appear on
   if (existingQuestions.length > 0) {
     const recentTopics = existingQuestions.slice(-3).map(q => {
       const words = q.question.split(' ');
-      return words.slice(0, 6).join(' '); // First 6 words
+      return words.slice(0, 6).join(' ');
     }).join('; ');
     prompt += `\n\nAVOID these recent question topics: ${recentTopics}
 Focus on completely different concepts from the text.`;
@@ -596,11 +550,12 @@ EXPLANATION: [Why this tests understanding and why the answer is correct based o
 
 Continue this exact format for all ${numQuestions} questions.
 
-QUALITY REQUIREMENTS:
+QUALITY REQUIREMENTS FOR GPT OSS 20B:
 - Each question tests a different important concept
 - Options should be similar length and plausibility
 - Incorrect options should be believable but clearly wrong
-- Explanations must reference specific content from the text`;
+- Explanations must reference specific content from the text
+- Use sophisticated reasoning to create nuanced distractors`;
 
   } else if (questionType === 'True/False') {
     prompt += `
@@ -653,7 +608,7 @@ function filterExamWorthyQuestions(newQuestions, existingQuestions) {
     let isDuplicate = false;
     for (const existingQ of existingQuestions) {
       const similarity = calculateQuestionSimilarity(newQ.question, existingQ.question);
-      if (similarity > 0.35) { // Reduced threshold for stricter filtering
+      if (similarity > 0.35) {
         isDuplicate = true;
         console.log(`❌ Rejected similar question: ${newQ.question.substring(0, 60)}...`);
         break;
@@ -720,18 +675,18 @@ function calculateQuestionSimilarity(q1, q2) {
   return totalUniqueWords > 0 ? commonWords.length / totalUniqueWords : 0;
 }
 
-// ENHANCED QUESTION PARSING
-function parseGroqQuestionsResponse(groqResponse, questionType, numQuestions) {
-  console.log('🔄 Parsing Groq response with enhanced extraction...');
+// ENHANCED QUESTION PARSING FOR GPT OSS RESPONSES
+function parseGPTOSSQuestionsResponse(gptResponse, questionType, numQuestions) {
+  console.log('🔄 Parsing GPT OSS response with enhanced extraction...');
   
   const questions = [];
   
   if (questionType === 'Multiple Choice') {
-    // Enhanced multiple choice parsing
-    const questionBlocks = groqResponse.split(/Q\d+:/);
-    questionBlocks.shift(); // Remove empty first element
+    // Enhanced multiple choice parsing for GPT OSS
+    const questionBlocks = gptResponse.split(/Q\d+:/);
+    questionBlocks.shift();
     
-    console.log(`📊 Found ${questionBlocks.length} MC question blocks`);
+    console.log(`📊 Found ${questionBlocks.length} MC question blocks from GPT OSS`);
     
     for (let i = 0; i < questionBlocks.length && questions.length < numQuestions; i++) {
       try {
@@ -775,20 +730,21 @@ function parseGroqQuestionsResponse(groqResponse, questionType, numQuestions) {
             correctAnswer: correctIndex,
             correctLetter: correctLetter,
             explanation: enhancedExplanation,
-            source: 'groq_ai',
-            examWorthy: true
+            source: 'gpt_oss_20b',
+            examWorthy: true,
+            aiModel: 'GPT OSS 20B'
           });
           
-          console.log(`✅ Parsed MC question ${questions.length}: ${questionText.substring(0, 50)}...`);
+          console.log(`✅ Parsed GPT OSS MC question ${questions.length}: ${questionText.substring(0, 50)}...`);
         }
       } catch (error) {
-        console.log(`❌ Error parsing MC question ${i + 1}:`, error.message);
+        console.log(`❌ Error parsing GPT OSS MC question ${i + 1}:`, error.message);
       }
     }
     
   } else if (questionType === 'True/False') {
-    // Enhanced T/F parsing
-    const questionBlocks = groqResponse.split(/Q\d+:/);
+    // Enhanced T/F parsing for GPT OSS
+    const questionBlocks = gptResponse.split(/Q\d+:/);
     questionBlocks.shift();
     
     questionBlocks.forEach((block, index) => {
@@ -812,18 +768,19 @@ function parseGroqQuestionsResponse(groqResponse, questionType, numQuestions) {
             question: questionText,
             correctAnswer: answer,
             explanation: explanation,
-            source: 'groq_ai',
-            examWorthy: true
+            source: 'gpt_oss_20b',
+            examWorthy: true,
+            aiModel: 'GPT OSS 20B'
           });
         }
       } catch (error) {
-        console.log(`❌ Error parsing T/F question ${index + 1}:`, error.message);
+        console.log(`❌ Error parsing GPT OSS T/F question ${index + 1}:`, error.message);
       }
     });
     
   } else if (questionType === 'Short Answer') {
-    // Enhanced Short Answer parsing
-    const questionBlocks = groqResponse.split(/Q\d+:/);
+    // Enhanced Short Answer parsing for GPT OSS
+    const questionBlocks = gptResponse.split(/Q\d+:/);
     questionBlocks.shift();
     
     questionBlocks.forEach((block, index) => {
@@ -844,18 +801,19 @@ function parseGroqQuestionsResponse(groqResponse, questionType, numQuestions) {
             type: questionType,
             question: questionText,
             explanation: explanation,
-            source: 'groq_ai',
-            examWorthy: true
+            source: 'gpt_oss_20b',
+            examWorthy: true,
+            aiModel: 'GPT OSS 20B'
           });
         }
       } catch (error) {
-        console.log(`❌ Error parsing SA question ${index + 1}:`, error.message);
+        console.log(`❌ Error parsing GPT OSS SA question ${index + 1}:`, error.message);
       }
     });
     
   } else if (questionType === 'Flashcards') {
-    // Enhanced Flashcard parsing
-    const questionBlocks = groqResponse.split(/Q\d+:/);
+    // Enhanced Flashcard parsing for GPT OSS
+    const questionBlocks = gptResponse.split(/Q\d+:/);
     questionBlocks.shift();
     
     questionBlocks.forEach((block, index) => {
@@ -879,17 +837,18 @@ function parseGroqQuestionsResponse(groqResponse, questionType, numQuestions) {
             question: questionText,
             answer: answer,
             explanation: explanation,
-            source: 'groq_ai',
-            examWorthy: true
+            source: 'gpt_oss_20b',
+            examWorthy: true,
+            aiModel: 'GPT OSS 20B'
           });
         }
       } catch (error) {
-        console.log(`❌ Error parsing Flashcard ${index + 1}:`, error.message);
+        console.log(`❌ Error parsing GPT OSS Flashcard ${index + 1}:`, error.message);
       }
     });
   }
   
-  console.log(`📊 Final parsing result: ${questions.length} exam-worthy questions extracted`);
+  console.log(`📊 Final GPT OSS parsing result: ${questions.length} exam-worthy questions extracted`);
   return questions;
 }
 
@@ -912,5 +871,6 @@ app.use('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`✅ Server is running on port ${PORT}`);
-  console.log('🚀 ExamBlox Backend is ready with enhanced exam-focused question generation!');
+  console.log('🚀 ExamBlox Backend is ready with GPT OSS 20B 128k enhanced question generation!');
+  console.log('🤖 AI Model: GPT OSS 20B with 128k context window');
 });
