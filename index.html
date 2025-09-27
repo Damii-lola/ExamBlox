@@ -48,18 +48,6 @@
         opacity: 0;
       }
     }
-
-    /* Admin badge styling */
-    .dropdown-admin {
-      background: linear-gradient(90deg, #ff6b35, #f7931e);
-      color: white;
-      padding: 2px 8px;
-      border-radius: 8px;
-      font-size: 0.7rem;
-      font-weight: 600;
-      display: inline-block;
-      margin-top: 4px;
-    }
   </style>
 </head>
 <body>
@@ -111,8 +99,203 @@
               <i class="fas fa-brain"></i>
               <span>Advanced AI analysis</span>
             </div>
+        </div>
+        
+        <!-- Michael Chen - THIRD -->
+        <div class="testimonial-card">
+          <div class="testimonial-content">
+            <div class="stars">
+              <i class="fas fa-star"></i><i class="fas fa-star"></i>
+              <i class="fas fa-star"></i><i class="fas fa-star"></i>
+              <i class="fas fa-star"></i>
+            </div>
+            <p>"As a teacher, this tool has saved me countless hours. I can now create differentiated practice sets for my students based on their individual needs."</p>
+          </div>
+          <div class="testimonial-author">
+            <div class="author-avatar"></div>
+            <div class="author-details">
+              <h4>Michael Chen</h4>
+              <p>High School Teacher</p>
+            </div>
           </div>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section id="pricing" class="pricing">
+    <div class="container">
+      <h2>Simple, Transparent Pricing</h2>
+      <p class="section-subtitle">Choose the plan that works best for you</p>
+      
+      <div class="pricing-grid">
+        <!-- Free Plan - FIRST -->
+        <div class="pricing-card">
+          <div class="pricing-header"><h3>Free</h3><p>For trying out basic features</p></div>
+          <div class="price">$0<span>/month</span></div>
+          <ul class="features-list">
+            <li><i class="fas fa-check"></i> 5 PDF uploads per month</li>
+            <li><i class="fas fa-check"></i> Up to 10 questions per upload</li>
+            <li><i class="fas fa-check"></i> Multiple choice questions only</li>
+            <li><i class="fas fa-check"></i> Medium difficulty only</li>
+            <li><i class="fas fa-times"></i> No AI grading</li>
+            <li><i class="fas fa-times"></i> No progress tracking</li>
+          </ul>
+          <button class="btn-pricing">Get Started</button>
+        </div>
+        
+        <!-- Premium Plan - SECOND -->
+        <div class="pricing-card popular">
+          <div class="popular-badge">MOST POPULAR</div>
+          <div class="pricing-header"><h3>Premium</h3><p>For serious students</p></div>
+          <div class="price">$5<span>/month</span></div>
+          <ul class="features-list">
+            <li><i class="fas fa-check"></i> Unlimited uploads</li>
+            <li><i class="fas fa-check"></i> Up to 100 questions per upload</li>
+            <li><i class="fas fa-check"></i> All question types</li>
+            <li><i class="fas fa-check"></i> Adjustable difficulty</li>
+            <li><i class="fas fa-check"></i> Advanced AI grading</li>
+            <li><i class="fas fa-check"></i> Progress tracking & analytics</li>
+            <li><i class="fas fa-check"></i> Personal dashboard</li>
+          </ul>
+          <button class="btn-pricing" onclick="window.open('#', '_blank')">Subscribe Now</button>
+        </div>
+        
+        <!-- Institutional Plan - THIRD -->
+        <div class="pricing-card">
+          <div class="pricing-header"><h3>Institutional</h3><p>For schools & organizations</p></div>
+          <div class="price">Custom</div>
+          <ul class="features-list">
+            <li><i class="fas fa-check"></i> Everything in Premium</li>
+            <li><i class="fas fa-check"></i> Multiple teacher accounts</li>
+            <li><i class="fas fa-check"></i> Student management</li>
+            <li><i class="fas fa-check"></i> Classroom analytics</li>
+            <li><i class="fas fa-check"></i> Custom branding</li>
+            <li><i class="fas fa-check"></i> Priority support</li>
+          </ul>
+          <button class="btn-pricing">Contact Sales</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ Section -->
+  <section class="faq">
+    <div class="container">
+      <h2>Frequently Asked Questions</h2>
+      
+      <div class="faq-grid">
+        <div class="faq-item">
+          <div class="faq-question">
+            <h3>What file formats does ExamBlox support?</h3>
+            <i class="fas fa-chevron-down"></i>
+          </div>
+          <div class="faq-answer">
+            <p>We support PDF, DOCX, TXT, JPG, and PNG files. Our AI can extract text from these formats to generate relevant questions.</p>
+          </div>
+        </div>
+        
+        <div class="faq-item">
+          <div class="faq-question">
+            <h3>How accurate are the generated questions?</h3>
+            <i class="fas fa-chevron-down"></i>
+          </div>
+          <div class="faq-answer">
+            <p>Our AI has been trained on educational materials to generate highly relevant and accurate questions. The accuracy depends on the quality of the source material, but users consistently report 90%+ relevance.</p>
+          </div>
+        </div>
+        
+        <div class="faq-item">
+          <div class="faq-question">
+            <h3>Is my data secure?</h3>
+            <i class="fas fa-chevron-down"></i>
+          </div>
+          <div class="faq-answer">
+            <p>Yes! We use industry-standard encryption and never store your files after processing. Your materials are completely private and secure.</p>
+          </div>
+        </div>
+        
+        <div class="faq-item">
+          <div class="faq-question">
+            <h3>Can I use ExamBlox for commercial purposes?</h3>
+            <i class="fas fa-chevron-down"></i>
+          </div>
+          <div class="faq-answer">
+            <p>Our free plan is for personal use only. For commercial use, please subscribe to our Premium plan or contact us for institutional licensing.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section class="cta">
+    <div class="container">
+      <div class="cta-content">
+        <h2>Ready to Enhance Your Study Process?</h2>
+        <p>Join thousands of students and educators who are already using ExamBlox to make studying more effective and efficient.</p>
+        <button class="btn-cta">Get Started for Free</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-section">
+          <h3>ExamBlox</h3>
+          <p>Transforming how students study with AI-powered question generation.</p>
+          <div class="social-links">
+            <a href="#" onclick="showNotification('Social media coming soon!', 'info'); return false;"><i class="fab fa-twitter"></i></a>
+            <a href="#" onclick="showNotification('Social media coming soon!', 'info'); return false;"><i class="fab fa-facebook"></i></a>
+            <a href="#" onclick="showNotification('Social media coming soon!', 'info'); return false;"><i class="fab fa-instagram"></i></a>
+            <a href="#" onclick="showNotification('Social media coming soon!', 'info'); return false;"><i class="fab fa-linkedin"></i></a>
+          </div>
+        </div>
+        
+        <div class="footer-section">
+          <h4>Product</h4>
+          <ul>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#pricing">Pricing</a></li>
+            <li><a href="#use-cases">Use Cases</a></li>
+            <li><a href="#testimonials">Testimonials</a></li>
+          </ul>
+        </div>
+        
+        <div class="footer-section">
+          <h4>Resources</h4>
+          <ul>
+            <li><a href="#blog">Blog</a></li>
+            <li><a href="#tutorials">Tutorials</a></li>
+            <li><a href="#documentation">Documentation</a></li>
+            <li><a href="#support">Support</a></li>
+          </ul>
+        </div>
+        
+        <div class="footer-section">
+          <h4>Company</h4>
+          <ul>
+            <li><a href="#about">About Us</a></li>
+            <li><a href="#careers">Careers</a></li>
+            <li><a href="#privacy">Privacy Policy</a></li>
+            <li><a href="#terms">Terms of Service</a></li>
+          </ul>
+        </div>
+      </div>
+      
+      <div class="footer-bottom">
+        <p>© 2025 ExamBlox. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Include the JavaScript file -->
+  <script src="Frontend/script.js"></script>
+</body>
+</html>
         
         <!-- Upload Box (Now Functional) -->
         <div class="upload-box">
@@ -310,180 +493,3 @@
               <p>Law Student</p>
             </div>
           </div>
-        </div>
-        
-        <!-- Michael Chen - THIRD -->
-        <div class="testimonial-card">
-          <div class="testimonial-content">
-            <div class="stars">
-              <i class="fas fa-star"></i><i class="fas fa-star"></i>
-              <i class="fas fa-star"></i><i class="fas fa-star"></i>
-              <i class="fas fa-star"></i>
-            </div>
-            <p>"As a teacher, this tool has saved me countless hours. I can now create differentiated practice sets for my students based on their individual needs."</p>
-          </div>
-          <div class="testimonial-author">
-            <div class="author-avatar"></div>
-            <div class="author-details">
-              <h4>Michael Chen</h4>
-              <p>High School Teacher</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Pricing -->
-  <section id="pricing" class="pricing">
-    <div class="container">
-      <h2>Simple, Transparent Pricing</h2>
-      <p class="section-subtitle">Choose the plan that works best for you</p>
-      
-      <div class="pricing-grid">
-        <!-- Free Plan - FIRST -->
-        <div class="pricing-card">
-          <div class="pricing-header"><h3>Free</h3><p>For trying out basic features</p></div>
-          <div class="price">$0<span>/month</span></div>
-          <ul class="features-list">
-            <li><i class="fas fa-check"></i> Student management</li>
-            <li><i class="fas fa-check"></i> Classroom analytics</li>
-            <li><i class="fas fa-check"></i> Custom branding</li>
-            <li><i class="fas fa-check"></i> Priority support</li>
-          </ul>
-          <button class="btn-pricing">Contact Sales</button>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- FAQ Section -->
-  <section class="faq">
-    <div class="container">
-      <h2>Frequently Asked Questions</h2>
-      
-      <div class="faq-grid">
-        <div class="faq-item">
-          <div class="faq-question"><h3>What file formats does ExamBlox support?</h3></div>
-          <div class="faq-answer"><p>We support PDF, DOCX, TXT, JPG, and PNG files. Our AI can extract text from these formats to generate relevant questions.</p></div>
-        </div>
-        
-        <div class="faq-item">
-          <div class="faq-question"><h3>How accurate are the generated questions?</h3></div>
-          <div class="faq-answer"><p>Our AI has been trained on educational materials to generate highly relevant and accurate questions. The accuracy depends on the quality of the source material, but users consistently report 90%+ relevance.</p></div>
-        </div>
-        
-        <div class="faq-item">
-          <div class="faq-question"><h3>Is my data secure?</h3></div>
-          <div class="faq-answer"><p>Yes! We use industry-standard encryption and never store your files after processing. Your materials are completely private and secure.</p></div>
-        </div>
-        
-        <div class="faq-item">
-          <div class="faq-question"><h3>Can I use ExamBlox for commercial purposes?</h3></div>
-          <div class="faq-answer"><p>Our free plan is for personal use only. For commercial use, please subscribe to our Premium plan or contact us for institutional licensing.</p></div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- CTA Section -->
-  <section class="cta">
-    <div class="container">
-      <div class="cta-content">
-        <h2>Ready to Enhance Your Study Process?</h2>
-        <p>Join thousands of students and educators who are already using ExamBlox to make studying more effective and efficient.</p>
-        <button class="btn-cta">Get Started for Free</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- Footer -->
-  <footer>
-    <div class="container">
-      <div class="footer-content">
-        <div class="footer-section">
-          <h3>ExamBlox</h3>
-          <p>Transforming how students study with AI-powered question generation.</p>
-          <div class="social-links">
-            <a href="#"><i class="fab fa-twitter"></i></a>
-            <a href="#"><i class="fab fa-facebook"></i></a>
-            <a href="#"><i class="fab fa-instagram"></i></a>
-            <a href="#"><i class="fab fa-linkedin"></i></a>
-          </div>
-        </div>
-        
-        <div class="footer-section">
-          <h4>Product</h4>
-          <ul>
-            <li><a href="#features">Features</a></li>
-            <li><a href="#pricing">Pricing</a></li>
-            <li><a href="#use-cases">Use Cases</a></li>
-            <li><a href="#testimonials">Testimonials</a></li>
-          </ul>
-        </div>
-        
-        <div class="footer-section">
-          <h4>Resources</h4>
-          <ul>
-            <li><a href="#blog">Blog</a></li>
-            <li><a href="#tutorials">Tutorials</a></li>
-            <li><a href="#documentation">Documentation</a></li>
-            <li><a href="#support">Support</a></li>
-          </ul>
-        </div>
-        
-        <div class="footer-section">
-          <h4>Company</h4>
-          <ul>
-            <li><a href="#about">About Us</a></li>
-            <li><a href="#careers">Careers</a></li>
-            <li><a href="#privacy">Privacy Policy</a></li>
-            <li><a href="#terms">Terms of Service</a></li>
-          </ul>
-        </div>
-      </div>
-      
-      <div class="footer-bottom">
-        <p>© 2025 ExamBlox. All rights reserved.</p>
-      </div>
-    </div>
-  </footer>
-
-  <!-- Include the JavaScript file -->
-  <script src="Frontend/script.js"></script>
-</body>
-</html>check"></i> 5 PDF uploads per month</li>
-            <li><i class="fas fa-check"></i> Up to 10 questions per upload</li>
-            <li><i class="fas fa-check"></i> Multiple choice questions only</li>
-            <li><i class="fas fa-check"></i> Medium difficulty only</li>
-            <li><i class="fas fa-times"></i> No AI grading</li>
-            <li><i class="fas fa-times"></i> No progress tracking</li>
-          </ul>
-          <button class="btn-pricing">Get Started</button>
-        </div>
-        
-        <!-- Premium Plan - SECOND -->
-        <div class="pricing-card popular">
-          <div class="popular-badge">MOST POPULAR</div>
-          <div class="pricing-header"><h3>Premium</h3><p>For serious students</p></div>
-          <div class="price">$5<span>/month</span></div>
-          <ul class="features-list">
-            <li><i class="fas fa-check"></i> Unlimited uploads</li>
-            <li><i class="fas fa-check"></i> Up to 100 questions per upload</li>
-            <li><i class="fas fa-check"></i> All question types</li>
-            <li><i class="fas fa-check"></i> Adjustable difficulty</li>
-            <li><i class="fas fa-check"></i> Advanced AI grading</li>
-            <li><i class="fas fa-check"></i> Progress tracking & analytics</li>
-            <li><i class="fas fa-check"></i> Personal dashboard</li>
-          </ul>
-          <button class="btn-pricing" onclick="window.open('#', '_blank')">Subscribe Now</button>
-        </div>
-        
-        <!-- Institutional Plan - THIRD -->
-        <div class="pricing-card">
-          <div class="pricing-header"><h3>Institutional</h3><p>For schools & organizations</p></div>
-          <div class="price">Custom</div>
-          <ul class="features-list">
-            <li><i class="fas fa-check"></i> Everything in Premium</li>
-            <li><i class="fas fa-check"></i> Multiple teacher accounts</li>
-            <li><i class="fas fa-
