@@ -7,7 +7,7 @@ let currentUser = null;
 // Protected admin data - PERMANENT and UNBREAKABLE
 const PROTECTED_ADMIN = {
   username: 'damii-lola',
-  name: 'Damii Lola',
+  name: 'Damilola',
   email: 'damii.lola.admin@examblox.com',
   password: 'God_G1ve_M3_P0wer',
   plan: 'premium',
