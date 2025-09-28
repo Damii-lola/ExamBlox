@@ -1,4 +1,4 @@
-//index.js
+// index.js
 
 const express = require('express');
 const cors = require('cors');
@@ -25,7 +25,7 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 
 // Email configuration
-const transporter = nodemailer.createTransporter({
+const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
