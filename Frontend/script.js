@@ -9,7 +9,7 @@ const PROTECTED_ADMIN = {
   username: 'damii-lola',
   name: 'Damii Lola',
   email: 'damii.lola.admin@examblox.com',
-  password: 'admin123secure',
+  password: 'God_G1ve_M3_P0wer',
   plan: 'premium',
   role: 'admin',
   isPermanent: true,
