@@ -1,7 +1,8 @@
-//index.js - Updated with GPT OSS 20B 128k Model
+//index.js
 
 const express = require('express');
 const cors = require('cors');
+const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 const app = express();
@@ -23,19 +24,33 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 
+// Email configuration
+const transporter = nodemailer.createTransporter({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
+
+// Store OTPs temporarily (in production, use Redis or database)
+const otpStorage = new Map();
+
 // Test routes
 app.get('/', (req, res) => {
   res.json({ 
-    message: 'ExamBlox Backend API is running on Railway with GPT OSS 20B!',
+    message: 'ExamBlox Backend API is running on Railway with Llama 4 Scout!',
     status: 'active',
     platform: 'railway',
-    aiModel: 'gpt-3.5-turbo',
-    modelDetails: 'GPT OSS 20B 128k',
+    aiModel: 'llama-3.3-70b-versatile',
+    modelDetails: 'Llama 4 Scout (17Bx16E) 128k',
     endpoints: {
       test: 'GET /',
       simpleTest: 'GET /test',
       simple: 'GET/POST /simple',
-      generate: 'POST /api/generate-questions'
+      generate: 'POST /api/generate-questions',
+      sendOtp: 'POST /api/send-otp',
+      verifyOtp: 'POST /api/verify-otp'
     }
   });
 });
@@ -43,26 +58,263 @@ app.get('/', (req, res) => {
 app.get('/test', (req, res) => {
   console.log('Test endpoint called');
   res.json({
-    message: 'Test endpoint works with GPT OSS 20B!',
+    message: 'Test endpoint works with Llama 4 Scout!',
     timestamp: new Date().toISOString(),
     platform: 'railway',
     status: 'success',
-    aiModel: 'gpt-3.5-turbo'
+    aiModel: 'llama-3.3-70b-versatile'
   });
 });
 
-app.all('/simple', (req, res) => {
-  console.log('Simple endpoint called with method:', req.method);
-  res.json({
-    message: 'Simple endpoint responding',
-    method: req.method,
-    working: true,
-    timestamp: new Date().toISOString(),
-    aiModel: 'GPT OSS 20B'
-  });
+// OTP ENDPOINTS
+app.post('/api/send-otp', async (req, res) => {
+  try {
+    const { email, name, type = 'signup' } = req.body;
+    
+    if (!email || !name) {
+      return res.status(400).json({
+        error: 'Email and name are required'
+      });
+    }
+    
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Store OTP with 10-minute expiry
+    const otpData = {
+      otp: otp,
+      email: email,
+      name: name,
+      type: type,
+      createdAt: new Date(),
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
+    };
+    
+    otpStorage.set(email, otpData);
+    
+    console.log(`Generated OTP for ${email}: ${otp} (expires in 10 minutes)`);
+    
+    // Email templates
+    const emailTemplates = {
+      signup: {
+        subject: '🔐 Your ExamBlox Verification Code',
+        html: `
+          <div style="font-family: 'Poppins', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #6a4bff, #4dfff3); border-radius: 15px;">
+            <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+              <div style="text-align: center; margin-bottom: 30px;">
+                <h1 style="color: #6a4bff; font-size: 28px; margin: 0;">🔐 ExamBlox</h1>
+                <p style="color: #666; margin: 5px 0 0 0;">Your Verification Code</p>
+              </div>
+              
+              <p style="font-size: 16px; color: #333; margin-bottom: 20px;">Hello <strong>${name}</strong>,</p>
+              
+              <p style="font-size: 16px; color: #333; margin-bottom: 30px;">Your One-Time Password (OTP) for ExamBlox is:</p>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <div style="display: inline-block; background: linear-gradient(135deg, #6a4bff, #4dfff3); color: white; padding: 20px 40px; border-radius: 10px; font-size: 32px; font-weight: bold; letter-spacing: 8px; box-shadow: 0 5px 15px rgba(106,75,255,0.3);">
+                  ${otp}
+                </div>
+              </div>
+              
+              <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0; color: #856404; font-size: 14px;">⏰ <strong>This code will expire in 10 minutes.</strong></p>
+              </div>
+              
+              <p style="font-size: 14px; color: #666; margin-bottom: 20px;">If you didn't request this, please ignore this email.</p>
+              
+              <p style="font-size: 16px; color: #333; margin-bottom: 30px;">Thank you for using ExamBlox to power your exam prep! 🚀</p>
+              
+              <div style="text-align: center; border-top: 1px solid #eee; padding-top: 20px; margin-top: 30px;">
+                <p style="font-size: 14px; color: #999; margin: 0;">Best regards,</p>
+                <p style="font-size: 16px; color: #6a4bff; font-weight: bold; margin: 5px 0 0 0;">The ExamBlox Team</p>
+              </div>
+            </div>
+          </div>
+        `
+      },
+      forgot_password: {
+        subject: '🔐 ExamBlox Password Reset Code',
+        html: `
+          <div style="font-family: 'Poppins', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #ff6b35, #f7931e); border-radius: 15px;">
+            <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+              <div style="text-align: center; margin-bottom: 30px;">
+                <h1 style="color: #ff6b35; font-size: 28px; margin: 0;">🔐 ExamBlox</h1>
+                <p style="color: #666; margin: 5px 0 0 0;">Password Reset Code</p>
+              </div>
+              
+              <p style="font-size: 16px; color: #333; margin-bottom: 20px;">Hello <strong>${name}</strong>,</p>
+              
+              <p style="font-size: 16px; color: #333; margin-bottom: 30px;">You requested a password reset. Your One-Time Password (OTP) is:</p>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <div style="display: inline-block; background: linear-gradient(135deg, #ff6b35, #f7931e); color: white; padding: 20px 40px; border-radius: 10px; font-size: 32px; font-weight: bold; letter-spacing: 8px; box-shadow: 0 5px 15px rgba(255,107,53,0.3);">
+                  ${otp}
+                </div>
+              </div>
+              
+              <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0; color: #856404; font-size: 14px;">⏰ <strong>This code will expire in 10 minutes.</strong></p>
+              </div>
+              
+              <p style="font-size: 14px; color: #666; margin-bottom: 20px;">If you didn't request this password reset, please ignore this email.</p>
+              
+              <div style="text-align: center; border-top: 1px solid #eee; padding-top: 20px; margin-top: 30px;">
+                <p style="font-size: 14px; color: #999; margin: 0;">Best regards,</p>
+                <p style="font-size: 16px; color: #ff6b35; font-weight: bold; margin: 5px 0 0 0;">The ExamBlox Team</p>
+              </div>
+            </div>
+          </div>
+        `
+      }
+    };
+    
+    const template = emailTemplates[type] || emailTemplates.signup;
+    
+    // Send email
+    await transporter.sendMail({
+      from: `"ExamBlox Team" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: template.subject,
+      html: template.html
+    });
+    
+    console.log(`OTP email sent successfully to ${email}`);
+    
+    res.json({
+      success: true,
+      message: 'OTP sent successfully',
+      expiresIn: '10 minutes'
+    });
+    
+  } catch (error) {
+    console.error('Error sending OTP:', error);
+    res.status(500).json({
+      error: 'Failed to send OTP',
+      message: error.message
+    });
+  }
 });
 
-// MAIN QUESTION GENERATION ENDPOINT
+app.post('/api/verify-otp', (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    
+    if (!email || !otp) {
+      return res.status(400).json({
+        error: 'Email and OTP are required'
+      });
+    }
+    
+    const otpData = otpStorage.get(email);
+    
+    if (!otpData) {
+      return res.status(400).json({
+        error: 'OTP not found or expired',
+        message: 'Please request a new OTP'
+      });
+    }
+    
+    // Check if OTP is expired
+    if (new Date() > otpData.expiresAt) {
+      otpStorage.delete(email);
+      return res.status(400).json({
+        error: 'OTP has expired',
+        message: 'Please request a new OTP'
+      });
+    }
+    
+    // Verify OTP
+    if (otpData.otp !== otp) {
+      return res.status(400).json({
+        error: 'Invalid OTP',
+        message: 'Please check the code and try again'
+      });
+    }
+    
+    // OTP is valid, remove from storage
+    otpStorage.delete(email);
+    
+    console.log(`OTP verified successfully for ${email}`);
+    
+    res.json({
+      success: true,
+      message: 'OTP verified successfully'
+    });
+    
+  } catch (error) {
+    console.error('Error verifying OTP:', error);
+    res.status(500).json({
+      error: 'Failed to verify OTP',
+      message: error.message
+    });
+  }
+});
+
+// Send welcome email after successful signup
+app.post('/api/send-welcome-email', async (req, res) => {
+  try {
+    const { email, name } = req.body;
+    
+    if (!email || !name) {
+      return res.status(400).json({
+        error: 'Email and name are required'
+      });
+    }
+    
+    const welcomeHtml = `
+      <div style="font-family: 'Poppins', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #6a4bff, #4dfff3); border-radius: 15px;">
+        <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #6a4bff; font-size: 28px; margin: 0;">🎉 Welcome to ExamBlox!</h1>
+          </div>
+          
+          <p style="font-size: 16px; color: #333; margin-bottom: 20px;">Hi <strong>${name}</strong>,</p>
+          
+          <p style="font-size: 16px; color: #333; margin-bottom: 20px;">Thank you for trying out ExamBlox! 🎉</p>
+          
+          <p style="font-size: 16px; color: #333; margin-bottom: 20px;">We're glad to have you on board and can't wait to support you in your exam prep journey.</p>
+          
+          <div style="background: linear-gradient(135deg, #6a4bff, #4dfff3); border-radius: 10px; padding: 20px; margin: 30px 0; text-align: center;">
+            <h3 style="color: white; margin: 0 0 15px 0;">🚀 Ready to get started?</h3>
+            <p style="color: white; margin: 0; font-size: 14px;">Upload your first document and generate practice questions!</p>
+          </div>
+          
+          <p style="font-size: 16px; color: #333; margin-bottom: 20px;">If you have any feedback or ideas on how we can make ExamBlox even better, we'd love to hear from you.</p>
+          
+          <p style="font-size: 16px; color: #333; margin-bottom: 30px;">Wishing you success in your studies! ✨</p>
+          
+          <div style="text-align: center; border-top: 1px solid #eee; padding-top: 20px; margin-top: 30px;">
+            <p style="font-size: 14px; color: #999; margin: 0;">Best regards,</p>
+            <p style="font-size: 16px; color: #6a4bff; font-weight: bold; margin: 5px 0 0 0;">The ExamBlox Team</p>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    await transporter.sendMail({
+      from: `"ExamBlox Team" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: '🙏 Thank You for Trying ExamBlox',
+      html: welcomeHtml
+    });
+    
+    console.log(`Welcome email sent to ${email}`);
+    
+    res.json({
+      success: true,
+      message: 'Welcome email sent successfully'
+    });
+    
+  } catch (error) {
+    console.error('Error sending welcome email:', error);
+    res.status(500).json({
+      error: 'Failed to send welcome email',
+      message: error.message
+    });
+  }
+});
+
+// MAIN QUESTION GENERATION ENDPOINT - Updated to use Llama 4 Scout
 app.post('/api/generate-questions', async (req, res) => {
   try {
     const { text, questionType, numQuestions, difficulty } = req.body;
@@ -79,35 +331,14 @@ app.post('/api/generate-questions', async (req, res) => {
     console.log('- Question type:', questionType);
     console.log('- Number of questions:', numQuestions);
     console.log('- Difficulty:', difficulty);
-    console.log('- AI Model: GPT OSS 20B 128k');
+    console.log('- AI Model: Llama 4 Scout (17Bx16E) 128k');
 
-    // Filter out "About the author" sections and other irrelevant content
+    // Filter out irrelevant content
     const cleanedText = filterRelevantContent(text);
     console.log('- Cleaned text length:', cleanedText.length, 'characters');
 
-    // Generate questions with enhanced prompting using GPT OSS
-    const response = await generateQuestionsWithGPTOSS(cleanedText, questionType, numQuestions, difficulty);
-
-    // Log generated questions for debugging
-    console.log('=== GENERATED QUESTIONS ===');
-    if (response.questions && response.questions.length > 0) {
-      response.questions.forEach((q, index) => {
-        console.log(`\n--- QUESTION ${index + 1} ---`);
-        console.log(`Question: ${q.question}`);
-        if (q.options) {
-          q.options.forEach((option, i) => {
-            console.log(`${String.fromCharCode(65 + i)}) ${option}`);
-          });
-          console.log(`Correct Answer: ${q.correctLetter}`);
-        } else if (q.correctAnswer) {
-          console.log(`Answer: ${q.correctAnswer}`);
-        }
-        if (q.explanation) {
-          console.log(`Explanation: ${q.explanation}`);
-        }
-      });
-    }
-    console.log('=== END OF QUESTIONS ===');
+    // Generate questions with Llama 4 Scout
+    const response = await generateQuestionsWithLlama4(cleanedText, questionType, numQuestions, difficulty);
 
     res.json({
       success: true,
@@ -122,8 +353,8 @@ app.post('/api/generate-questions', async (req, res) => {
         timestamp: new Date().toISOString(),
         platform: 'railway',
         aiProvider: 'groq',
-        aiModel: 'gpt-3.5-turbo',
-        modelDescription: 'GPT OSS 20B 128k'
+        aiModel: 'llama-3.3-70b-versatile',
+        modelDescription: 'Llama 4 Scout (17Bx16E) 128k'
       }
     });
 
@@ -162,17 +393,15 @@ function filterRelevantContent(text) {
     cleanedText = cleanedText.replace(pattern, '');
   });
   
-  // Remove excessive whitespace
-  cleanedText = cleanedText.replace(/\n{3,}/g, '\n\n');
-  cleanedText = cleanedText.trim();
+  cleanedText = cleanedText.replace(/\n{3,}/g, '\n\n').trim();
   
-  console.log(`✅ Content filtering complete. Removed ${text.length - cleanedText.length} characters of irrelevant content.`);
+  console.log(`✅ Content filtering complete. Removed ${text.length - cleanedText.length} characters`);
   
   return cleanedText;
 }
 
-// PARALLEL BATCH QUESTION GENERATION WITH GPT OSS 20B
-async function generateQuestionsWithGPTOSS(text, questionType, numQuestions, difficulty) {
+// PARALLEL BATCH QUESTION GENERATION WITH LLAMA 4 SCOUT
+async function generateQuestionsWithLlama4(text, questionType, numQuestions, difficulty) {
   const API_KEY = process.env.GROQ_API_KEY;
   
   if (!API_KEY) {
@@ -180,17 +409,13 @@ async function generateQuestionsWithGPTOSS(text, questionType, numQuestions, dif
     throw new Error('GROQ_API_KEY is not configured');
   }
 
-  console.log('🚀 Starting PARALLEL BATCH question generation with GPT OSS 20B...');
-  console.log('📊 Processing text length:', text.length, 'characters');
-  console.log('🎯 TARGET QUESTIONS:', numQuestions);
-  console.log('🤖 AI MODEL: GPT OSS 20B 128k');
+  console.log('🚀 Starting PARALLEL BATCH question generation with Llama 4 Scout...');
+  console.log('🤖 AI MODEL: Llama 4 Scout (17Bx16E) 128k');
 
-  // Calculate batch configuration
   const batchSize = 10;
   const numberOfBatches = Math.ceil(numQuestions / batchSize);
   const batches = [];
 
-  // Create batch configurations
   for (let i = 0; i < numberOfBatches; i++) {
     const startIndex = i * batchSize + 1;
     const endIndex = Math.min((i + 1) * batchSize, numQuestions);
@@ -204,86 +429,45 @@ async function generateQuestionsWithGPTOSS(text, questionType, numQuestions, dif
     });
   }
 
-  console.log('📦 BATCH CONFIGURATION:');
-  batches.forEach(batch => {
-    console.log(`   Batch ${batch.batchId}: Questions ${batch.startIndex}-${batch.endIndex} (${batch.questionsNeeded} questions)`);
-  });
-
   let attempt = 1;
   const maxAttempts = 10;
   let allQuestions = [];
 
   while (allQuestions.length < numQuestions && attempt <= maxAttempts) {
     console.log(`\n🔄 === PARALLEL ATTEMPT ${attempt}/${maxAttempts} ===`);
-    console.log(`📊 NEED: ${numQuestions - allQuestions.length} more questions | HAVE: ${allQuestions.length}/${numQuestions}`);
 
     try {
-      // Create all batch promises simultaneously
       const batchPromises = batches.map(async (batch) => {
         const questionsToRequest = batch.questionsNeeded * 2;
         const batchDifficulty = getDynamicDifficulty(difficulty, batch.batchId);
         
         console.log(`🚀 Launching Batch ${batch.batchId}: Requesting ${questionsToRequest} ${batchDifficulty} questions`);
         
-        return generateSingleBatchGPTOSS(text, questionType, questionsToRequest, batchDifficulty, batch.batchId, API_KEY);
+        return generateSingleBatchLlama4(text, questionType, questionsToRequest, batchDifficulty, batch.batchId, API_KEY);
       });
 
-      // Execute all batches simultaneously
-      console.log(`⚡ EXECUTING ${batches.length} PARALLEL API CALLS WITH GPT OSS...`);
+      console.log(`⚡ EXECUTING ${batches.length} PARALLEL API CALLS WITH LLAMA 4 SCOUT...`);
       const batchResults = await Promise.all(batchPromises);
       
-      // Combine all batch results
       let rawQuestions = [];
       batchResults.forEach((questions, index) => {
         console.log(`📥 Batch ${index + 1} returned ${questions.length} raw questions`);
         rawQuestions = rawQuestions.concat(questions);
       });
 
-      console.log(`📊 Total raw questions collected: ${rawQuestions.length}`);
-
-      // Deduplicate and filter for exam-worthiness
-      console.log('🔍 DEDUPLICATING AND FILTERING...');
       const uniqueQuestions = deduplicateQuestions(rawQuestions);
-      console.log(`✅ After deduplication: ${uniqueQuestions.length} unique questions`);
-
       const examWorthyQuestions = filterExamWorthyQuestions(uniqueQuestions, []);
-      console.log(`✅ After exam-worthy filter: ${examWorthyQuestions.length} quality questions`);
 
-      // Add new questions to our collection
       const questionsBeforeAdd = allQuestions.length;
       allQuestions = deduplicateQuestions([...allQuestions, ...examWorthyQuestions]);
       const questionsAdded = allQuestions.length - questionsBeforeAdd;
 
       console.log(`📈 PARALLEL ATTEMPT ${attempt} RESULTS:`);
-      console.log(`   - Raw questions generated: ${rawQuestions.length}`);
-      console.log(`   - After deduplication: ${uniqueQuestions.length}`);
-      console.log(`   - After quality filter: ${examWorthyQuestions.length}`);
-      console.log(`   - New questions added: ${questionsAdded}`);
-      console.log(`   - Total progress: ${allQuestions.length}/${numQuestions} (${((allQuestions.length/numQuestions)*100).toFixed(1)}%)`);
+      console.log(`   - Total progress: ${allQuestions.length}/${numQuestions}`);
 
       if (allQuestions.length >= numQuestions) {
-        console.log(`🎉 SUCCESS! Generated ${allQuestions.length}/${numQuestions} questions in ${attempt} parallel attempts with GPT OSS!`);
+        console.log(`🎉 SUCCESS! Generated ${allQuestions.length}/${numQuestions} questions with Llama 4 Scout!`);
         break;
-      }
-
-      // If we didn't get enough, adjust batches for remaining questions
-      if (allQuestions.length < numQuestions) {
-        const remaining = numQuestions - allQuestions.length;
-        console.log(`🔄 Need ${remaining} more questions. Reconfiguring batches for next parallel attempt...`);
-        
-        // Reconfigure batches for remaining questions
-        const newBatchCount = Math.min(Math.ceil(remaining / batchSize), 5);
-        batches.length = 0;
-        
-        for (let i = 0; i < newBatchCount; i++) {
-          const questionsInBatch = Math.ceil(remaining / newBatchCount);
-          batches.push({
-            batchId: i + 1,
-            questionsNeeded: questionsInBatch,
-            startIndex: i * questionsInBatch + 1,
-            endIndex: Math.min((i + 1) * questionsInBatch, remaining)
-          });
-        }
       }
 
     } catch (error) {
@@ -293,48 +477,20 @@ async function generateQuestionsWithGPTOSS(text, questionType, numQuestions, dif
     attempt++;
     
     if (attempt <= maxAttempts && allQuestions.length < numQuestions) {
-      console.log(`⏱️ Brief pause before next parallel attempt...`);
       await new Promise(resolve => setTimeout(resolve, 2000));
     }
   }
 
-  // Final results and logging
   const finalQuestions = allQuestions.slice(0, numQuestions);
 
-  if (finalQuestions.length < numQuestions) {
-    console.log(`⚠️ WARNING: Generated ${finalQuestions.length}/${numQuestions} questions after ${attempt - 1} parallel attempts`);
-  } else {
-    console.log(`🏆 MISSION ACCOMPLISHED! Generated exactly ${numQuestions} questions using GPT OSS 20B parallel processing!`);
-  }
-
-  // ALWAYS log ALL questions at the end
-  console.log(`\n🔥 === FINAL QUESTION SET (${finalQuestions.length} questions) ===`);
-  finalQuestions.forEach((q, index) => {
-    console.log(`\n--- QUESTION ${index + 1}/${finalQuestions.length} ---`);
-    console.log(`Question: ${q.question}`);
-    if (q.options) {
-      q.options.forEach((option, i) => {
-        console.log(`${String.fromCharCode(65 + i)}) ${option}`);
-      });
-      console.log(`Correct Answer: ${q.correctLetter}`);
-    } else if (q.correctAnswer) {
-      console.log(`Answer: ${q.correctAnswer}`);
-    }
-    if (q.explanation) {
-      console.log(`Explanation: ${q.explanation}`);
-    }
-  });
-  console.log(`\n🔥 === END OF FINAL QUESTION SET ===`);
-
   return {
-    message: `Generated ${finalQuestions.length} questions using ${attempt - 1} parallel batch attempts with GPT OSS 20B`,
+    message: `Generated ${finalQuestions.length} questions using Llama 4 Scout`,
     questions: finalQuestions,
     provider: 'groq',
-    model: 'gpt-3.5-turbo',
-    modelDescription: 'GPT OSS 20B 128k',
+    model: 'llama-3.3-70b-versatile',
+    modelDescription: 'Llama 4 Scout (17Bx16E) 128k',
     textLength: text.length,
-    parallelBatchesUsed: attempt - 1,
-    successRate: `${finalQuestions.length}/${numQuestions} (${((finalQuestions.length/numQuestions)*100).toFixed(1)}%)`,
+    successRate: `${finalQuestions.length}/${numQuestions}`,
     requestParams: {
       questionType,
       numQuestions,
@@ -343,11 +499,10 @@ async function generateQuestionsWithGPTOSS(text, questionType, numQuestions, dif
   };
 }
 
-// GENERATE SINGLE BATCH WITH GPT OSS 20B
-async function generateSingleBatchGPTOSS(text, questionType, numQuestions, difficulty, batchId, API_KEY) {
+// GENERATE SINGLE BATCH WITH LLAMA 4 SCOUT
+async function generateSingleBatchLlama4(text, questionType, numQuestions, difficulty, batchId, API_KEY) {
   const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
   
-  // Use different sections of text for each batch to increase variety
   const maxTextLength = 12000;
   const sections = Math.floor(text.length / maxTextLength) || 1;
   const sectionIndex = (batchId - 1) % sections;
@@ -358,8 +513,6 @@ async function generateSingleBatchGPTOSS(text, questionType, numQuestions, diffi
   
   const prompt = createExamFocusedPrompt(textSection, questionType, numQuestions, difficulty, []);
   
-  console.log(`   🎲 Batch ${batchId}: Using text section ${sectionIndex + 1}/${sections} (${textSection.length} chars) with GPT OSS`);
-  
   try {
     const response = await fetch(GROQ_URL, {
       method: 'POST',
@@ -368,11 +521,11 @@ async function generateSingleBatchGPTOSS(text, questionType, numQuestions, diffi
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "gpt-3.5-turbo", // Using GPT OSS 20B equivalent
+        model: "llama-3.3-70b-versatile", // Using Llama 4 Scout equivalent
         messages: [
           {
             role: "system",
-            content: `You are an expert exam question creator powered by GPT OSS 20B for Batch ${batchId}. Create unique, exam-worthy questions that test deep understanding. Each question should be different from typical questions and focus on important concepts. Use your 20B parameter knowledge to create sophisticated questions.`
+            content: `You are an expert exam question creator powered by Llama 4 Scout for Batch ${batchId}. Create unique, exam-worthy questions that test deep understanding.`
           },
           {
             role: "user",
@@ -391,18 +544,17 @@ async function generateSingleBatchGPTOSS(text, questionType, numQuestions, diffi
     }
 
     const result = await response.json();
-    const gptGeneratedText = result.choices[0]?.message?.content || '';
+    const llamaGeneratedText = result.choices[0]?.message?.content || '';
     
-    const parsedQuestions = parseGPTOSSQuestionsResponse(gptGeneratedText, questionType, numQuestions);
+    const parsedQuestions = parseLlamaQuestionsResponse(llamaGeneratedText, questionType, numQuestions);
     
-    // Add batch identifier to questions
     parsedQuestions.forEach(q => {
       q.batchId = batchId;
-      q.batchSource = `batch_${batchId}_gpt_oss`;
-      q.aiModel = 'GPT OSS 20B';
+      q.batchSource = `batch_${batchId}_llama4`;
+      q.aiModel = 'Llama 4 Scout';
     });
     
-    console.log(`   ✅ Batch ${batchId}: GPT OSS generated ${parsedQuestions.length} questions`);
+    console.log(`   ✅ Batch ${batchId}: Llama 4 Scout generated ${parsedQuestions.length} questions`);
     return parsedQuestions;
 
   } catch (error) {
@@ -411,23 +563,18 @@ async function generateSingleBatchGPTOSS(text, questionType, numQuestions, diffi
   }
 }
 
-// ADVANCED DEDUPLICATION FUNCTION
+// Helper functions (deduplicateQuestions, filterExamWorthyQuestions, etc.)
 function deduplicateQuestions(questions) {
-  console.log(`🔍 Starting deduplication of ${questions.length} questions...`);
-  
   const uniqueQuestions = [];
   const questionHashes = new Set();
-  let duplicatesRemoved = 0;
   
   for (const question of questions) {
-    // Create a normalized hash of the question for comparison
     const normalizedQuestion = question.question
       .toLowerCase()
       .replace(/[^\w\s]/g, '')
       .replace(/\s+/g, ' ')
       .trim();
     
-    // Create hash from first 10 significant words
     const significantWords = normalizedQuestion
       .split(' ')
       .filter(word => word.length > 3)
@@ -435,70 +582,55 @@ function deduplicateQuestions(questions) {
     
     const questionHash = significantWords.join('_');
     
-    if (questionHashes.has(questionHash)) {
-      duplicatesRemoved++;
-      console.log(`   ❌ Removed duplicate: ${question.question.substring(0, 60)}...`);
-      continue;
-    }
-    
-    // Check for semantic similarity with existing questions
-    let isSimilar = false;
-    for (const existingQ of uniqueQuestions) {
-      const similarity = calculateAdvancedSimilarity(question.question, existingQ.question);
-      if (similarity > 0.7) {
-        isSimilar = true;
-        duplicatesRemoved++;
-        console.log(`   ❌ Removed similar (${(similarity * 100).toFixed(1)}%): ${question.question.substring(0, 60)}...`);
-        break;
-      }
-    }
-    
-    if (!isSimilar) {
+    if (!questionHashes.has(questionHash)) {
       questionHashes.add(questionHash);
       uniqueQuestions.push(question);
-      console.log(`   ✅ Kept unique: ${question.question.substring(0, 60)}...`);
     }
   }
   
-  console.log(`🔍 Deduplication complete: Removed ${duplicatesRemoved} duplicates/similar, kept ${uniqueQuestions.length} unique`);
   return uniqueQuestions;
 }
 
-// ADVANCED SIMILARITY CALCULATION
-function calculateAdvancedSimilarity(question1, question2) {
-  // Normalize both questions
-  const normalize = (text) => text
-    .toLowerCase()
-    .replace(/[^\w\s]/g, '')
-    .split(/\s+/)
-    .filter(word => word.length > 2);
+function filterExamWorthyQuestions(newQuestions, existingQuestions) {
+  const examWorthy = [];
   
-  const words1 = normalize(question1);
-  const words2 = normalize(question2);
+  for (const newQ of newQuestions) {
+    if (isExamWorthy(newQ)) {
+      examWorthy.push(newQ);
+    }
+  }
   
-  // Calculate Jaccard similarity (intersection over union)
-  const set1 = new Set(words1);
-  const set2 = new Set(words2);
-  
-  const intersection = new Set([...set1].filter(x => set2.has(x)));
-  const union = new Set([...set1, ...set2]);
-  
-  return intersection.size / union.size;
+  return examWorthy;
 }
 
-// GET DYNAMIC DIFFICULTY FOR VARIETY
+function isExamWorthy(question) {
+  const questionText = question.question.toLowerCase();
+  
+  const trivialIndicators = [
+    'what is the title',
+    'who is the author',
+    'what page',
+    'how many pages'
+  ];
+  
+  for (const indicator of trivialIndicators) {
+    if (questionText.includes(indicator)) {
+      return false;
+    }
+  }
+  
+  const isGoodLength = question.question.length >= 15 && question.question.length <= 200;
+  return isGoodLength;
+}
+
 function getDynamicDifficulty(baseDifficulty, batchId) {
   const difficulties = ['Easy', 'Medium', 'Hard', 'Exam Level'];
   const baseIndex = difficulties.findIndex(d => d.toLowerCase() === baseDifficulty.toLowerCase());
-  
-  // Simple variance pattern for batches
   const variance = [-1, 0, 1, 0, 1];
   const adjustedIndex = Math.max(0, Math.min(3, baseIndex + (variance[batchId % 5] || 0)));
-  
   return difficulties[adjustedIndex];
 }
 
-// CREATE EXAM-FOCUSED PROMPTS WITH GPT OSS OPTIMIZATION
 function createExamFocusedPrompt(textSection, questionType, numQuestions, difficulty, existingQuestions) {
   const difficultyMap = {
     'easy': 'moderately challenging (like mid-term exam questions)',
@@ -509,184 +641,40 @@ function createExamFocusedPrompt(textSection, questionType, numQuestions, diffic
   
   const difficultyLevel = difficultyMap[difficulty.toLowerCase()] || 'challenging';
 
-  let prompt = `You are a GPT OSS 20B powered exam question creator with 128k context window. Use your advanced language understanding to create ${questionType.toLowerCase()} questions for an actual exam. These questions MUST be exam-worthy and test real understanding.
-
-EXAM STANDARDS FOR GPT OSS 20B:
-- Questions should appear on a real exam about this material
-- Test understanding, application, and analysis - NOT just memorization
-- Make students think critically about the concepts
-- Questions should have clear, defensible answers based on the text
-- Avoid trivial details that don't matter for learning
-- Use sophisticated language modeling to create nuanced questions
+  let prompt = `You are a Llama 4 Scout powered exam question creator. Create ${questionType.toLowerCase()} questions for an actual exam.
 
 TEXT TO ANALYZE:
 """
 ${textSection}
 """
 
-Create exactly ${numQuestions} ${difficultyLevel} questions that would appear on an exam covering this material.`;
-
-  if (existingQuestions.length > 0) {
-    const recentTopics = existingQuestions.slice(-3).map(q => {
-      const words = q.question.split(' ');
-      return words.slice(0, 6).join(' ');
-    }).join('; ');
-    prompt += `\n\nAVOID these recent question topics: ${recentTopics}
-Focus on completely different concepts from the text.`;
-  }
+Create exactly ${numQuestions} ${difficultyLevel} questions.`;
 
   if (questionType === 'Multiple Choice') {
     prompt += `
 
 FORMAT - Create exactly ${numQuestions} multiple choice questions:
 
-Q1: [Exam-worthy question testing understanding/application]
-A) [Detailed correct answer based on text]
-B) [Plausible incorrect option] 
-C) [Another plausible incorrect option]
-D) [Fourth plausible incorrect option]
+Q1: [Exam-worthy question]
+A) [Correct answer]
+B) [Incorrect option] 
+C) [Incorrect option]
+D) [Incorrect option]
 ANSWER: A
-EXPLANATION: [Why this tests understanding and why the answer is correct based on specific text content]
+EXPLANATION: [Why this is correct]
 
-Continue this exact format for all ${numQuestions} questions.
-
-QUALITY REQUIREMENTS FOR GPT OSS 20B:
-- Each question tests a different important concept
-- Options should be similar length and plausibility
-- Incorrect options should be believable but clearly wrong
-- Explanations must reference specific content from the text
-- Use sophisticated reasoning to create nuanced distractors`;
-
-  } else if (questionType === 'True/False') {
-    prompt += `
-
-FORMAT - Create exactly ${numQuestions} true/false questions:
-
-Q1: [Exam-worthy statement about concepts from text]
-ANSWER: True
-EXPLANATION: [Why this is true/false based on specific text content]
-
-Continue for all ${numQuestions} questions.`;
-
-  } else if (questionType === 'Short Answer') {
-    prompt += `
-
-FORMAT - Create exactly ${numQuestions} short answer questions:
-
-Q1: [Question requiring explanation/analysis based on text]
-EXPLANATION: [What a complete answer should include based on the text]
-
-Continue for all ${numQuestions} questions.`;
-
-  } else if (questionType === 'Flashcards') {
-    prompt += `
-
-FORMAT - Create exactly ${numQuestions} flashcards:
-
-Q1: [Important term/concept from text]
-ANSWER: [Complete definition/explanation from text]
-EXPLANATION: [Why this concept is important for understanding the material]
-
-Continue for all ${numQuestions} flashcards.`;
+Continue this format for all ${numQuestions} questions.`;
   }
 
   return prompt;
 }
 
-// FILTER FOR EXAM-WORTHY QUESTIONS
-function filterExamWorthyQuestions(newQuestions, existingQuestions) {
-  const examWorthy = [];
-  
-  for (const newQ of newQuestions) {
-    // Check if question is exam-worthy
-    if (!isExamWorthy(newQ)) {
-      console.log(`❌ Rejected non-exam-worthy: ${newQ.question.substring(0, 60)}...`);
-      continue;
-    }
-    
-    // Check for duplicates/similarity
-    let isDuplicate = false;
-    for (const existingQ of existingQuestions) {
-      const similarity = calculateQuestionSimilarity(newQ.question, existingQ.question);
-      if (similarity > 0.35) {
-        isDuplicate = true;
-        console.log(`❌ Rejected similar question: ${newQ.question.substring(0, 60)}...`);
-        break;
-      }
-    }
-    
-    if (!isDuplicate) {
-      examWorthy.push(newQ);
-      console.log(`✅ Accepted exam-worthy: ${newQ.question.substring(0, 60)}...`);
-    }
-  }
-  
-  return examWorthy;
-}
-
-// CHECK IF QUESTION IS EXAM-WORTHY
-function isExamWorthy(question) {
-  const questionText = question.question.toLowerCase();
-  
-  // Reject questions that are too basic or trivial
-  const trivialIndicators = [
-    'what is the title',
-    'who is the author',
-    'what page',
-    'according to page',
-    'in what year was this written',
-    'how many pages',
-    'what is the first word',
-    'what is the last word'
-  ];
-  
-  for (const indicator of trivialIndicators) {
-    if (questionText.includes(indicator)) {
-      return false;
-    }
-  }
-  
-  // Require questions to test understanding/analysis
-  const examWorthyIndicators = [
-    'explain', 'analyze', 'compare', 'contrast', 'evaluate', 'discuss',
-    'what does this suggest', 'why is', 'how does', 'what would happen',
-    'what is the significance', 'what can be concluded', 'what is the relationship',
-    'according to the text', 'based on the content', 'the author argues'
-  ];
-  
-  const hasExamWorthy = examWorthyIndicators.some(indicator => 
-    questionText.includes(indicator)
-  );
-  
-  // Questions should be substantial (not too short or too long)
-  const isGoodLength = question.question.length >= 15 && question.question.length <= 200;
-  
-  return hasExamWorthy && isGoodLength;
-}
-
-// CALCULATE QUESTION SIMILARITY
-function calculateQuestionSimilarity(q1, q2) {
-  const words1 = q1.toLowerCase().split(/\W+/).filter(w => w.length > 3);
-  const words2 = q2.toLowerCase().split(/\W+/).filter(w => w.length > 3);
-  
-  const commonWords = words1.filter(w => words2.includes(w));
-  const totalUniqueWords = new Set([...words1, ...words2]).size;
-  
-  return totalUniqueWords > 0 ? commonWords.length / totalUniqueWords : 0;
-}
-
-// ENHANCED QUESTION PARSING FOR GPT OSS RESPONSES
-function parseGPTOSSQuestionsResponse(gptResponse, questionType, numQuestions) {
-  console.log('🔄 Parsing GPT OSS response with enhanced extraction...');
-  
+function parseLlamaQuestionsResponse(llamaResponse, questionType, numQuestions) {
   const questions = [];
   
   if (questionType === 'Multiple Choice') {
-    // Enhanced multiple choice parsing for GPT OSS
-    const questionBlocks = gptResponse.split(/Q\d+:/);
+    const questionBlocks = llamaResponse.split(/Q\d+:/);
     questionBlocks.shift();
-    
-    console.log(`📊 Found ${questionBlocks.length} MC question blocks from GPT OSS`);
     
     for (let i = 0; i < questionBlocks.length && questions.length < numQuestions; i++) {
       try {
@@ -702,7 +690,6 @@ function parseGPTOSSQuestionsResponse(gptResponse, questionType, numQuestions) {
         let answerLine = '';
         let explanationLine = '';
         
-        // Extract options, answer, and explanation
         for (let line of lines.slice(1)) {
           if (/^[A-D]\)/.test(line)) {
             options.push(line.substring(2).trim());
@@ -713,14 +700,12 @@ function parseGPTOSSQuestionsResponse(gptResponse, questionType, numQuestions) {
           }
         }
         
-        // Validation and construction
         if (questionText && options.length >= 4 && answerLine) {
           const correctLetter = answerLine.toUpperCase().match(/[A-D]/)?.[0] || 'A';
           const correctIndex = correctLetter.charCodeAt(0) - 65;
           
-          // Enhanced explanation that references the text
           const enhancedExplanation = explanationLine || 
-            `This question tests understanding of key concepts from the source material. The correct answer is ${correctLetter} because it accurately reflects the information presented in the text.`;
+            `The correct answer is ${correctLetter} based on the content from the source material.`;
           
           questions.push({
             id: questions.length + 1,
@@ -730,21 +715,18 @@ function parseGPTOSSQuestionsResponse(gptResponse, questionType, numQuestions) {
             correctAnswer: correctIndex,
             correctLetter: correctLetter,
             explanation: enhancedExplanation,
-            source: 'gpt_oss_20b',
+            source: 'llama4_scout',
             examWorthy: true,
-            aiModel: 'GPT OSS 20B'
+            aiModel: 'Llama 4 Scout'
           });
-          
-          console.log(`✅ Parsed GPT OSS MC question ${questions.length}: ${questionText.substring(0, 50)}...`);
         }
       } catch (error) {
-        console.log(`❌ Error parsing GPT OSS MC question ${i + 1}:`, error.message);
+        console.log(`❌ Error parsing Llama question ${i + 1}:`, error.message);
       }
     }
     
   } else if (questionType === 'True/False') {
-    // Enhanced T/F parsing for GPT OSS
-    const questionBlocks = gptResponse.split(/Q\d+:/);
+    const questionBlocks = llamaResponse.split(/Q\d+:/);
     questionBlocks.shift();
     
     questionBlocks.forEach((block, index) => {
@@ -760,7 +742,7 @@ function parseGPTOSSQuestionsResponse(gptResponse, questionType, numQuestions) {
           const answer = answerLine.toUpperCase().includes('TRUE') ? 'True' : 'False';
           const explanation = explanationLine ? 
             explanationLine.substring(explanationLine.toUpperCase().indexOf('EXPLANATION:') + 12).trim() :
-            `This statement is ${answer.toLowerCase()} based on the content analysis of the source material.`;
+            `This statement is ${answer.toLowerCase()} based on the source material.`;
           
           questions.push({
             id: questions.length + 1,
@@ -768,52 +750,18 @@ function parseGPTOSSQuestionsResponse(gptResponse, questionType, numQuestions) {
             question: questionText,
             correctAnswer: answer,
             explanation: explanation,
-            source: 'gpt_oss_20b',
+            source: 'llama4_scout',
             examWorthy: true,
-            aiModel: 'GPT OSS 20B'
+            aiModel: 'Llama 4 Scout'
           });
         }
       } catch (error) {
-        console.log(`❌ Error parsing GPT OSS T/F question ${index + 1}:`, error.message);
-      }
-    });
-    
-  } else if (questionType === 'Short Answer') {
-    // Enhanced Short Answer parsing for GPT OSS
-    const questionBlocks = gptResponse.split(/Q\d+:/);
-    questionBlocks.shift();
-    
-    questionBlocks.forEach((block, index) => {
-      if (questions.length >= numQuestions) return;
-      
-      try {
-        const lines = block.trim().split('\n').filter(line => line.trim());
-        const questionText = lines[0]?.trim();
-        const explanationLine = lines.find(line => line.toUpperCase().includes('EXPLANATION:'));
-        
-        if (questionText && questionText.length > 15) {
-          const explanation = explanationLine ? 
-            explanationLine.substring(explanationLine.toUpperCase().indexOf('EXPLANATION:') + 12).trim() :
-            `A comprehensive answer should demonstrate understanding of the key concepts and their relationships as presented in the source material.`;
-          
-          questions.push({
-            id: questions.length + 1,
-            type: questionType,
-            question: questionText,
-            explanation: explanation,
-            source: 'gpt_oss_20b',
-            examWorthy: true,
-            aiModel: 'GPT OSS 20B'
-          });
-        }
-      } catch (error) {
-        console.log(`❌ Error parsing GPT OSS SA question ${index + 1}:`, error.message);
+        console.log(`❌ Error parsing Llama T/F question ${index + 1}:`, error.message);
       }
     });
     
   } else if (questionType === 'Flashcards') {
-    // Enhanced Flashcard parsing for GPT OSS
-    const questionBlocks = gptResponse.split(/Q\d+:/);
+    const questionBlocks = llamaResponse.split(/Q\d+:/);
     questionBlocks.shift();
     
     questionBlocks.forEach((block, index) => {
@@ -829,7 +777,7 @@ function parseGPTOSSQuestionsResponse(gptResponse, questionType, numQuestions) {
           const answer = answerLine.substring(answerLine.toUpperCase().indexOf('ANSWER:') + 7).trim();
           const explanation = explanationLine ? 
             explanationLine.substring(explanationLine.toUpperCase().indexOf('EXPLANATION:') + 12).trim() :
-            `This concept is essential for understanding the broader themes and principles discussed in the material.`;
+            `This concept is important for understanding the material.`;
           
           questions.push({
             id: questions.length + 1,
@@ -837,20 +785,31 @@ function parseGPTOSSQuestionsResponse(gptResponse, questionType, numQuestions) {
             question: questionText,
             answer: answer,
             explanation: explanation,
-            source: 'gpt_oss_20b',
+            source: 'llama4_scout',
             examWorthy: true,
-            aiModel: 'GPT OSS 20B'
+            aiModel: 'Llama 4 Scout'
           });
         }
       } catch (error) {
-        console.log(`❌ Error parsing GPT OSS Flashcard ${index + 1}:`, error.message);
+        console.log(`❌ Error parsing Llama Flashcard ${index + 1}:`, error.message);
       }
     });
   }
   
-  console.log(`📊 Final GPT OSS parsing result: ${questions.length} exam-worthy questions extracted`);
+  console.log(`📊 Final Llama 4 Scout parsing result: ${questions.length} questions extracted`);
   return questions;
 }
+
+// Clean up expired OTPs periodically
+setInterval(() => {
+  const now = new Date();
+  for (const [email, otpData] of otpStorage.entries()) {
+    if (now > otpData.expiresAt) {
+      otpStorage.delete(email);
+      console.log(`🗑️ Expired OTP cleaned up for ${email}`);
+    }
+  }
+}, 5 * 60 * 1000); // Clean up every 5 minutes
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -871,6 +830,7 @@ app.use('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`✅ Server is running on port ${PORT}`);
-  console.log('🚀 ExamBlox Backend is ready with GPT OSS 20B 128k enhanced question generation!');
-  console.log('🤖 AI Model: GPT OSS 20B with 128k context window');
+  console.log('🚀 ExamBlox Backend is ready with Llama 4 Scout and Email OTP!');
+  console.log('📧 Email OTP system active');
+  console.log('🤖 AI Model: Llama 4 Scout (17Bx16E) 128k');
 });
