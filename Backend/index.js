@@ -1,7 +1,7 @@
-// index.js - FIXED VERSION WITH WORKING EMAIL OTP
+// index.js - SENDGRID VERSION (Much More Reliable!)
 const express = require('express');
 const cors = require('cors');
-const nodemailer = require('nodemailer');
+const sgMail = require('@sendgrid/mail');
 require('dotenv').config();
 
 const app = express();
@@ -22,56 +22,36 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 
-// Email configuration - MANDATORY (will provide clear error if missing)
-let transporter = null;
+// SendGrid Email Configuration
 let emailConfigured = false;
+let verifiedSender = null;
 
-try {
-  if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-    transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-      },
-      // Add these for better reliability
-      tls: {
-        rejectUnauthorized: false
-      }
-    });
-    
-    // Verify the connection
-    transporter.verify((error, success) => {
-      if (error) {
-        console.error('❌ Email verification failed:', error);
-        emailConfigured = false;
-      } else {
-        console.log('✅ Email service configured and verified');
-        emailConfigured = true;
-      }
-    });
-  } else {
-    console.error('❌ EMAIL_USER or EMAIL_PASS not set in environment variables');
-    console.log('Please set these in your Railway environment variables:');
-    console.log('- EMAIL_USER: your Gmail address');
-    console.log('- EMAIL_PASS: your Gmail app password (not regular password)');
-  }
-} catch (error) {
-  console.error('❌ Email setup failed:', error.message);
+if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_VERIFIED_SENDER) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+  verifiedSender = process.env.SENDGRID_VERIFIED_SENDER;
+  emailConfigured = true;
+  console.log('✅ SendGrid configured successfully');
+  console.log(`📧 Verified Sender: ${verifiedSender}`);
+} else {
+  console.error('❌ SendGrid not configured');
+  console.log('Set these environment variables in Railway:');
+  console.log('- SENDGRID_API_KEY: Your SendGrid API key');
+  console.log('- SENDGRID_VERIFIED_SENDER: Your verified sender email');
 }
 
-// Store OTPs temporarily (in production, use Redis)
+// Store OTPs temporarily
 const otpStorage = new Map();
 
 // Test routes
 app.get('/', (req, res) => {
   res.json({ 
-    message: 'ExamBlox Backend API with Llama 3.3 70B',
+    message: 'ExamBlox Backend API with SendGrid',
     status: 'active',
     platform: 'railway',
     aiModel: 'llama-3.3-70b-versatile',
+    emailService: 'SendGrid',
     emailEnabled: emailConfigured,
-    emailUser: process.env.EMAIL_USER ? 'Configured' : 'Not configured',
+    verifiedSender: emailConfigured ? verifiedSender : 'Not configured',
     endpoints: {
       test: 'GET /',
       generate: 'POST /api/generate-questions',
@@ -87,19 +67,18 @@ app.get('/test', (req, res) => {
     message: 'Backend working!',
     timestamp: new Date().toISOString(),
     aiModel: 'llama-3.3-70b-versatile',
-    emailStatus: emailConfigured ? 'configured' : 'not configured'
+    emailStatus: emailConfigured ? 'SendGrid Ready' : 'Not configured'
   });
 });
 
-// OTP ENDPOINTS - FIXED AND WORKING
+// SEND OTP EMAIL - SENDGRID VERSION
 app.post('/api/send-otp', async (req, res) => {
   try {
-    if (!transporter || !emailConfigured) {
+    if (!emailConfigured) {
       return res.status(503).json({
         success: false,
         error: 'Email service not configured',
-        message: 'Administrator needs to set up email credentials in Railway',
-        hint: 'Set EMAIL_USER and EMAIL_PASS environment variables'
+        message: 'Please set SENDGRID_API_KEY and SENDGRID_VERIFIED_SENDER in Railway environment variables'
       });
     }
 
@@ -129,73 +108,120 @@ app.post('/api/send-otp', async (req, res) => {
       name: name,
       type: type,
       createdAt: new Date(),
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000)
     };
     
     // Store OTP
     otpStorage.set(email.toLowerCase(), otpData);
-    console.log(`Generated OTP for ${email}: ${otp} (expires in 10 minutes)`);
+    console.log(`Generated OTP for ${email}: ${otp}`);
     
     // Email templates
     const emailTemplates = {
       signup: {
         subject: '🔐 Your ExamBlox Verification Code',
         html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #6a4bff, #4dfff3); border-radius: 15px;">
-            <div style="background: white; padding: 30px; border-radius: 10px;">
-              <h1 style="color: #6a4bff; text-align: center;">🔐 ExamBlox</h1>
-              <p style="font-size: 16px;">Hello <strong>${name}</strong>,</p>
-              <p>Your verification code is:</p>
-              <div style="text-align: center; margin: 30px 0;">
-                <div style="display: inline-block; background: linear-gradient(135deg, #6a4bff, #4dfff3); color: white; padding: 20px 40px; border-radius: 10px; font-size: 32px; font-weight: bold; letter-spacing: 8px;">
-                  ${otp}
-                </div>
-              </div>
-              <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 15px; margin: 20px 0;">
-                <p style="margin: 0; color: #856404;">⏰ <strong>Expires in 10 minutes</strong></p>
-              </div>
-              <p>If you didn't request this code, please ignore this email.</p>
-              <p style="text-align: center; color: #999; margin-top: 30px;">Best regards,<br><strong style="color: #6a4bff;">The ExamBlox Team</strong></p>
-            </div>
-          </div>
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="margin: 0; padding: 0; font-family: Arial, sans-serif;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, #6a4bff, #4dfff3); padding: 20px;">
+              <tr>
+                <td align="center">
+                  <table width="600" cellpadding="0" cellspacing="0" style="background: white; border-radius: 10px; overflow: hidden;">
+                    <tr>
+                      <td style="padding: 40px 30px;">
+                        <h1 style="color: #6a4bff; text-align: center; margin: 0 0 20px 0;">🔐 ExamBlox</h1>
+                        <p style="font-size: 16px; color: #333; margin: 0 0 10px 0;">Hello <strong>${name}</strong>,</p>
+                        <p style="color: #666; margin: 0 0 30px 0;">Your verification code is:</p>
+                        <table width="100%" cellpadding="0" cellspacing="0">
+                          <tr>
+                            <td align="center">
+                              <div style="background: linear-gradient(135deg, #6a4bff, #4dfff3); color: white; padding: 20px 40px; border-radius: 10px; display: inline-block; font-size: 32px; font-weight: bold; letter-spacing: 8px;">
+                                ${otp}
+                              </div>
+                            </td>
+                          </tr>
+                        </table>
+                        <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 15px; margin: 30px 0;">
+                          <p style="margin: 0; color: #856404; text-align: center;">⏰ <strong>Expires in 10 minutes</strong></p>
+                        </div>
+                        <p style="color: #666; margin: 20px 0 0 0;">If you didn't request this code, please ignore this email.</p>
+                        <p style="text-align: center; color: #999; margin-top: 30px; font-size: 14px;">
+                          Best regards,<br><strong style="color: #6a4bff;">The ExamBlox Team</strong>
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+          </html>
         `
       },
       forgot_password: {
         subject: '🔐 ExamBlox Password Reset Code',
         html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #ff6b35, #f7931e); border-radius: 15px;">
-            <div style="background: white; padding: 30px; border-radius: 10px;">
-              <h1 style="color: #ff6b35; text-align: center;">🔐 Password Reset</h1>
-              <p>Hello <strong>${name}</strong>,</p>
-              <p>Your password reset code is:</p>
-              <div style="text-align: center; margin: 30px 0;">
-                <div style="display: inline-block; background: linear-gradient(135deg, #ff6b35, #f7931e); color: white; padding: 20px 40px; border-radius: 10px; font-size: 32px; font-weight: bold; letter-spacing: 8px;">
-                  ${otp}
-                </div>
-              </div>
-              <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 15px; margin: 20px 0;">
-                <p style="margin: 0; color: #856404;">⏰ <strong>Expires in 10 minutes</strong></p>
-              </div>
-              <p>If you didn't request this reset, please ignore this email and your password will remain unchanged.</p>
-              <p style="text-align: center; color: #999; margin-top: 30px;">Best regards,<br><strong style="color: #ff6b35;">The ExamBlox Team</strong></p>
-            </div>
-          </div>
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="margin: 0; padding: 0; font-family: Arial, sans-serif;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, #ff6b35, #f7931e); padding: 20px;">
+              <tr>
+                <td align="center">
+                  <table width="600" cellpadding="0" cellspacing="0" style="background: white; border-radius: 10px; overflow: hidden;">
+                    <tr>
+                      <td style="padding: 40px 30px;">
+                        <h1 style="color: #ff6b35; text-align: center; margin: 0 0 20px 0;">🔐 Password Reset</h1>
+                        <p style="font-size: 16px; color: #333;">Hello <strong>${name}</strong>,</p>
+                        <p style="color: #666; margin: 0 0 30px 0;">Your password reset code is:</p>
+                        <table width="100%" cellpadding="0" cellspacing="0">
+                          <tr>
+                            <td align="center">
+                              <div style="background: linear-gradient(135deg, #ff6b35, #f7931e); color: white; padding: 20px 40px; border-radius: 10px; display: inline-block; font-size: 32px; font-weight: bold; letter-spacing: 8px;">
+                                ${otp}
+                              </div>
+                            </td>
+                          </tr>
+                        </table>
+                        <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 15px; margin: 30px 0;">
+                          <p style="margin: 0; color: #856404; text-align: center;">⏰ <strong>Expires in 10 minutes</strong></p>
+                        </div>
+                        <p style="color: #666;">If you didn't request this reset, please ignore this email.</p>
+                        <p style="text-align: center; color: #999; margin-top: 30px; font-size: 14px;">
+                          Best regards,<br><strong style="color: #ff6b35;">The ExamBlox Team</strong>
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+          </html>
         `
       }
     };
     
     const template = emailTemplates[type] || emailTemplates.signup;
     
-    // Send email with detailed error handling
+    // SendGrid message
+    const msg = {
+      to: email,
+      from: verifiedSender,
+      subject: template.subject,
+      html: template.html
+    };
+    
     try {
-      const info = await transporter.sendMail({
-        from: `"ExamBlox Team" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: template.subject,
-        html: template.html
-      });
-      
-      console.log(`✅ OTP email sent to ${email}, Message ID: ${info.messageId}`);
+      await sgMail.send(msg);
+      console.log(`✅ OTP email sent to ${email} via SendGrid`);
       
       res.json({
         success: true,
@@ -205,7 +231,7 @@ app.post('/api/send-otp', async (req, res) => {
       });
       
     } catch (emailError) {
-      console.error('❌ Failed to send email:', emailError);
+      console.error('❌ SendGrid error:', emailError);
       
       // Clean up stored OTP since email failed
       otpStorage.delete(email.toLowerCase());
@@ -228,6 +254,7 @@ app.post('/api/send-otp', async (req, res) => {
   }
 });
 
+// VERIFY OTP
 app.post('/api/verify-otp', (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -250,7 +277,6 @@ app.post('/api/verify-otp', (req, res) => {
       });
     }
     
-    // Check if expired
     if (new Date() > otpData.expiresAt) {
       otpStorage.delete(normalizedEmail);
       return res.status(400).json({
@@ -260,7 +286,6 @@ app.post('/api/verify-otp', (req, res) => {
       });
     }
     
-    // Verify OTP
     if (otpData.otp !== otp.trim()) {
       return res.status(400).json({
         success: false,
@@ -269,7 +294,6 @@ app.post('/api/verify-otp', (req, res) => {
       });
     }
     
-    // OTP is valid - remove it
     otpStorage.delete(normalizedEmail);
     console.log(`✅ OTP verified successfully for ${email}`);
     
@@ -288,10 +312,10 @@ app.post('/api/verify-otp', (req, res) => {
   }
 });
 
+// SEND WELCOME EMAIL
 app.post('/api/send-welcome-email', async (req, res) => {
   try {
-    if (!transporter || !emailConfigured) {
-      // Don't fail signup if welcome email fails
+    if (!emailConfigured) {
       return res.json({
         success: true, 
         message: 'Email service not available'
@@ -307,44 +331,63 @@ app.post('/api/send-welcome-email', async (req, res) => {
       });
     }
     
-    await transporter.sendMail({
-      from: `"ExamBlox Team" <${process.env.EMAIL_USER}>`,
+    const msg = {
       to: email,
+      from: verifiedSender,
       subject: '🎉 Welcome to ExamBlox!',
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #6a4bff, #4dfff3); border-radius: 15px;">
-          <div style="background: white; padding: 30px; border-radius: 10px;">
-            <h1 style="color: #6a4bff; text-align: center;">🎉 Welcome to ExamBlox!</h1>
-            <p>Hi <strong>${name}</strong>,</p>
-            <p>Thank you for joining ExamBlox! We're excited to help you ace your exams.</p>
-            <div style="background: linear-gradient(135deg, #6a4bff, #4dfff3); border-radius: 10px; padding: 20px; margin: 30px 0; text-align: center;">
-              <h3 style="color: white; margin: 0;">🚀 Ready to get started?</h3>
-              <p style="color: white; margin: 10px 0;">Upload your study materials and let AI create practice questions!</p>
-            </div>
-            <p>Your free plan includes:</p>
-            <ul>
-              <li>5 file uploads per month</li>
-              <li>Up to 10 questions per upload</li>
-              <li>Multiple choice questions</li>
-            </ul>
-            <p>Wishing you success in your studies! ✨</p>
-            <p style="text-align: center; color: #999; margin-top: 30px;">Best regards,<br><strong style="color: #6a4bff;">The ExamBlox Team</strong></p>
-          </div>
-        </div>
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 0; font-family: Arial, sans-serif;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, #6a4bff, #4dfff3); padding: 20px;">
+            <tr>
+              <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background: white; border-radius: 10px; overflow: hidden;">
+                  <tr>
+                    <td style="padding: 40px 30px;">
+                      <h1 style="color: #6a4bff; text-align: center; margin: 0 0 20px 0;">🎉 Welcome to ExamBlox!</h1>
+                      <p style="font-size: 16px; color: #333;">Hi <strong>${name}</strong>,</p>
+                      <p style="color: #666;">Thank you for joining ExamBlox! We're excited to help you ace your exams.</p>
+                      <div style="background: linear-gradient(135deg, #6a4bff, #4dfff3); border-radius: 10px; padding: 20px; margin: 30px 0; text-align: center;">
+                        <h3 style="color: white; margin: 0 0 10px 0;">🚀 Ready to get started?</h3>
+                        <p style="color: white; margin: 0;">Upload your study materials and let AI create practice questions!</p>
+                      </div>
+                      <p style="color: #333; margin: 20px 0 10px 0;"><strong>Your free plan includes:</strong></p>
+                      <ul style="color: #666; padding-left: 20px;">
+                        <li>5 file uploads per month</li>
+                        <li>Up to 10 questions per upload</li>
+                        <li>Multiple choice questions</li>
+                      </ul>
+                      <p style="color: #666; margin-top: 20px;">Wishing you success in your studies! ✨</p>
+                      <p style="text-align: center; color: #999; margin-top: 30px; font-size: 14px;">
+                        Best regards,<br><strong style="color: #6a4bff;">The ExamBlox Team</strong>
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
       `
-    });
+    };
     
+    await sgMail.send(msg);
     console.log(`✅ Welcome email sent to ${email}`);
     res.json({success: true});
     
   } catch (error) {
     console.error('❌ Welcome email failed:', error);
-    // Don't fail the request if welcome email fails
     res.json({success: true, note: 'Welcome email failed but signup succeeded'});
   }
 });
 
-// MAIN QUESTION GENERATION - LLAMA 3.3 70B VERSATILE
+// QUESTION GENERATION (unchanged)
 app.post('/api/generate-questions', async (req, res) => {
   try {
     const { text, questionType, numQuestions, difficulty } = req.body;
@@ -708,9 +751,11 @@ app.use('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
   console.log('🤖 AI Model: Llama 3.3 70B Versatile');
-  console.log('📧 Email:', emailConfigured ? 'Enabled & Verified' : 'Disabled - Check environment variables');
+  console.log('📧 Email Service: SendGrid');
+  console.log('📧 Email Status:', emailConfigured ? 'Enabled & Ready' : 'Disabled - Check environment variables');
   if (!emailConfigured) {
-    console.log('⚠️ To enable email: Set EMAIL_USER and EMAIL_PASS in Railway environment variables');
-    console.log('   EMAIL_PASS should be a Gmail App Password, not your regular password');
+    console.log('⚠️ To enable email:');
+    console.log('   1. Set SENDGRID_API_KEY in Railway');
+    console.log('   2. Set SENDGRID_VERIFIED_SENDER in Railway');
   }
 });
