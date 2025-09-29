@@ -743,7 +743,7 @@ function showResetPasswordModal(email, name) {
                         <i class="fas fa-eye"></i>
                     </button>
                 </div>
-                
+
                 <button type="submit" style="background: linear-gradient(90deg, var(--primary-light), var(--primary)); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: 600; cursor: pointer;">
                     Reset Password
                 </button>
@@ -1434,20 +1434,53 @@ function updateRangeDisplay() {
 }
 
 function showNotification(message, type) {
-    document.querySelectorAll('.notification').forEach(n => {
-        if (document.body.contains(n)) document.body.removeChild(n);
+    // Remove all existing notifications first
+    const existing = document.querySelectorAll('.notification');
+    existing.forEach(n => {
+        try {
+            if (document.body.contains(n)) document.body.removeChild(n);
+        } catch (e) {
+            console.log('Error removing notification:', e);
+        }
     });
+    
+    // Create new notification
     const notif = document.createElement('div');
     notif.className = 'notification notification-' + type;
     notif.innerHTML = '<span>' + message + '</span><button>&times;</button>';
+    
+    // Add to body
     document.body.appendChild(notif);
-    setTimeout(() => {
-        if (document.body.contains(notif)) document.body.removeChild(notif);
+    
+    // Auto-remove after 5 seconds
+    const timeout = setTimeout(() => {
+        try {
+            if (notif && document.body.contains(notif)) {
+                notif.style.animation = 'slideOut 0.3s forwards';
+                setTimeout(() => {
+                    if (document.body.contains(notif)) document.body.removeChild(notif);
+                }, 300);
+            }
+        } catch (e) {
+            console.log('Error auto-removing notification:', e);
+        }
     }, 5000);
+    
+    // Close button
     const btn = notif.querySelector('button');
     if (btn) {
         btn.onclick = () => {
-            if (document.body.contains(notif)) document.body.removeChild(notif);
+            clearTimeout(timeout);
+            try {
+                if (document.body.contains(notif)) {
+                    notif.style.animation = 'slideOut 0.3s forwards';
+                    setTimeout(() => {
+                        if (document.body.contains(notif)) document.body.removeChild(notif);
+                    }, 300);
+                }
+            } catch (e) {
+                console.log('Error closing notification:', e);
+            }
         };
     }
 }
