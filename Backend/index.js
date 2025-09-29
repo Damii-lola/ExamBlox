@@ -1,5 +1,4 @@
 // index.js
-
 const express = require('express');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
@@ -20,34 +19,41 @@ const corsOptions = {
   optionsSuccessStatus: 200
 };
 
-// Middleware
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 
-// Email configuration
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
+// Email configuration - OPTIONAL (won't crash if missing)
+let transporter = null;
+try {
+  if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+    transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    });
+    console.log('✅ Email service configured');
+  } else {
+    console.log('⚠️ Email credentials not found - email features disabled');
   }
-});
+} catch (error) {
+  console.log('⚠️ Email setup failed - continuing without email:', error.message);
+}
 
-// Store OTPs temporarily (in production, use Redis or database)
+// Store OTPs temporarily
 const otpStorage = new Map();
 
 // Test routes
 app.get('/', (req, res) => {
   res.json({ 
-    message: 'ExamBlox Backend API is running on Railway with Llama 4 Scout!',
+    message: 'ExamBlox Backend API with Llama 3.3 70B',
     status: 'active',
     platform: 'railway',
     aiModel: 'llama-3.3-70b-versatile',
-    modelDetails: 'Llama 4 Scout (17Bx16E) 128k',
+    emailEnabled: transporter !== null,
     endpoints: {
       test: 'GET /',
-      simpleTest: 'GET /test',
-      simple: 'GET/POST /simple',
       generate: 'POST /api/generate-questions',
       sendOtp: 'POST /api/send-otp',
       verifyOtp: 'POST /api/verify-otp'
@@ -56,19 +62,23 @@ app.get('/', (req, res) => {
 });
 
 app.get('/test', (req, res) => {
-  console.log('Test endpoint called');
   res.json({
-    message: 'Test endpoint works with Llama 4 Scout!',
+    message: 'Backend working!',
     timestamp: new Date().toISOString(),
-    platform: 'railway',
-    status: 'success',
     aiModel: 'llama-3.3-70b-versatile'
   });
 });
 
-// OTP ENDPOINTS
+// OTP ENDPOINTS (optional - won't crash main functionality)
 app.post('/api/send-otp', async (req, res) => {
   try {
+    if (!transporter) {
+      return res.status(503).json({
+        error: 'Email service not configured',
+        message: 'Administrator needs to set up email credentials'
+      });
+    }
+
     const { email, name, type = 'signup' } = req.body;
     
     if (!email || !name) {
@@ -77,91 +87,56 @@ app.post('/api/send-otp', async (req, res) => {
       });
     }
     
-    // Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    
-    // Store OTP with 10-minute expiry
     const otpData = {
       otp: otp,
       email: email,
       name: name,
       type: type,
       createdAt: new Date(),
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000)
     };
     
     otpStorage.set(email, otpData);
+    console.log(`Generated OTP for ${email}: ${otp}`);
     
-    console.log(`Generated OTP for ${email}: ${otp} (expires in 10 minutes)`);
-    
-    // Email templates
     const emailTemplates = {
       signup: {
         subject: '🔐 Your ExamBlox Verification Code',
         html: `
-          <div style="font-family: 'Poppins', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #6a4bff, #4dfff3); border-radius: 15px;">
-            <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
-              <div style="text-align: center; margin-bottom: 30px;">
-                <h1 style="color: #6a4bff; font-size: 28px; margin: 0;">🔐 ExamBlox</h1>
-                <p style="color: #666; margin: 5px 0 0 0;">Your Verification Code</p>
-              </div>
-              
-              <p style="font-size: 16px; color: #333; margin-bottom: 20px;">Hello <strong>${name}</strong>,</p>
-              
-              <p style="font-size: 16px; color: #333; margin-bottom: 30px;">Your One-Time Password (OTP) for ExamBlox is:</p>
-              
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #6a4bff, #4dfff3); border-radius: 15px;">
+            <div style="background: white; padding: 30px; border-radius: 10px;">
+              <h1 style="color: #6a4bff; text-align: center;">🔐 ExamBlox</h1>
+              <p style="font-size: 16px;">Hello <strong>${name}</strong>,</p>
+              <p>Your verification code is:</p>
               <div style="text-align: center; margin: 30px 0;">
-                <div style="display: inline-block; background: linear-gradient(135deg, #6a4bff, #4dfff3); color: white; padding: 20px 40px; border-radius: 10px; font-size: 32px; font-weight: bold; letter-spacing: 8px; box-shadow: 0 5px 15px rgba(106,75,255,0.3);">
+                <div style="display: inline-block; background: linear-gradient(135deg, #6a4bff, #4dfff3); color: white; padding: 20px 40px; border-radius: 10px; font-size: 32px; font-weight: bold; letter-spacing: 8px;">
                   ${otp}
                 </div>
               </div>
-              
               <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 15px; margin: 20px 0;">
-                <p style="margin: 0; color: #856404; font-size: 14px;">⏰ <strong>This code will expire in 10 minutes.</strong></p>
+                <p style="margin: 0; color: #856404;">⏰ <strong>Expires in 10 minutes</strong></p>
               </div>
-              
-              <p style="font-size: 14px; color: #666; margin-bottom: 20px;">If you didn't request this, please ignore this email.</p>
-              
-              <p style="font-size: 16px; color: #333; margin-bottom: 30px;">Thank you for using ExamBlox to power your exam prep! 🚀</p>
-              
-              <div style="text-align: center; border-top: 1px solid #eee; padding-top: 20px; margin-top: 30px;">
-                <p style="font-size: 14px; color: #999; margin: 0;">Best regards,</p>
-                <p style="font-size: 16px; color: #6a4bff; font-weight: bold; margin: 5px 0 0 0;">The ExamBlox Team</p>
-              </div>
+              <p>If you didn't request this, ignore this email.</p>
+              <p style="text-align: center; color: #999; margin-top: 30px;">Best regards,<br><strong style="color: #6a4bff;">The ExamBlox Team</strong></p>
             </div>
           </div>
         `
       },
       forgot_password: {
-        subject: '🔐 ExamBlox Password Reset Code',
+        subject: '🔐 ExamBlox Password Reset',
         html: `
-          <div style="font-family: 'Poppins', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #ff6b35, #f7931e); border-radius: 15px;">
-            <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
-              <div style="text-align: center; margin-bottom: 30px;">
-                <h1 style="color: #ff6b35; font-size: 28px; margin: 0;">🔐 ExamBlox</h1>
-                <p style="color: #666; margin: 5px 0 0 0;">Password Reset Code</p>
-              </div>
-              
-              <p style="font-size: 16px; color: #333; margin-bottom: 20px;">Hello <strong>${name}</strong>,</p>
-              
-              <p style="font-size: 16px; color: #333; margin-bottom: 30px;">You requested a password reset. Your One-Time Password (OTP) is:</p>
-              
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #ff6b35, #f7931e); border-radius: 15px;">
+            <div style="background: white; padding: 30px; border-radius: 10px;">
+              <h1 style="color: #ff6b35; text-align: center;">🔐 Password Reset</h1>
+              <p>Hello <strong>${name}</strong>,</p>
+              <p>Your password reset code is:</p>
               <div style="text-align: center; margin: 30px 0;">
-                <div style="display: inline-block; background: linear-gradient(135deg, #ff6b35, #f7931e); color: white; padding: 20px 40px; border-radius: 10px; font-size: 32px; font-weight: bold; letter-spacing: 8px; box-shadow: 0 5px 15px rgba(255,107,53,0.3);">
+                <div style="display: inline-block; background: linear-gradient(135deg, #ff6b35, #f7931e); color: white; padding: 20px 40px; border-radius: 10px; font-size: 32px; font-weight: bold; letter-spacing: 8px;">
                   ${otp}
                 </div>
               </div>
-              
-              <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 15px; margin: 20px 0;">
-                <p style="margin: 0; color: #856404; font-size: 14px;">⏰ <strong>This code will expire in 10 minutes.</strong></p>
-              </div>
-              
-              <p style="font-size: 14px; color: #666; margin-bottom: 20px;">If you didn't request this password reset, please ignore this email.</p>
-              
-              <div style="text-align: center; border-top: 1px solid #eee; padding-top: 20px; margin-top: 30px;">
-                <p style="font-size: 14px; color: #999; margin: 0;">Best regards,</p>
-                <p style="font-size: 16px; color: #ff6b35; font-weight: bold; margin: 5px 0 0 0;">The ExamBlox Team</p>
-              </div>
+              <p style="text-align: center; color: #999; margin-top: 30px;">Best regards,<br><strong style="color: #ff6b35;">The ExamBlox Team</strong></p>
             </div>
           </div>
         `
@@ -170,7 +145,6 @@ app.post('/api/send-otp', async (req, res) => {
     
     const template = emailTemplates[type] || emailTemplates.signup;
     
-    // Send email
     await transporter.sendMail({
       from: `"ExamBlox Team" <${process.env.EMAIL_USER}>`,
       to: email,
@@ -178,7 +152,7 @@ app.post('/api/send-otp', async (req, res) => {
       html: template.html
     });
     
-    console.log(`OTP email sent successfully to ${email}`);
+    console.log(`OTP email sent to ${email}`);
     
     res.json({
       success: true,
@@ -209,32 +183,25 @@ app.post('/api/verify-otp', (req, res) => {
     
     if (!otpData) {
       return res.status(400).json({
-        error: 'OTP not found or expired',
-        message: 'Please request a new OTP'
+        error: 'OTP not found or expired'
       });
     }
     
-    // Check if OTP is expired
     if (new Date() > otpData.expiresAt) {
       otpStorage.delete(email);
       return res.status(400).json({
-        error: 'OTP has expired',
-        message: 'Please request a new OTP'
+        error: 'OTP has expired'
       });
     }
     
-    // Verify OTP
     if (otpData.otp !== otp) {
       return res.status(400).json({
-        error: 'Invalid OTP',
-        message: 'Please check the code and try again'
+        error: 'Invalid OTP'
       });
     }
     
-    // OTP is valid, remove from storage
     otpStorage.delete(email);
-    
-    console.log(`OTP verified successfully for ${email}`);
+    console.log(`OTP verified for ${email}`);
     
     res.json({
       success: true,
@@ -250,95 +217,62 @@ app.post('/api/verify-otp', (req, res) => {
   }
 });
 
-// Send welcome email after successful signup
 app.post('/api/send-welcome-email', async (req, res) => {
   try {
-    const { email, name } = req.body;
-    
-    if (!email || !name) {
-      return res.status(400).json({
-        error: 'Email and name are required'
-      });
+    if (!transporter) {
+      return res.json({success: true, message: 'Email service not available'});
     }
-    
-    const welcomeHtml = `
-      <div style="font-family: 'Poppins', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #6a4bff, #4dfff3); border-radius: 15px;">
-        <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #6a4bff; font-size: 28px; margin: 0;">🎉 Welcome to ExamBlox!</h1>
-          </div>
-          
-          <p style="font-size: 16px; color: #333; margin-bottom: 20px;">Hi <strong>${name}</strong>,</p>
-          
-          <p style="font-size: 16px; color: #333; margin-bottom: 20px;">Thank you for trying out ExamBlox! 🎉</p>
-          
-          <p style="font-size: 16px; color: #333; margin-bottom: 20px;">We're glad to have you on board and can't wait to support you in your exam prep journey.</p>
-          
-          <div style="background: linear-gradient(135deg, #6a4bff, #4dfff3); border-radius: 10px; padding: 20px; margin: 30px 0; text-align: center;">
-            <h3 style="color: white; margin: 0 0 15px 0;">🚀 Ready to get started?</h3>
-            <p style="color: white; margin: 0; font-size: 14px;">Upload your first document and generate practice questions!</p>
-          </div>
-          
-          <p style="font-size: 16px; color: #333; margin-bottom: 20px;">If you have any feedback or ideas on how we can make ExamBlox even better, we'd love to hear from you.</p>
-          
-          <p style="font-size: 16px; color: #333; margin-bottom: 30px;">Wishing you success in your studies! ✨</p>
-          
-          <div style="text-align: center; border-top: 1px solid #eee; padding-top: 20px; margin-top: 30px;">
-            <p style="font-size: 14px; color: #999; margin: 0;">Best regards,</p>
-            <p style="font-size: 16px; color: #6a4bff; font-weight: bold; margin: 5px 0 0 0;">The ExamBlox Team</p>
-          </div>
-        </div>
-      </div>
-    `;
+
+    const { email, name } = req.body;
     
     await transporter.sendMail({
       from: `"ExamBlox Team" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: '🙏 Thank You for Trying ExamBlox',
-      html: welcomeHtml
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #6a4bff, #4dfff3); border-radius: 15px;">
+          <div style="background: white; padding: 30px; border-radius: 10px;">
+            <h1 style="color: #6a4bff; text-align: center;">🎉 Welcome to ExamBlox!</h1>
+            <p>Hi <strong>${name}</strong>,</p>
+            <p>Thank you for trying out ExamBlox! 🎉</p>
+            <p>We're glad to have you on board and can't wait to support you in your exam prep journey.</p>
+            <div style="background: linear-gradient(135deg, #6a4bff, #4dfff3); border-radius: 10px; padding: 20px; margin: 30px 0; text-align: center;">
+              <h3 style="color: white; margin: 0;">🚀 Ready to get started?</h3>
+            </div>
+            <p>Wishing you success in your studies! ✨</p>
+            <p style="text-align: center; color: #999; margin-top: 30px;">Best regards,<br><strong style="color: #6a4bff;">The ExamBlox Team</strong></p>
+          </div>
+        </div>
+      `
     });
     
-    console.log(`Welcome email sent to ${email}`);
-    
-    res.json({
-      success: true,
-      message: 'Welcome email sent successfully'
-    });
-    
+    res.json({success: true});
   } catch (error) {
-    console.error('Error sending welcome email:', error);
-    res.status(500).json({
-      error: 'Failed to send welcome email',
-      message: error.message
-    });
+    console.log('Welcome email failed:', error);
+    res.json({success: true});
   }
 });
 
-// MAIN QUESTION GENERATION ENDPOINT - Updated to use Llama 4 Scout
+// MAIN QUESTION GENERATION - LLAMA 3.3 70B VERSATILE
 app.post('/api/generate-questions', async (req, res) => {
   try {
     const { text, questionType, numQuestions, difficulty } = req.body;
 
     if (!text || text.trim().length === 0) {
       return res.status(400).json({ 
-        error: 'Text is required',
-        message: 'Please provide text to generate questions from'
+        error: 'Text is required'
       });
     }
 
-    console.log('=== QUESTION GENERATION REQUEST ===');
-    console.log('- Text length:', text.length, 'characters');
-    console.log('- Question type:', questionType);
-    console.log('- Number of questions:', numQuestions);
-    console.log('- Difficulty:', difficulty);
-    console.log('- AI Model: Llama 4 Scout (17Bx16E) 128k');
+    console.log('=== QUESTION GENERATION ===');
+    console.log('AI Model: Llama 3.3 70B Versatile');
+    console.log('Text length:', text.length);
+    console.log('Question type:', questionType);
+    console.log('Num questions:', numQuestions);
+    console.log('Difficulty:', difficulty);
 
-    // Filter out irrelevant content
     const cleanedText = filterRelevantContent(text);
-    console.log('- Cleaned text length:', cleanedText.length, 'characters');
-
-    // Generate questions with Llama 4 Scout
-    const response = await generateQuestionsWithLlama4(cleanedText, questionType, numQuestions, difficulty);
+    const response = await generateQuestionsWithLlama(cleanedText, questionType, numQuestions, difficulty);
 
     res.json({
       success: true,
@@ -346,172 +280,113 @@ app.post('/api/generate-questions', async (req, res) => {
       data: response,
       metadata: {
         textLength: text.length,
-        cleanedTextLength: cleanedText.length,
         questionType,
         numQuestions,
         difficulty,
         timestamp: new Date().toISOString(),
-        platform: 'railway',
-        aiProvider: 'groq',
-        aiModel: 'llama-3.3-70b-versatile',
-        modelDescription: 'Llama 4 Scout (17Bx16E) 128k'
+        aiModel: 'llama-3.3-70b-versatile'
       }
     });
 
   } catch (error) {
-    console.error('❌ Error generating questions:', error);
+    console.error('Error generating questions:', error);
     res.status(500).json({
-      error: 'Internal server error',
-      message: 'Failed to generate questions',
-      details: error.message
+      error: 'Failed to generate questions',
+      message: error.message
     });
   }
 });
 
-// FILTER OUT IRRELEVANT CONTENT
 function filterRelevantContent(text) {
-  console.log('🧹 Filtering out irrelevant content...');
-  
-  let cleanedText = text;
-  
-  // Remove "About the author" sections
-  cleanedText = cleanedText.replace(/about\s+the\s+author[^]*?(?=\n\n|\n[A-Z]|$)/gi, '');
-  
-  // Remove other common irrelevant sections
+  let cleaned = text;
+  cleaned = cleaned.replace(/about\s+the\s+author[^]*?(?=\n\n|\n[A-Z]|$)/gi, '');
   const sectionsToRemove = [
     /acknowledgments?[^]*?(?=\n\n|\n[A-Z]|$)/gi,
     /bibliography[^]*?(?=\n\n|\n[A-Z]|$)/gi,
-    /references[^]*?(?=\n\n|\n[A-Z]|$)/gi,
-    /index[^]*?(?=\n\n|\n[A-Z]|$)/gi,
-    /table\s+of\s+contents[^]*?(?=\n\n|\n[A-Z]|$)/gi,
-    /copyright[^]*?(?=\n\n|\n[A-Z]|$)/gi,
-    /published\s+by[^]*?(?=\n\n|\n[A-Z]|$)/gi,
-    /isbn[^]*?(?=\n\n|\n[A-Z]|$)/gi
+    /references[^]*?(?=\n\n|\n[A-Z]|$)/gi
   ];
-  
-  sectionsToRemove.forEach(pattern => {
-    cleanedText = cleanedText.replace(pattern, '');
-  });
-  
-  cleanedText = cleanedText.replace(/\n{3,}/g, '\n\n').trim();
-  
-  console.log(`✅ Content filtering complete. Removed ${text.length - cleanedText.length} characters`);
-  
-  return cleanedText;
+  sectionsToRemove.forEach(pattern => cleaned = cleaned.replace(pattern, ''));
+  return cleaned.replace(/\n{3,}/g, '\n\n').trim();
 }
 
-// PARALLEL BATCH QUESTION GENERATION WITH LLAMA 4 SCOUT
-async function generateQuestionsWithLlama4(text, questionType, numQuestions, difficulty) {
+async function generateQuestionsWithLlama(text, questionType, numQuestions, difficulty) {
   const API_KEY = process.env.GROQ_API_KEY;
   
   if (!API_KEY) {
-    console.error('GROQ_API_KEY is not configured');
-    throw new Error('GROQ_API_KEY is not configured');
+    throw new Error('GROQ_API_KEY not configured');
   }
 
-  console.log('🚀 Starting PARALLEL BATCH question generation with Llama 4 Scout...');
-  console.log('🤖 AI MODEL: Llama 4 Scout (17Bx16E) 128k');
-
+  console.log('Starting question generation with Llama 3.3 70B...');
+  
   const batchSize = 10;
   const numberOfBatches = Math.ceil(numQuestions / batchSize);
   const batches = [];
 
   for (let i = 0; i < numberOfBatches; i++) {
-    const startIndex = i * batchSize + 1;
-    const endIndex = Math.min((i + 1) * batchSize, numQuestions);
-    const questionsInThisBatch = endIndex - startIndex + 1;
-    
     batches.push({
       batchId: i + 1,
-      questionsNeeded: questionsInThisBatch,
-      startIndex: startIndex,
-      endIndex: endIndex
+      questionsNeeded: Math.min(batchSize, numQuestions - (i * batchSize))
     });
   }
 
   let attempt = 1;
-  const maxAttempts = 10;
+  const maxAttempts = 5;
   let allQuestions = [];
 
   while (allQuestions.length < numQuestions && attempt <= maxAttempts) {
-    console.log(`\n🔄 === PARALLEL ATTEMPT ${attempt}/${maxAttempts} ===`);
+    console.log(`Attempt ${attempt}/${maxAttempts} - Need ${numQuestions - allQuestions.length} more questions`);
 
     try {
-      const batchPromises = batches.map(async (batch) => {
-        const questionsToRequest = batch.questionsNeeded * 2;
-        const batchDifficulty = getDynamicDifficulty(difficulty, batch.batchId);
-        
-        console.log(`🚀 Launching Batch ${batch.batchId}: Requesting ${questionsToRequest} ${batchDifficulty} questions`);
-        
-        return generateSingleBatchLlama4(text, questionType, questionsToRequest, batchDifficulty, batch.batchId, API_KEY);
-      });
+      const batchPromises = batches.map(batch => 
+        generateSingleBatchLlama(text, questionType, batch.questionsNeeded * 2, difficulty, batch.batchId, API_KEY)
+      );
 
-      console.log(`⚡ EXECUTING ${batches.length} PARALLEL API CALLS WITH LLAMA 4 SCOUT...`);
       const batchResults = await Promise.all(batchPromises);
+      let rawQuestions = batchResults.flat();
       
-      let rawQuestions = [];
-      batchResults.forEach((questions, index) => {
-        console.log(`📥 Batch ${index + 1} returned ${questions.length} raw questions`);
-        rawQuestions = rawQuestions.concat(questions);
-      });
+      console.log(`Got ${rawQuestions.length} raw questions`);
 
       const uniqueQuestions = deduplicateQuestions(rawQuestions);
-      const examWorthyQuestions = filterExamWorthyQuestions(uniqueQuestions, []);
+      const newQuestions = uniqueQuestions.filter(q => 
+        !allQuestions.some(existing => 
+          calculateSimilarity(q.question, existing.question) > 0.7
+        )
+      );
 
-      const questionsBeforeAdd = allQuestions.length;
-      allQuestions = deduplicateQuestions([...allQuestions, ...examWorthyQuestions]);
-      const questionsAdded = allQuestions.length - questionsBeforeAdd;
+      allQuestions = [...allQuestions, ...newQuestions].slice(0, numQuestions);
+      console.log(`Progress: ${allQuestions.length}/${numQuestions}`);
 
-      console.log(`📈 PARALLEL ATTEMPT ${attempt} RESULTS:`);
-      console.log(`   - Total progress: ${allQuestions.length}/${numQuestions}`);
-
-      if (allQuestions.length >= numQuestions) {
-        console.log(`🎉 SUCCESS! Generated ${allQuestions.length}/${numQuestions} questions with Llama 4 Scout!`);
-        break;
-      }
+      if (allQuestions.length >= numQuestions) break;
 
     } catch (error) {
-      console.error(`❌ Parallel attempt ${attempt} failed:`, error.message);
+      console.error(`Attempt ${attempt} failed:`, error.message);
     }
 
     attempt++;
-    
     if (attempt <= maxAttempts && allQuestions.length < numQuestions) {
       await new Promise(resolve => setTimeout(resolve, 2000));
     }
   }
 
   const finalQuestions = allQuestions.slice(0, numQuestions);
+  console.log(`Final: Generated ${finalQuestions.length}/${numQuestions} questions`);
 
   return {
-    message: `Generated ${finalQuestions.length} questions using Llama 4 Scout`,
+    message: `Generated ${finalQuestions.length} questions`,
     questions: finalQuestions,
     provider: 'groq',
     model: 'llama-3.3-70b-versatile',
-    modelDescription: 'Llama 4 Scout (17Bx16E) 128k',
-    textLength: text.length,
-    successRate: `${finalQuestions.length}/${numQuestions}`,
-    requestParams: {
-      questionType,
-      numQuestions,
-      difficulty
-    }
+    successRate: `${finalQuestions.length}/${numQuestions}`
   };
 }
 
-// GENERATE SINGLE BATCH WITH LLAMA 4 SCOUT
-async function generateSingleBatchLlama4(text, questionType, numQuestions, difficulty, batchId, API_KEY) {
+async function generateSingleBatchLlama(text, questionType, numQuestions, difficulty, batchId, API_KEY) {
   const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
   
   const maxTextLength = 12000;
-  const sections = Math.floor(text.length / maxTextLength) || 1;
-  const sectionIndex = (batchId - 1) % sections;
-  const startPos = sectionIndex * maxTextLength;
-  const textSection = text.length > maxTextLength 
-    ? text.substring(startPos, startPos + maxTextLength)
-    : text;
+  const textSection = text.length > maxTextLength ? text.substring(0, maxTextLength) : text;
   
-  const prompt = createExamFocusedPrompt(textSection, questionType, numQuestions, difficulty, []);
+  const prompt = createPrompt(textSection, questionType, numQuestions, difficulty);
   
   try {
     const response = await fetch(GROQ_URL, {
@@ -521,316 +396,168 @@ async function generateSingleBatchLlama4(text, questionType, numQuestions, diffi
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile", // Using Llama 4 Scout equivalent
+        model: "llama-3.3-70b-versatile",
         messages: [
           {
             role: "system",
-            content: `You are an expert exam question creator powered by Llama 4 Scout for Batch ${batchId}. Create unique, exam-worthy questions that test deep understanding.`
+            content: `You are an expert exam question creator. Create high-quality ${questionType} questions.`
           },
           {
             role: "user",
             content: prompt
           }
         ],
-        temperature: 0.7 + (batchId * 0.1),
+        temperature: 0.7,
         max_tokens: 2800
       })
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ Batch ${batchId} API error:`, response.status, errorText);
-      throw new Error(`API error: ${response.status} - ${errorText}`);
+      throw new Error(`API error: ${response.status}`);
     }
 
     const result = await response.json();
-    const llamaGeneratedText = result.choices[0]?.message?.content || '';
+    const generatedText = result.choices[0]?.message?.content || '';
     
-    const parsedQuestions = parseLlamaQuestionsResponse(llamaGeneratedText, questionType, numQuestions);
-    
-    parsedQuestions.forEach(q => {
-      q.batchId = batchId;
-      q.batchSource = `batch_${batchId}_llama4`;
-      q.aiModel = 'Llama 4 Scout';
-    });
-    
-    console.log(`   ✅ Batch ${batchId}: Llama 4 Scout generated ${parsedQuestions.length} questions`);
-    return parsedQuestions;
+    const parsed = parseQuestionsResponse(generatedText, questionType);
+    console.log(`Batch ${batchId}: Generated ${parsed.length} questions`);
+    return parsed;
 
   } catch (error) {
-    console.error(`❌ Batch ${batchId} failed:`, error.message);
+    console.error(`Batch ${batchId} failed:`, error.message);
     return [];
   }
 }
 
-// Helper functions (deduplicateQuestions, filterExamWorthyQuestions, etc.)
-function deduplicateQuestions(questions) {
-  const uniqueQuestions = [];
-  const questionHashes = new Set();
-  
-  for (const question of questions) {
-    const normalizedQuestion = question.question
-      .toLowerCase()
-      .replace(/[^\w\s]/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-    
-    const significantWords = normalizedQuestion
-      .split(' ')
-      .filter(word => word.length > 3)
-      .slice(0, 10);
-    
-    const questionHash = significantWords.join('_');
-    
-    if (!questionHashes.has(questionHash)) {
-      questionHashes.add(questionHash);
-      uniqueQuestions.push(question);
-    }
-  }
-  
-  return uniqueQuestions;
-}
-
-function filterExamWorthyQuestions(newQuestions, existingQuestions) {
-  const examWorthy = [];
-  
-  for (const newQ of newQuestions) {
-    if (isExamWorthy(newQ)) {
-      examWorthy.push(newQ);
-    }
-  }
-  
-  return examWorthy;
-}
-
-function isExamWorthy(question) {
-  const questionText = question.question.toLowerCase();
-  
-  const trivialIndicators = [
-    'what is the title',
-    'who is the author',
-    'what page',
-    'how many pages'
-  ];
-  
-  for (const indicator of trivialIndicators) {
-    if (questionText.includes(indicator)) {
-      return false;
-    }
-  }
-  
-  const isGoodLength = question.question.length >= 15 && question.question.length <= 200;
-  return isGoodLength;
-}
-
-function getDynamicDifficulty(baseDifficulty, batchId) {
-  const difficulties = ['Easy', 'Medium', 'Hard', 'Exam Level'];
-  const baseIndex = difficulties.findIndex(d => d.toLowerCase() === baseDifficulty.toLowerCase());
-  const variance = [-1, 0, 1, 0, 1];
-  const adjustedIndex = Math.max(0, Math.min(3, baseIndex + (variance[batchId % 5] || 0)));
-  return difficulties[adjustedIndex];
-}
-
-function createExamFocusedPrompt(textSection, questionType, numQuestions, difficulty, existingQuestions) {
-  const difficultyMap = {
-    'easy': 'moderately challenging (like mid-term exam questions)',
-    'medium': 'challenging (like final exam questions)', 
-    'hard': 'very challenging (like advanced course exams)',
-    'exam level': 'extremely challenging (like professional certification exams)'
-  };
-  
-  const difficultyLevel = difficultyMap[difficulty.toLowerCase()] || 'challenging';
-
-  let prompt = `You are a Llama 4 Scout powered exam question creator. Create ${questionType.toLowerCase()} questions for an actual exam.
-
-TEXT TO ANALYZE:
-"""
-${textSection}
-"""
-
-Create exactly ${numQuestions} ${difficultyLevel} questions.`;
+function createPrompt(text, questionType, numQuestions, difficulty) {
+  let prompt = `Create exactly ${numQuestions} ${difficulty} ${questionType} questions from this text:\n\n${text}\n\n`;
 
   if (questionType === 'Multiple Choice') {
-    prompt += `
-
-FORMAT - Create exactly ${numQuestions} multiple choice questions:
-
-Q1: [Exam-worthy question]
-A) [Correct answer]
-B) [Incorrect option] 
-C) [Incorrect option]
-D) [Incorrect option]
-ANSWER: A
-EXPLANATION: [Why this is correct]
-
-Continue this format for all ${numQuestions} questions.`;
+    prompt += `Format:\nQ1: [Question]\nA) [Option]\nB) [Option]\nC) [Option]\nD) [Option]\nANSWER: [Letter]\nEXPLANATION: [Why]\n\n`;
+  } else if (questionType === 'True/False') {
+    prompt += `Format:\nQ1: [Statement]\nANSWER: True/False\nEXPLANATION: [Why]\n\n`;
+  } else if (questionType === 'Flashcards') {
+    prompt += `Format:\nQ1: [Term]\nANSWER: [Definition]\n\n`;
   }
 
   return prompt;
 }
 
-function parseLlamaQuestionsResponse(llamaResponse, questionType, numQuestions) {
+function parseQuestionsResponse(response, questionType) {
   const questions = [];
-  
-  if (questionType === 'Multiple Choice') {
-    const questionBlocks = llamaResponse.split(/Q\d+:/);
-    questionBlocks.shift();
-    
-    for (let i = 0; i < questionBlocks.length && questions.length < numQuestions; i++) {
-      try {
-        const block = questionBlocks[i].trim();
-        const lines = block.split('\n').map(line => line.trim()).filter(line => line);
-        
-        if (lines.length < 3) continue;
-        
-        const questionText = lines[0];
-        if (!questionText || questionText.length < 15) continue;
-        
+  const blocks = response.split(/Q\d+:/);
+  blocks.shift();
+
+  blocks.forEach((block, index) => {
+    try {
+      const lines = block.trim().split('\n').filter(l => l.trim());
+      if (lines.length < 2) return;
+
+      const questionText = lines[0].trim();
+      if (!questionText || questionText.length < 10) return;
+
+      if (questionType === 'Multiple Choice') {
         const options = [];
         let answerLine = '';
-        let explanationLine = '';
-        
-        for (let line of lines.slice(1)) {
+        let explanation = '';
+
+        lines.slice(1).forEach(line => {
           if (/^[A-D]\)/.test(line)) {
             options.push(line.substring(2).trim());
           } else if (line.toUpperCase().includes('ANSWER:')) {
             answerLine = line;
           } else if (line.toUpperCase().includes('EXPLANATION:')) {
-            explanationLine = line.substring(line.toUpperCase().indexOf('EXPLANATION:') + 12).trim();
+            explanation = line.substring(line.toUpperCase().indexOf('EXPLANATION:') + 12).trim();
           }
-        }
-        
-        if (questionText && options.length >= 4 && answerLine) {
+        });
+
+        if (options.length >= 4 && answerLine) {
           const correctLetter = answerLine.toUpperCase().match(/[A-D]/)?.[0] || 'A';
-          const correctIndex = correctLetter.charCodeAt(0) - 65;
-          
-          const enhancedExplanation = explanationLine || 
-            `The correct answer is ${correctLetter} based on the content from the source material.`;
-          
           questions.push({
             id: questions.length + 1,
             type: questionType,
             question: questionText,
             options: options.slice(0, 4),
-            correctAnswer: correctIndex,
+            correctAnswer: correctLetter.charCodeAt(0) - 65,
             correctLetter: correctLetter,
-            explanation: enhancedExplanation,
-            source: 'llama4_scout',
-            examWorthy: true,
-            aiModel: 'Llama 4 Scout'
+            explanation: explanation || 'Correct answer based on text'
           });
         }
-      } catch (error) {
-        console.log(`❌ Error parsing Llama question ${i + 1}:`, error.message);
+      } else if (questionType === 'True/False') {
+        const answerLine = lines.find(l => l.toUpperCase().includes('ANSWER:'));
+        if (answerLine) {
+          questions.push({
+            id: questions.length + 1,
+            type: questionType,
+            question: questionText,
+            correctAnswer: answerLine.toUpperCase().includes('TRUE') ? 'True' : 'False',
+            explanation: 'Based on text content'
+          });
+        }
+      } else if (questionType === 'Flashcards') {
+        const answerLine = lines.find(l => l.toUpperCase().includes('ANSWER:'));
+        if (answerLine) {
+          questions.push({
+            id: questions.length + 1,
+            type: questionType,
+            question: questionText,
+            answer: answerLine.substring(answerLine.toUpperCase().indexOf('ANSWER:') + 7).trim(),
+            explanation: 'Key concept from text'
+          });
+        }
       }
+    } catch (e) {
+      console.log(`Parse error question ${index + 1}:`, e.message);
     }
-    
-  } else if (questionType === 'True/False') {
-    const questionBlocks = llamaResponse.split(/Q\d+:/);
-    questionBlocks.shift();
-    
-    questionBlocks.forEach((block, index) => {
-      if (questions.length >= numQuestions) return;
-      
-      try {
-        const lines = block.trim().split('\n').filter(line => line.trim());
-        const questionText = lines[0]?.trim();
-        const answerLine = lines.find(line => line.toUpperCase().includes('ANSWER:'));
-        const explanationLine = lines.find(line => line.toUpperCase().includes('EXPLANATION:'));
-        
-        if (questionText && answerLine) {
-          const answer = answerLine.toUpperCase().includes('TRUE') ? 'True' : 'False';
-          const explanation = explanationLine ? 
-            explanationLine.substring(explanationLine.toUpperCase().indexOf('EXPLANATION:') + 12).trim() :
-            `This statement is ${answer.toLowerCase()} based on the source material.`;
-          
-          questions.push({
-            id: questions.length + 1,
-            type: questionType,
-            question: questionText,
-            correctAnswer: answer,
-            explanation: explanation,
-            source: 'llama4_scout',
-            examWorthy: true,
-            aiModel: 'Llama 4 Scout'
-          });
-        }
-      } catch (error) {
-        console.log(`❌ Error parsing Llama T/F question ${index + 1}:`, error.message);
-      }
-    });
-    
-  } else if (questionType === 'Flashcards') {
-    const questionBlocks = llamaResponse.split(/Q\d+:/);
-    questionBlocks.shift();
-    
-    questionBlocks.forEach((block, index) => {
-      if (questions.length >= numQuestions) return;
-      
-      try {
-        const lines = block.trim().split('\n').filter(line => line.trim());
-        const questionText = lines[0]?.trim();
-        const answerLine = lines.find(line => line.toUpperCase().includes('ANSWER:'));
-        const explanationLine = lines.find(line => line.toUpperCase().includes('EXPLANATION:'));
-        
-        if (questionText && answerLine) {
-          const answer = answerLine.substring(answerLine.toUpperCase().indexOf('ANSWER:') + 7).trim();
-          const explanation = explanationLine ? 
-            explanationLine.substring(explanationLine.toUpperCase().indexOf('EXPLANATION:') + 12).trim() :
-            `This concept is important for understanding the material.`;
-          
-          questions.push({
-            id: questions.length + 1,
-            type: questionType,
-            question: questionText,
-            answer: answer,
-            explanation: explanation,
-            source: 'llama4_scout',
-            examWorthy: true,
-            aiModel: 'Llama 4 Scout'
-          });
-        }
-      } catch (error) {
-        console.log(`❌ Error parsing Llama Flashcard ${index + 1}:`, error.message);
-      }
-    });
-  }
-  
-  console.log(`📊 Final Llama 4 Scout parsing result: ${questions.length} questions extracted`);
+  });
+
   return questions;
 }
 
-// Clean up expired OTPs periodically
-setInterval(() => {
-  const now = new Date();
-  for (const [email, otpData] of otpStorage.entries()) {
-    if (now > otpData.expiresAt) {
-      otpStorage.delete(email);
-      console.log(`🗑️ Expired OTP cleaned up for ${email}`);
+function deduplicateQuestions(questions) {
+  const unique = [];
+  const seen = new Set();
+
+  for (const q of questions) {
+    const normalized = q.question.toLowerCase().replace(/[^\w\s]/g, '').slice(0, 50);
+    if (!seen.has(normalized)) {
+      seen.add(normalized);
+      unique.push(q);
     }
   }
-}, 5 * 60 * 1000); // Clean up every 5 minutes
 
-// Error handling middleware
+  return unique;
+}
+
+function calculateSimilarity(q1, q2) {
+  const words1 = q1.toLowerCase().split(/\W+/).filter(w => w.length > 3);
+  const words2 = q2.toLowerCase().split(/\W+/).filter(w => w.length > 3);
+  const common = words1.filter(w => words2.includes(w));
+  const total = new Set([...words1, ...words2]).size;
+  return total > 0 ? common.length / total : 0;
+}
+
+// Clean up expired OTPs
+setInterval(() => {
+  const now = new Date();
+  for (const [email, data] of otpStorage.entries()) {
+    if (now > data.expiresAt) {
+      otpStorage.delete(email);
+    }
+  }
+}, 5 * 60 * 1000);
+
 app.use((err, req, res, next) => {
-  console.error('❌ Unhandled error:', err);
-  res.status(500).json({
-    error: 'Internal server error',
-    message: 'Something went wrong'
-  });
+  console.error('Error:', err);
+  res.status(500).json({error: 'Internal server error'});
 });
 
-// 404 handler
 app.use('*', (req, res) => {
-  res.status(404).json({
-    error: 'Not found',
-    message: 'Endpoint not found'
-  });
+  res.status(404).json({error: 'Not found'});
 });
 
 app.listen(PORT, () => {
-  console.log(`✅ Server is running on port ${PORT}`);
-  console.log('🚀 ExamBlox Backend is ready with Llama 4 Scout and Email OTP!');
-  console.log('📧 Email OTP system active');
-  console.log('🤖 AI Model: Llama 4 Scout (17Bx16E) 128k');
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log('🤖 AI Model: Llama 3.3 70B Versatile');
+  console.log('📧 Email:', transporter ? 'Enabled' : 'Disabled (optional)');
 });
