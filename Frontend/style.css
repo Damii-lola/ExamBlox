@@ -2174,6 +2174,17 @@ button:focus, input:focus, select:focus, textarea:focus {
   }
 }
 
+@keyframes slideOut {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
 /* Enhanced Dropdown Admin Badge */
 .dropdown-admin {
   background: linear-gradient(135deg, #ff6b35, #f7931e, #ffcc02);
