@@ -1,10 +1,11 @@
-// script.js - Complete Fixed Version with All Working Features
+// script.js - COMPLETE FIXED VERSION
+// All Issues Resolved: OTP Enabled, Case-Insensitive Usernames, Device-Based Trial Limits
 
 // Authentication state
 let isUserLoggedIn = false;
 let currentUser = null;
 
-// Protected admin data - PERMANENT and UNBREAKABLE
+// Protected admin data
 const PROTECTED_ADMIN = {
   username: 'damii-lola',
   name: 'Damii Lola',
@@ -16,9 +17,148 @@ const PROTECTED_ADMIN = {
   createdAt: '2024-01-01T00:00:00Z'
 };
 
-// Initialize authentication on page load
+// ===== DEVICE FINGERPRINTING - Prevent trial abuse =====
+function getDeviceFingerprint() {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.textBaseline = 'top';
+  ctx.font = '14px Arial';
+  ctx.fillText('fingerprint', 2, 2);
+  const canvasData = canvas.toDataURL();
+  
+  const components = [
+    navigator.userAgent,
+    navigator.language,
+    screen.colorDepth,
+    screen.width + 'x' + screen.height,
+    new Date().getTimezoneOffset(),
+    canvasData.substring(0, 100),
+    navigator.hardwareConcurrency || 'unknown',
+    navigator.platform
+  ];
+  
+  let hash = 0;
+  const str = components.join('|');
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  
+  return 'device_' + Math.abs(hash).toString(36);
+}
+
+function getDeviceId() {
+  let deviceId = localStorage.getItem('examblox_device_id');
+  if (!deviceId) {
+    deviceId = getDeviceFingerprint();
+    localStorage.setItem('examblox_device_id', deviceId);
+  }
+  return deviceId;
+}
+
+function checkDeviceTrialLimit() {
+  const deviceId = getDeviceId();
+  const deviceUsage = JSON.parse(localStorage.getItem('examblox_device_usage') || '{}');
+  
+  if (!deviceUsage[deviceId]) {
+    deviceUsage[deviceId] = {
+      questionsGenerated: 0,
+      filesProcessed: 0,
+      createdAt: new Date().toISOString()
+    };
+    localStorage.setItem('examblox_device_usage', JSON.stringify(deviceUsage));
+  }
+  
+  return deviceUsage[deviceId];
+}
+
+function updateDeviceUsage(filesCount, questionsCount) {
+  const deviceId = getDeviceId();
+  const deviceUsage = JSON.parse(localStorage.getItem('examblox_device_usage') || '{}');
+  
+  if (!deviceUsage[deviceId]) {
+    deviceUsage[deviceId] = {
+      questionsGenerated: 0,
+      filesProcessed: 0,
+      createdAt: new Date().toISOString()
+    };
+  }
+  
+  deviceUsage[deviceId].filesProcessed += filesCount;
+  deviceUsage[deviceId].questionsGenerated += questionsCount;
+  deviceUsage[deviceId].lastUsed = new Date().toISOString();
+  
+  localStorage.setItem('examblox_device_usage', JSON.stringify(deviceUsage));
+}
+
+// ===== CASE-INSENSITIVE USERNAME/EMAIL CHECKS =====
+async function checkUsernameExists(username) {
+  const normalizedUsername = username.toLowerCase().trim();
+  
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('username_')) {
+      const storedUsername = key.substring(9).toLowerCase();
+      if (storedUsername === normalizedUsername) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+async function checkEmailExists(email) {
+  const normalizedEmail = email.toLowerCase().trim();
+  
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('user_')) {
+      const storedEmail = key.substring(5).toLowerCase();
+      if (storedEmail === normalizedEmail) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+async function findUserByEmailOrUsername(emailOrUsername) {
+  const normalized = emailOrUsername.toLowerCase().trim();
+  
+  // Try email lookup
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('user_')) {
+      const email = key.substring(5).toLowerCase();
+      if (email === normalized) {
+        const userData = localStorage.getItem(key);
+        if (userData) return JSON.parse(userData);
+      }
+    }
+  }
+  
+  // Try username lookup
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('username_')) {
+      const username = key.substring(9).toLowerCase();
+      if (username === normalized) {
+        const email = localStorage.getItem(key);
+        if (email) {
+          const userData = localStorage.getItem(`user_${email.toLowerCase()}`);
+          if (userData) return JSON.parse(userData);
+        }
+      }
+    }
+  }
+  
+  return null;
+}
+
+// ===== INITIALIZATION =====
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, initializing enhanced version...');
+    console.log('ExamBlox initialized with all fixes');
     ensureProtectedAdmin();
     checkAuthState();
     initializeAuth();
@@ -30,15 +170,10 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeDynamicUpdates();
 });
 
-// ENSURE PROTECTED ADMIN ALWAYS EXISTS
 function ensureProtectedAdmin() {
-    console.log('🔒 Ensuring protected admin account exists...');
-    
-    // Always restore admin account regardless of any clear operations
     localStorage.setItem(`user_${PROTECTED_ADMIN.email}`, JSON.stringify(PROTECTED_ADMIN));
     localStorage.setItem(`username_${PROTECTED_ADMIN.username}`, PROTECTED_ADMIN.email);
     
-    // If current user is admin, restore session
     const currentUserData = localStorage.getItem('examblox_user');
     if (currentUserData) {
         try {
@@ -46,24 +181,15 @@ function ensureProtectedAdmin() {
             if (userData.username === PROTECTED_ADMIN.username) {
                 currentUser = {...PROTECTED_ADMIN};
                 isUserLoggedIn = true;
-                console.log('🔒 Protected admin session restored');
             }
-        } catch (e) {
-            console.log('No valid current session');
-        }
+        } catch (e) {}
     }
 }
 
-// DYNAMIC SYSTEM - Real-time updates across all instances
 function initializeDynamicUpdates() {
-    console.log('🔄 Initializing dynamic system...');
-    
-    // Listen for storage changes (other tabs/windows)
     window.addEventListener('storage', function(e) {
-        if (e.key && e.key.startsWith('user_') || e.key === 'examblox_activities' || e.key === 'examblox_user_stats') {
-            console.log('🔄 Storage change detected, updating UI...');
+        if (e.key && (e.key.startsWith('user_') || e.key === 'examblox_activities' || e.key === 'examblox_user_stats')) {
             if (currentUser && currentUser.role === 'admin') {
-                // If admin panel is open, refresh it
                 const adminPanel = document.getElementById('admin-panel');
                 if (adminPanel) {
                     closeAdminPanel();
@@ -74,16 +200,14 @@ function initializeDynamicUpdates() {
         }
     });
     
-    // Periodic refresh for dynamic content
     setInterval(function() {
         if (isUserLoggedIn && currentUser && currentUser.role === 'admin') {
             broadcastUpdate();
         }
-    }, 30000); // Update every 30 seconds
+    }, 30000);
 }
 
 function broadcastUpdate() {
-    // Trigger custom event for dynamic updates
     const updateEvent = new CustomEvent('exambloxUpdate', {
         detail: {
             timestamp: new Date().toISOString(),
@@ -103,26 +227,20 @@ function getTotalActivities() {
 }
 
 function checkAuthState() {
-    // Always ensure admin exists first
     ensureProtectedAdmin();
     
-    // Check if user is logged in
     const userData = localStorage.getItem('examblox_user');
     if (userData) {
         try {
             currentUser = JSON.parse(userData);
             isUserLoggedIn = true;
             updateAuthUI();
-            console.log('User is logged in:', currentUser.email);
             
-            // Special handling for protected admin
             if (currentUser.username === PROTECTED_ADMIN.username) {
-                currentUser = {...PROTECTED_ADMIN}; // Always use protected data
+                currentUser = {...PROTECTED_ADMIN};
                 localStorage.setItem('examblox_user', JSON.stringify(currentUser));
-                console.log('🔒 Protected admin privileges confirmed');
             }
         } catch (error) {
-            console.error('Error parsing user data:', error);
             localStorage.removeItem('examblox_user');
             isUserLoggedIn = false;
             currentUser = null;
@@ -137,7 +255,6 @@ function initializeAuth() {
     if (loginBtn) {
         loginBtn.addEventListener('click', function(e) {
             e.preventDefault();
-            console.log('Login button clicked');
             showAuthModal('login');
         });
     }
@@ -145,7 +262,6 @@ function initializeAuth() {
     if (signupBtn) {
         signupBtn.addEventListener('click', function(e) {
             e.preventDefault();
-            console.log('Signup button clicked');
             showAuthModal('signup');
         });
     }
@@ -157,24 +273,18 @@ function updateAuthUI() {
     const navLinks = document.querySelector('.nav-links');
 
     if (isUserLoggedIn && currentUser) {
-        // Hide login and signup buttons
         if (loginBtn) loginBtn.style.display = 'none';
         if (signupBtn) signupBtn.style.display = 'none';
         
-        // Remove existing dropdown to prevent duplicates
         const existingDropdown = document.querySelector('.user-dropdown');
-        if (existingDropdown) {
-            existingDropdown.remove();
-        }
+        if (existingDropdown) existingDropdown.remove();
         
-        // Create user dropdown element
         const userDropdown = document.createElement('li');
         userDropdown.className = 'user-dropdown';
         
         const displayName = currentUser.username || currentUser.name || currentUser.email;
         const firstLetter = displayName.charAt(0).toUpperCase();
         
-        // Create the dropdown HTML structure
         userDropdown.innerHTML = `
             <div class="user-avatar" id="user-avatar-btn">
                 <span>${firstLetter}</span>
@@ -208,25 +318,15 @@ function updateAuthUI() {
             </div>
         `;
         
-        // Add to navigation
-        if (navLinks) {
-            navLinks.appendChild(userDropdown);
-        }
-        
-        setTimeout(() => {
-            bindDropdownEvents();
-        }, 100);
+        if (navLinks) navLinks.appendChild(userDropdown);
+        setTimeout(() => bindDropdownEvents(), 100);
         
     } else {
-        // Show login and signup buttons
         if (loginBtn) loginBtn.style.display = 'inline-block';
         if (signupBtn) signupBtn.style.display = 'inline-block';
         
-        // Remove user dropdown
         const userDropdown = document.querySelector('.user-dropdown');
-        if (userDropdown) {
-            userDropdown.remove();
-        }
+        if (userDropdown) userDropdown.remove();
     }
 }
 
@@ -283,31 +383,24 @@ function bindDropdownEvents() {
 
 function toggleDropdown() {
     const dropdown = document.getElementById('user-dropdown-menu');
-    if (dropdown) {
-        dropdown.classList.toggle('hidden');
-    }
+    if (dropdown) dropdown.classList.toggle('hidden');
 }
 
 function closeDropdown() {
     const dropdown = document.getElementById('user-dropdown-menu');
-    if (dropdown) {
-        dropdown.classList.add('hidden');
-    }
+    if (dropdown) dropdown.classList.add('hidden');
 }
 
 function confirmLogout() {
-    // Special protection for admin account
     if (currentUser && currentUser.username === PROTECTED_ADMIN.username) {
         const confirmLogout = confirm('⚠️ You are logging out of the PROTECTED ADMIN account.\n\nYour admin account and all data will remain permanently saved.\n\nProceed with logout?');
-        if (confirmLogout) {
-            logout();
-        }
+        if (confirmLogout) logout();
     } else {
         logout();
     }
 }
 
-// AUTH MODAL WITH OTP VERIFICATION - FIXED
+// ===== AUTH MODAL WITH OTP ENABLED =====
 function showAuthModal(type) {
     const isLogin = type === 'login';
     const modal = document.createElement('div');
@@ -362,27 +455,22 @@ function showAuthModal(type) {
 
     document.body.appendChild(modal);
 
-    // Password toggle functionality
     setupPasswordToggle('auth-password', 'toggle-password');
     if (!isLogin) {
         setupPasswordToggle('auth-confirm-password', 'toggle-confirm-password');
     }
 
-    // Handle form submission
     document.getElementById('auth-form').addEventListener('submit', function(e) {
         e.preventDefault();
-        console.log('Auth form submitted');
         handleAuth(isLogin);
     });
 
-    // Handle auth switch
     document.getElementById('auth-switch').addEventListener('click', function(e) {
         e.preventDefault();
         closeAuthModal();
         showAuthModal(isLogin ? 'signup' : 'login');
     });
 
-    // Handle forgot password
     if (isLogin) {
         const forgotBtn = document.getElementById('forgot-password');
         if (forgotBtn) {
@@ -411,15 +499,12 @@ function setupPasswordToggle(inputId, buttonId) {
 }
 
 async function handleAuth(isLogin) {
-    console.log('Handle auth called, isLogin:', isLogin);
-    
     const emailUsername = document.getElementById('auth-email-username').value.trim();
     const password = document.getElementById('auth-password').value;
     const name = isLogin ? null : document.getElementById('auth-name').value.trim();
     const username = isLogin ? null : document.getElementById('auth-username').value.trim();
     const confirmPassword = isLogin ? null : document.getElementById('auth-confirm-password').value;
 
-    // Basic validation
     if (!emailUsername || !password) {
         showNotification('Please fill in all fields', 'error');
         return;
@@ -439,22 +524,19 @@ async function handleAuth(isLogin) {
             return;
         }
         
-        // Check if username already exists
+        // FIXED: Case-insensitive checks
         if (await checkUsernameExists(username)) {
             showNotification('Username already exists. Please choose another one.', 'error');
             return;
         }
         
-        // Check if email already exists
         if (await checkEmailExists(emailUsername)) {
             showNotification('Email already exists. Please use a different email or sign in.', 'error');
             return;
         }
     }
 
-    // Authentication logic
     if (isLogin) {
-        // Login logic
         const userData = await findUserByEmailOrUsername(emailUsername);
         if (userData && userData.password === password) {
             loginUser(userData);
@@ -464,25 +546,8 @@ async function handleAuth(isLogin) {
             showNotification('Invalid credentials. Please try again.', 'error');
         }
     } else {
-        // Signup with OTP - uncomment when email is working
-        // showSignupOTPModal(username, name, emailUsername, password);
-        
-        // TEMPORARY: Direct signup without OTP (remove when email works)
-        const userData = {
-            username: username,
-            name: name,
-            email: emailUsername,
-            password: password,
-            createdAt: new Date().toISOString(),
-            plan: username === PROTECTED_ADMIN.username ? 'premium' : 'free',
-            role: username === PROTECTED_ADMIN.username ? 'admin' : 'user'
-        };
-        localStorage.setItem(`user_${emailUsername}`, JSON.stringify(userData));
-        localStorage.setItem(`username_${username}`, emailUsername);
-        closeAuthModal();
-        sendWelcomeEmail(emailUsername, name).catch(err => console.log('Email failed:', err));
-        loginUser(userData);
-        showNotification('Account created successfully! Welcome to ExamBlox!', 'success');
+        // OTP NOW ENABLED
+        showSignupOTPModal(username, name, emailUsername, password);
     }
 }
 
@@ -524,7 +589,6 @@ function showSignupOTPModal(username, name, email, password) {
 
     document.body.appendChild(modal);
 
-    // Send OTP first
     sendSignupOTP(email, name);
 
     document.getElementById('signup-otp-form').addEventListener('submit', function(e) {
@@ -550,9 +614,7 @@ async function sendSignupOTP(email, name) {
 
         const response = await fetch('https://examblox-production.up.railway.app/api/send-otp', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
                 email: email,
                 name: name,
@@ -563,9 +625,9 @@ async function sendSignupOTP(email, name) {
         const result = await response.json();
 
         if (result.success) {
-            showNotification('Verification code sent!', 'success');
+            showNotification('Verification code sent to your email!', 'success');
         } else {
-            showNotification('Failed to send verification code. Please try again.', 'error');
+            showNotification(result.message || 'Failed to send verification code. Please try again.', 'error');
         }
     } catch (error) {
         console.error('Error sending OTP:', error);
@@ -576,8 +638,8 @@ async function sendSignupOTP(email, name) {
 async function verifySignupOTP(username, name, email, password) {
     const otp = document.getElementById('signup-otp').value.trim();
 
-    if (!otp) {
-        showNotification('Please enter the verification code', 'error');
+    if (!otp || otp.length !== 6) {
+        showNotification('Please enter a valid 6-digit code', 'error');
         return;
     }
 
@@ -586,38 +648,32 @@ async function verifySignupOTP(username, name, email, password) {
 
         const response = await fetch('https://examblox-production.up.railway.app/api/verify-otp', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                email: email,
-                otp: otp
-            })
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email: email, otp: otp})
         });
 
         const result = await response.json();
 
         if (result.success) {
-            // Create user account
+            const normalizedEmail = email.toLowerCase().trim();
+            const normalizedUsername = username.toLowerCase().trim();
+            
             const userData = {
                 username: username,
                 name: name,
                 email: email,
                 password: password,
                 createdAt: new Date().toISOString(),
-                plan: username === PROTECTED_ADMIN.username ? 'premium' : 'free',
-                role: username === PROTECTED_ADMIN.username ? 'admin' : 'user'
+                plan: normalizedUsername === PROTECTED_ADMIN.username.toLowerCase() ? 'premium' : 'free',
+                role: normalizedUsername === PROTECTED_ADMIN.username.toLowerCase() ? 'admin' : 'user'
             };
             
-            // Store user data
-            localStorage.setItem(`user_${email}`, JSON.stringify(userData));
-            localStorage.setItem(`username_${username}`, email);
+            // Store with normalized keys
+            localStorage.setItem(`user_${normalizedEmail}`, JSON.stringify(userData));
+            localStorage.setItem(`username_${normalizedUsername}`, normalizedEmail);
             
             closeSignupOTPModal();
-            
-            // Send welcome email
             await sendWelcomeEmail(email, name);
-            
             loginUser(userData);
             showNotification('Account created successfully! Welcome to ExamBlox!', 'success');
             
@@ -634,20 +690,15 @@ async function sendWelcomeEmail(email, name) {
     try {
         await fetch('https://examblox-production.up.railway.app/api/send-welcome-email', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                email: email,
-                name: name
-            })
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email: email, name: name})
         });
     } catch (error) {
         console.log('Welcome email sending failed:', error);
     }
 }
 
-// FORGOT PASSWORD MODAL
+// FORGOT PASSWORD WITH OTP
 function showForgotPasswordModal() {
     const modal = document.createElement('div');
     modal.className = 'modal';
@@ -689,6 +740,9 @@ function showForgotPasswordModal() {
     });
 }
 
+// CONTINUATION OF script.js - Add this to the end of the previous file
+
+// Password Reset Functions (continued)
 async function handleForgotPassword() {
     const email = document.getElementById('reset-email').value.trim();
     
@@ -697,7 +751,6 @@ async function handleForgotPassword() {
         return;
     }
 
-    // Check if user exists
     const userData = await findUserByEmailOrUsername(email);
     if (!userData) {
         showNotification('No account found with this email address', 'error');
@@ -709,9 +762,7 @@ async function handleForgotPassword() {
 
         const response = await fetch('https://examblox-production.up.railway.app/api/send-otp', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
                 email: email,
                 name: userData.name || userData.username || 'User',
@@ -792,7 +843,8 @@ function showResetPasswordModal(email, name) {
 
     document.getElementById('resend-reset-code').addEventListener('click', function(e) {
         e.preventDefault();
-        handleForgotPassword();
+        closeResetPasswordModal();
+        showForgotPasswordModal();
     });
 
     document.getElementById('back-to-login-reset').addEventListener('click', function(e) {
@@ -832,10 +884,11 @@ async function handlePasswordReset(email) {
 
         const verifyResult = await verifyResponse.json();
         if (verifyResult.success) {
-            const userData = JSON.parse(localStorage.getItem(`user_${email}`));
+            const normalizedEmail = email.toLowerCase().trim();
+            const userData = JSON.parse(localStorage.getItem(`user_${normalizedEmail}`));
             if (userData) {
                 userData.password = newPassword;
-                localStorage.setItem(`user_${email}`, JSON.stringify(userData));
+                localStorage.setItem(`user_${normalizedEmail}`, JSON.stringify(userData));
                 closeResetPasswordModal();
                 showNotification('Password reset successfully!', 'success');
                 setTimeout(() => showAuthModal('login'), 2000);
@@ -846,25 +899,6 @@ async function handlePasswordReset(email) {
     } catch (error) {
         showNotification('Network error. Please try again.', 'error');
     }
-}
-
-async function checkUsernameExists(username) {
-    return localStorage.getItem(`username_${username}`) !== null;
-}
-
-async function checkEmailExists(email) {
-    return localStorage.getItem(`user_${email}`) !== null;
-}
-
-async function findUserByEmailOrUsername(emailOrUsername) {
-    let userData = localStorage.getItem(`user_${emailOrUsername}`);
-    if (userData) return JSON.parse(userData);
-    const email = localStorage.getItem(`username_${emailOrUsername}`);
-    if (email) {
-        userData = localStorage.getItem(`user_${email}`);
-        if (userData) return JSON.parse(userData);
-    }
-    return null;
 }
 
 function loginUser(userData) {
@@ -893,6 +927,7 @@ function logout() {
     showNotification('Logged out successfully', 'success');
 }
 
+// Modal close functions
 function closeAuthModal() {
     const modal = document.getElementById('auth-modal');
     if (modal) document.body.removeChild(modal);
@@ -913,6 +948,7 @@ function closeSignupOTPModal() {
     if (modal) document.body.removeChild(modal);
 }
 
+// Admin Panel
 function showAdminPanel() {
     const modal = document.createElement('div');
     modal.className = 'admin-panel-modal';
@@ -1106,15 +1142,17 @@ function clearSystemCache() {
 }
 
 function promoteUser(email) {
-    const userData = JSON.parse(localStorage.getItem(`user_${email}`));
+    const normalizedEmail = email.toLowerCase().trim();
+    const userData = JSON.parse(localStorage.getItem(`user_${normalizedEmail}`));
     if (userData) {
         userData.plan = 'premium';
-        localStorage.setItem(`user_${email}`, JSON.stringify(userData));
+        localStorage.setItem(`user_${normalizedEmail}`, JSON.stringify(userData));
         showNotification(`User promoted to premium!`, 'success');
         broadcastUpdate();
     }
 }
 
+// Close dropdown on click outside
 document.addEventListener('click', function(event) {
     const dropdown = document.querySelector('.user-dropdown');
     const dropdownMenu = document.getElementById('user-dropdown-menu');
@@ -1123,8 +1161,8 @@ document.addEventListener('click', function(event) {
     }
 });
 
+// FILE UPLOAD with DEVICE TRIAL LIMIT CHECK
 function initializeEnhancedFileUpload() {
-    console.log('Initializing file upload...');
     const uploadArea = document.querySelector('.upload-area');
     const browseBtn = document.querySelector('.btn-browse');
     const generateBtn = document.querySelector('.btn-generate');
@@ -1284,7 +1322,6 @@ function combineAllExtractedTexts() {
     extractedTexts.forEach(item => {
         totalExtractedText += `\n\n=== ${item.label} ===\n${item.text}\n=== End of ${item.label} ===\n`;
     });
-    console.log(`All files processed! Total: ${totalExtractedText.length} chars`);
     showNotification(`All ${selectedFiles.length} files processed!`, 'success');
 }
 
@@ -1294,6 +1331,16 @@ function handleGenerateQuestions() {
         showAuthModal('login');
         return;
     }
+    
+    // CHECK DEVICE TRIAL LIMIT for FREE users
+    if (currentUser.plan === 'free') {
+        const deviceUsage = checkDeviceTrialLimit();
+        if (deviceUsage.filesProcessed >= 5) {
+            showNotification('Free trial limit reached (5 uploads per device). Please upgrade to premium for unlimited access.', 'error');
+            return;
+        }
+    }
+    
     if (!selectedFiles || selectedFiles.length === 0 || !totalExtractedText) {
         showNotification('Please select files first', 'error');
         return;
@@ -1309,6 +1356,8 @@ function handleGenerateQuestions() {
     callBackendAPI(totalExtractedText, questionType, numQuestions, difficulty);
 }
 
+// FINAL PART - Add to end of script.js after previous continuation
+
 async function callBackendAPI(text, questionType, numQuestions, difficulty) {
     try {
         const response = await fetch('https://examblox-production.up.railway.app/api/generate-questions', {
@@ -1322,6 +1371,7 @@ async function callBackendAPI(text, questionType, numQuestions, difficulty) {
         if (progressModal) document.body.removeChild(progressModal);
         if (result.data && result.data.questions && result.data.questions.length > 0) {
             updateUserStats(selectedFiles.length, result.data.questions.length);
+            updateDeviceUsage(selectedFiles.length, result.data.questions.length);
             saveToRecentActivities(selectedFiles, result.data.questions, questionType, difficulty);
             const questionData = {
                 questions: result.data.questions,
@@ -1451,7 +1501,6 @@ function updateRangeDisplay() {
 }
 
 function showNotification(message, type) {
-    // Remove ALL existing notifications immediately
     const existingNotifs = document.querySelectorAll('.notification');
     existingNotifs.forEach(n => {
         if (n && n.parentNode) {
@@ -1459,11 +1508,9 @@ function showNotification(message, type) {
         }
     });
     
-    // Create notification
     const notif = document.createElement('div');
     notif.className = 'notification notification-' + type;
     
-    // Set background based on type
     let bgColor = '';
     if (type === 'success') {
         bgColor = 'linear-gradient(135deg, #4CAF50, #45a049)';
@@ -1505,7 +1552,6 @@ function showNotification(message, type) {
     
     document.body.appendChild(notif);
     
-    // Trigger slide-in animation after a tiny delay (for CSS transition to work)
     requestAnimationFrame(() => {
         requestAnimationFrame(() => {
             notif.style.transform = 'translateX(0)';
@@ -1513,7 +1559,6 @@ function showNotification(message, type) {
         });
     });
     
-    // Auto remove after 5 seconds
     const autoRemoveTimer = setTimeout(() => {
         if (notif && notif.parentNode) {
             notif.style.transform = 'translateX(500px)';
@@ -1526,7 +1571,6 @@ function showNotification(message, type) {
         }
     }, 5000);
     
-    // Close button handler
     const closeBtn = notif.querySelector('button');
     if (closeBtn) {
         closeBtn.addEventListener('mouseenter', () => {
@@ -1623,5 +1667,7 @@ let selectedFiles = [];
 let extractedTexts = [];
 let totalExtractedText = '';
 
-console.log('ExamBlox Complete Fixed Script Loaded Successfully!');
-console.log('All Features Working: Login, Signup, File Upload, Admin Panel, OTP, Protected Admin');
+console.log('✅ ExamBlox Complete Fixed Script Loaded');
+console.log('🔐 OTP Email System: ENABLED');
+console.log('🔤 Case-Insensitive Usernames: FIXED');
+console.log('📱 Device-Based Trial Limits: IMPLEMENTED');
