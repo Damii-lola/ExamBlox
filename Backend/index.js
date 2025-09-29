@@ -430,14 +430,75 @@ async function generateSingleBatchLlama(text, questionType, numQuestions, diffic
 }
 
 function createPrompt(text, questionType, numQuestions, difficulty) {
-  let prompt = `Create exactly ${numQuestions} ${difficulty} ${questionType} questions from this text:\n\n${text}\n\n`;
+  let prompt = '';
 
   if (questionType === 'Multiple Choice') {
-    prompt += `Format:\nQ1: [Question]\nA) [Option]\nB) [Option]\nC) [Option]\nD) [Option]\nANSWER: [Letter]\nEXPLANATION: [Why]\n\n`;
+    prompt = `You are a professional exam creator. Create ${numQuestions} challenging ${difficulty} multiple choice questions from this text.
+
+TEXT:
+${text}
+
+REQUIREMENTS:
+- Questions must test deep understanding, NOT just memorization
+- Each question should be exam-worthy and realistic
+- Options should be plausible but clearly distinct
+- Include detailed explanations referencing the text
+
+FORMAT (STRICT):
+Q1: [Thought-provoking question that requires understanding]
+A) [Plausible option]
+B) [Correct answer - detailed and complete]
+C) [Plausible distractor]
+D) [Plausible distractor]
+ANSWER: B
+EXPLANATION: [Why B is correct and why others are wrong, referencing specific text content]
+
+Create exactly ${numQuestions} questions now.`;
+
   } else if (questionType === 'True/False') {
-    prompt += `Format:\nQ1: [Statement]\nANSWER: True/False\nEXPLANATION: [Why]\n\n`;
+    prompt = `Create ${numQuestions} challenging True/False statements from this text:
+
+${text}
+
+Each statement should:
+- Test understanding of key concepts
+- Be clear and unambiguous
+- Include explanation with text reference
+
+FORMAT:
+Q1: [Statement that requires careful thought]
+ANSWER: True
+EXPLANATION: [Why this is true/false based on the text]`;
+
   } else if (questionType === 'Flashcards') {
-    prompt += `Format:\nQ1: [Term]\nANSWER: [Definition]\n\n`;
+    prompt = `You are creating PREMIUM STUDY FLASHCARDS for serious students. Create ${numQuestions} comprehensive flashcards from this text.
+
+TEXT:
+${text}
+
+CRITICAL REQUIREMENTS FOR FLASHCARDS:
+- Front: A KEY CONCEPT, TERM, or IMPORTANT QUESTION from the text
+- Back: A DETAILED, COMPREHENSIVE explanation (3-5 sentences minimum)
+- Include context, examples, and why it matters
+- Make explanations memorable and exam-ready
+- NO single-word answers - provide FULL explanations
+
+BAD EXAMPLE:
+Q: Photosynthesis
+A: Process plants use to make food
+
+GOOD EXAMPLE:
+Q: What is photosynthesis and why is it critical for life on Earth?
+A: Photosynthesis is the biochemical process by which plants, algae, and some bacteria convert light energy (usually from the sun) into chemical energy stored in glucose molecules. This process occurs primarily in chloroplasts and uses carbon dioxide and water as raw materials, releasing oxygen as a byproduct. It's critical because it forms the foundation of most food chains on Earth and produces the oxygen that most organisms need to survive. The general equation is: 6CO2 + 6H2O + light energy → C6H12O6 + 6O2.
+
+FORMAT (STRICT):
+Q1: [Important concept/term/question - make it specific and exam-relevant]
+ANSWER: [Comprehensive 3-5 sentence explanation with context, examples, and significance. Include HOW, WHY, and WHEN relevant. Make it exam-ready and memorable.]
+
+Create exactly ${numQuestions} HIGH-QUALITY flashcards now.`;
+
+  } else {
+    prompt = `Create ${numQuestions} ${difficulty} ${questionType} questions from:\n\n${text}`;
   }
 
   return prompt;
