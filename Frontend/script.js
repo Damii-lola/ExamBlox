@@ -464,8 +464,28 @@ async function handleAuth(isLogin) {
             showNotification('Invalid credentials. Please try again.', 'error');
         }
     } else {
-        // Signup with OTP verification
-        showSignupOTPModal(username, name, emailUsername, password);
+        // Signup WITHOUT OTP - direct account creation
+        const userData = {
+            username: username,
+            name: name,
+            email: emailUsername,
+            password: password,
+            createdAt: new Date().toISOString(),
+            plan: username === PROTECTED_ADMIN.username ? 'premium' : 'free',
+            role: username === PROTECTED_ADMIN.username ? 'admin' : 'user'
+        };
+        
+        // Store user data
+        localStorage.setItem(`user_${emailUsername}`, JSON.stringify(userData));
+        localStorage.setItem(`username_${username}`, emailUsername);
+        
+        closeAuthModal();
+        
+        // Try to send welcome email but don't wait for it
+        sendWelcomeEmail(emailUsername, name).catch(err => console.log('Welcome email failed:', err));
+        
+        loginUser(userData);
+        showNotification('Account created successfully! Welcome to ExamBlox!', 'success');
     }
 }
 
@@ -743,7 +763,7 @@ function showResetPasswordModal(email, name) {
                         <i class="fas fa-eye"></i>
                     </button>
                 </div>
-
+                
                 <button type="submit" style="background: linear-gradient(90deg, var(--primary-light), var(--primary)); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: 600; cursor: pointer;">
                     Reset Password
                 </button>
@@ -1434,55 +1454,105 @@ function updateRangeDisplay() {
 }
 
 function showNotification(message, type) {
-    // Remove all existing notifications first
-    const existing = document.querySelectorAll('.notification');
-    existing.forEach(n => {
+    // Force remove ALL existing notifications with cleanup
+    const existingNotifs = document.querySelectorAll('.notification');
+    existingNotifs.forEach(n => {
         try {
-            if (document.body.contains(n)) document.body.removeChild(n);
-        } catch (e) {
-            console.log('Error removing notification:', e);
-        }
+            n.remove(); // Use .remove() instead of removeChild
+        } catch (e) {}
     });
     
-    // Create new notification
+    // Create notification container
     const notif = document.createElement('div');
     notif.className = 'notification notification-' + type;
-    notif.innerHTML = '<span>' + message + '</span><button>&times;</button>';
+    notif.style.cssText = `
+        position: fixed;
+        top: 100px;
+        right: 20px;
+        min-width: 300px;
+        max-width: 400px;
+        padding: 15px 20px;
+        border-radius: 10px;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        z-index: 10000;
+        font-size: 14px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        animation: slideInRight 0.3s ease-out;
+    `;
     
-    // Add to body
+    // Set background based on type
+    if (type === 'success') {
+        notif.style.background = 'linear-gradient(135deg, #4CAF50, #45a049)';
+    } else if (type === 'error') {
+        notif.style.background = 'linear-gradient(135deg, #f44336, #d32f2f)';
+    } else if (type === 'info') {
+        notif.style.background = 'linear-gradient(135deg, #2196F3, #1976D2)';
+    }
+    
+    notif.innerHTML = `
+        <span style="flex: 1; padding-right: 10px;">${message}</span>
+        <button style="background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 0 5px; opacity: 0.8; transition: opacity 0.3s;">&times;</button>
+    `;
+    
     document.body.appendChild(notif);
     
-    // Auto-remove after 5 seconds
-    const timeout = setTimeout(() => {
-        try {
-            if (notif && document.body.contains(notif)) {
-                notif.style.animation = 'slideOut 0.3s forwards';
-                setTimeout(() => {
-                    if (document.body.contains(notif)) document.body.removeChild(notif);
-                }, 300);
-            }
-        } catch (e) {
-            console.log('Error auto-removing notification:', e);
+    // Auto remove after 4 seconds
+    const autoRemove = setTimeout(() => {
+        if (notif && notif.parentNode) {
+            notif.style.animation = 'slideOutRight 0.3s ease-in';
+            setTimeout(() => {
+                if (notif.parentNode) notif.remove();
+            }, 300);
         }
-    }, 5000);
+    }, 4000);
     
     // Close button
-    const btn = notif.querySelector('button');
-    if (btn) {
-        btn.onclick = () => {
-            clearTimeout(timeout);
-            try {
-                if (document.body.contains(notif)) {
-                    notif.style.animation = 'slideOut 0.3s forwards';
-                    setTimeout(() => {
-                        if (document.body.contains(notif)) document.body.removeChild(notif);
-                    }, 300);
-                }
-            } catch (e) {
-                console.log('Error closing notification:', e);
+    const closeBtn = notif.querySelector('button');
+    if (closeBtn) {
+        closeBtn.addEventListener('mouseenter', () => closeBtn.style.opacity = '1');
+        closeBtn.addEventListener('mouseleave', () => closeBtn.style.opacity = '0.8');
+        closeBtn.addEventListener('click', () => {
+            clearTimeout(autoRemove);
+            if (notif && notif.parentNode) {
+                notif.style.animation = 'slideOutRight 0.3s ease-in';
+                setTimeout(() => {
+                    if (notif.parentNode) notif.remove();
+                }, 300);
             }
-        };
+        });
     }
+}
+
+// Add these animations to the document if they don't exist
+if (!document.getElementById('notification-animations')) {
+    const style = document.createElement('style');
+    style.id = 'notification-animations';
+    style.textContent = `
+        @keyframes slideInRight {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        @keyframes slideOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+    `;
+    document.head.appendChild(style);
 }
 
 function formatFileSize(bytes) {
