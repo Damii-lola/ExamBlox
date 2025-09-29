@@ -464,7 +464,10 @@ async function handleAuth(isLogin) {
             showNotification('Invalid credentials. Please try again.', 'error');
         }
     } else {
-        // Signup WITHOUT OTP - direct account creation
+        // Signup with OTP - uncomment when email is working
+        // showSignupOTPModal(username, name, emailUsername, password);
+        
+        // TEMPORARY: Direct signup without OTP (remove when email works)
         const userData = {
             username: username,
             name: name,
@@ -474,16 +477,10 @@ async function handleAuth(isLogin) {
             plan: username === PROTECTED_ADMIN.username ? 'premium' : 'free',
             role: username === PROTECTED_ADMIN.username ? 'admin' : 'user'
         };
-        
-        // Store user data
         localStorage.setItem(`user_${emailUsername}`, JSON.stringify(userData));
         localStorage.setItem(`username_${username}`, emailUsername);
-        
         closeAuthModal();
-        
-        // Try to send welcome email but don't wait for it
-        sendWelcomeEmail(emailUsername, name).catch(err => console.log('Welcome email failed:', err));
-        
+        sendWelcomeEmail(emailUsername, name).catch(err => console.log('Email failed:', err));
         loginUser(userData);
         showNotification('Account created successfully! Welcome to ExamBlox!', 'success');
     }
@@ -1454,17 +1451,30 @@ function updateRangeDisplay() {
 }
 
 function showNotification(message, type) {
-    // Force remove ALL existing notifications with cleanup
+    // Remove ALL existing notifications immediately
     const existingNotifs = document.querySelectorAll('.notification');
     existingNotifs.forEach(n => {
-        try {
-            n.remove(); // Use .remove() instead of removeChild
-        } catch (e) {}
+        if (n && n.parentNode) {
+            n.parentNode.removeChild(n);
+        }
     });
     
-    // Create notification container
+    // Create notification
     const notif = document.createElement('div');
     notif.className = 'notification notification-' + type;
+    
+    // Set background based on type
+    let bgColor = '';
+    if (type === 'success') {
+        bgColor = 'linear-gradient(135deg, #4CAF50, #45a049)';
+    } else if (type === 'error') {
+        bgColor = 'linear-gradient(135deg, #f44336, #d32f2f)';
+    } else if (type === 'info') {
+        bgColor = 'linear-gradient(135deg, #2196F3, #1976D2)';
+    } else {
+        bgColor = 'linear-gradient(135deg, #ff9800, #f57c00)';
+    }
+    
     notif.style.cssText = `
         position: fixed;
         top: 100px;
@@ -1473,86 +1483,71 @@ function showNotification(message, type) {
         max-width: 400px;
         padding: 15px 20px;
         border-radius: 10px;
+        background: ${bgColor};
         color: white;
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: 15px;
         z-index: 10000;
         font-size: 14px;
+        font-weight: 500;
         box-shadow: 0 5px 20px rgba(0,0,0,0.3);
-        animation: slideInRight 0.3s ease-out;
+        transform: translateX(500px);
+        opacity: 0;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     `;
     
-    // Set background based on type
-    if (type === 'success') {
-        notif.style.background = 'linear-gradient(135deg, #4CAF50, #45a049)';
-    } else if (type === 'error') {
-        notif.style.background = 'linear-gradient(135deg, #f44336, #d32f2f)';
-    } else if (type === 'info') {
-        notif.style.background = 'linear-gradient(135deg, #2196F3, #1976D2)';
-    }
-    
     notif.innerHTML = `
-        <span style="flex: 1; padding-right: 10px;">${message}</span>
-        <button style="background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 0 5px; opacity: 0.8; transition: opacity 0.3s;">&times;</button>
+        <span style="flex: 1; line-height: 1.4;">${message}</span>
+        <button style="background: none; border: none; color: white; font-size: 22px; cursor: pointer; padding: 0; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; opacity: 0.8; transition: opacity 0.2s; flex-shrink: 0;">&times;</button>
     `;
     
     document.body.appendChild(notif);
     
-    // Auto remove after 4 seconds
-    const autoRemove = setTimeout(() => {
+    // Trigger slide-in animation after a tiny delay (for CSS transition to work)
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            notif.style.transform = 'translateX(0)';
+            notif.style.opacity = '1';
+        });
+    });
+    
+    // Auto remove after 5 seconds
+    const autoRemoveTimer = setTimeout(() => {
         if (notif && notif.parentNode) {
-            notif.style.animation = 'slideOutRight 0.3s ease-in';
+            notif.style.transform = 'translateX(500px)';
+            notif.style.opacity = '0';
             setTimeout(() => {
-                if (notif.parentNode) notif.remove();
+                if (notif && notif.parentNode) {
+                    notif.parentNode.removeChild(notif);
+                }
             }, 300);
         }
-    }, 4000);
+    }, 5000);
     
-    // Close button
+    // Close button handler
     const closeBtn = notif.querySelector('button');
     if (closeBtn) {
-        closeBtn.addEventListener('mouseenter', () => closeBtn.style.opacity = '1');
-        closeBtn.addEventListener('mouseleave', () => closeBtn.style.opacity = '0.8');
+        closeBtn.addEventListener('mouseenter', () => {
+            closeBtn.style.opacity = '1';
+        });
+        closeBtn.addEventListener('mouseleave', () => {
+            closeBtn.style.opacity = '0.8';
+        });
         closeBtn.addEventListener('click', () => {
-            clearTimeout(autoRemove);
+            clearTimeout(autoRemoveTimer);
             if (notif && notif.parentNode) {
-                notif.style.animation = 'slideOutRight 0.3s ease-in';
+                notif.style.transform = 'translateX(500px)';
+                notif.style.opacity = '0';
                 setTimeout(() => {
-                    if (notif.parentNode) notif.remove();
+                    if (notif && notif.parentNode) {
+                        notif.parentNode.removeChild(notif);
+                    }
                 }, 300);
             }
         });
     }
-}
-
-// Add these animations to the document if they don't exist
-if (!document.getElementById('notification-animations')) {
-    const style = document.createElement('style');
-    style.id = 'notification-animations';
-    style.textContent = `
-        @keyframes slideInRight {
-            from {
-                transform: translateX(400px);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-        @keyframes slideOutRight {
-            from {
-                transform: translateX(0);
-                opacity: 1;
-            }
-            to {
-                transform: translateX(400px);
-                opacity: 0;
-            }
-        }
-    `;
-    document.head.appendChild(style);
 }
 
 function formatFileSize(bytes) {
