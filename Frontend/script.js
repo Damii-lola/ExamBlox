@@ -1,11 +1,9 @@
-// script.js - COMPLETE FIXED VERSION
-// All Issues Resolved: OTP Enabled, Case-Insensitive Usernames, Device-Based Trial Limits
+// script.js - COMPLETE FIXED VERSION - ALL ISSUES RESOLVED
+// Part 1: Core Functions, Auth, Device Fingerprinting
 
-// Authentication state
 let isUserLoggedIn = false;
 let currentUser = null;
 
-// Protected admin data
 const PROTECTED_ADMIN = {
   username: 'damii-lola',
   name: 'Damii Lola',
@@ -17,7 +15,7 @@ const PROTECTED_ADMIN = {
   createdAt: '2024-01-01T00:00:00Z'
 };
 
-// ===== DEVICE FINGERPRINTING - Prevent trial abuse =====
+// ===== DEVICE FINGERPRINTING =====
 function getDeviceFingerprint() {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
@@ -92,7 +90,7 @@ function updateDeviceUsage(filesCount, questionsCount) {
   localStorage.setItem('examblox_device_usage', JSON.stringify(deviceUsage));
 }
 
-// ===== CASE-INSENSITIVE USERNAME/EMAIL CHECKS =====
+// ===== CASE-INSENSITIVE CHECKS =====
 async function checkUsernameExists(username) {
   const normalizedUsername = username.toLowerCase().trim();
   
@@ -126,7 +124,6 @@ async function checkEmailExists(email) {
 async function findUserByEmailOrUsername(emailOrUsername) {
   const normalized = emailOrUsername.toLowerCase().trim();
   
-  // Try email lookup
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (key && key.startsWith('user_')) {
@@ -138,7 +135,6 @@ async function findUserByEmailOrUsername(emailOrUsername) {
     }
   }
   
-  // Try username lookup
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (key && key.startsWith('username_')) {
@@ -156,9 +152,38 @@ async function findUserByEmailOrUsername(emailOrUsername) {
   return null;
 }
 
+// ===== COMPLETE USER DELETION =====
+function deleteUserCompletely(email, username) {
+    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedUsername = username.toLowerCase().trim();
+    
+    localStorage.removeItem(`user_${normalizedEmail}`);
+    localStorage.removeItem(`username_${normalizedUsername}`);
+    
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key) {
+            if (key.startsWith('username_')) {
+                const storedUsername = key.substring(9).toLowerCase();
+                if (storedUsername === normalizedUsername) {
+                    localStorage.removeItem(key);
+                }
+            }
+            if (key.startsWith('user_')) {
+                const storedEmail = key.substring(5).toLowerCase();
+                if (storedEmail === normalizedEmail) {
+                    localStorage.removeItem(key);
+                }
+            }
+        }
+    }
+    
+    console.log(`🗑️ User ${username} completely removed`);
+}
+
 // ===== INITIALIZATION =====
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('ExamBlox initialized with all fixes');
+    console.log('ExamBlox initialized - All fixes applied');
     ensureProtectedAdmin();
     checkAuthState();
     initializeAuth();
@@ -290,11 +315,6 @@ function updateAuthUI() {
                 <span>${firstLetter}</span>
             </div>
             <div class="user-dropdown-content hidden" id="user-dropdown-menu">
-                <div class="dropdown-header">
-                    <h4>${displayName}</h4>
-                    <span class="dropdown-plan">${(currentUser.plan || 'free').toUpperCase()} PLAN</span>
-                    ${currentUser.role === 'admin' ? '<span class="dropdown-admin">🔒 PROTECTED ADMIN</span>' : ''}
-                </div>
                 <div class="dropdown-menu">
                     <button class="dropdown-item" id="dropdown-dashboard">
                         <i class="fas fa-tachometer-alt"></i>
@@ -393,14 +413,54 @@ function closeDropdown() {
 
 function confirmLogout() {
     if (currentUser && currentUser.username === PROTECTED_ADMIN.username) {
-        const confirmLogout = confirm('⚠️ You are logging out of the PROTECTED ADMIN account.\n\nYour admin account and all data will remain permanently saved.\n\nProceed with logout?');
+        const confirmLogout = confirm('You are logging out of the PROTECTED ADMIN account.\n\nYour admin account and all data will remain permanently saved.\n\nProceed with logout?');
         if (confirmLogout) logout();
     } else {
         logout();
     }
 }
 
-// ===== AUTH MODAL WITH OTP ENABLED =====
+function loginUser(userData) {
+    currentUser = {
+        username: userData.username,
+        name: userData.name,
+        email: userData.email,
+        plan: userData.plan || 'free',
+        role: userData.role || 'user',
+        loginTime: new Date().toISOString()
+    };
+    if (currentUser.username === PROTECTED_ADMIN.username) {
+        currentUser = {...PROTECTED_ADMIN};
+    }
+    isUserLoggedIn = true;
+    localStorage.setItem('examblox_user', JSON.stringify(currentUser));
+    updateAuthUI();
+}
+
+function logout() {
+    isUserLoggedIn = false;
+    currentUser = null;
+    localStorage.removeItem('examblox_user');
+    ensureProtectedAdmin();
+    updateAuthUI();
+    showNotification('Logged out successfully', 'success');
+}
+
+document.addEventListener('click', function(event) {
+    const dropdown = document.querySelector('.user-dropdown');
+    const dropdownMenu = document.getElementById('user-dropdown-menu');
+    if (dropdown && dropdownMenu && !dropdown.contains(event.target)) {
+        dropdownMenu.classList.add('hidden');
+    }
+});
+
+let selectedFiles = [];
+let extractedTexts = [];
+let totalExtractedText = '';
+
+// script.js - Part 2: Auth Modals, OTP, File Upload with File Size Limits
+
+// ===== AUTH MODAL =====
 function showAuthModal(type) {
     const isLogin = type === 'login';
     const modal = document.createElement('div');
@@ -524,7 +584,6 @@ async function handleAuth(isLogin) {
             return;
         }
         
-        // FIXED: Case-insensitive checks
         if (await checkUsernameExists(username)) {
             showNotification('Username already exists. Please choose another one.', 'error');
             return;
@@ -546,7 +605,6 @@ async function handleAuth(isLogin) {
             showNotification('Invalid credentials. Please try again.', 'error');
         }
     } else {
-        // OTP NOW ENABLED
         showSignupOTPModal(username, name, emailUsername, password);
     }
 }
@@ -588,7 +646,6 @@ function showSignupOTPModal(username, name, email, password) {
     `;
 
     document.body.appendChild(modal);
-
     sendSignupOTP(email, name);
 
     document.getElementById('signup-otp-form').addEventListener('submit', function(e) {
@@ -668,7 +725,6 @@ async function verifySignupOTP(username, name, email, password) {
                 role: normalizedUsername === PROTECTED_ADMIN.username.toLowerCase() ? 'admin' : 'user'
             };
             
-            // Store with normalized keys
             localStorage.setItem(`user_${normalizedEmail}`, JSON.stringify(userData));
             localStorage.setItem(`username_${normalizedUsername}`, normalizedEmail);
             
@@ -698,7 +754,7 @@ async function sendWelcomeEmail(email, name) {
     }
 }
 
-// FORGOT PASSWORD WITH OTP
+// Password Reset Functions
 function showForgotPasswordModal() {
     const modal = document.createElement('div');
     modal.className = 'modal';
@@ -740,9 +796,6 @@ function showForgotPasswordModal() {
     });
 }
 
-// CONTINUATION OF script.js - Add this to the end of the previous file
-
-// Password Reset Functions (continued)
 async function handleForgotPassword() {
     const email = document.getElementById('reset-email').value.trim();
     
@@ -901,33 +954,6 @@ async function handlePasswordReset(email) {
     }
 }
 
-function loginUser(userData) {
-    currentUser = {
-        username: userData.username,
-        name: userData.name,
-        email: userData.email,
-        plan: userData.plan || 'free',
-        role: userData.role || 'user',
-        loginTime: new Date().toISOString()
-    };
-    if (currentUser.username === PROTECTED_ADMIN.username) {
-        currentUser = {...PROTECTED_ADMIN};
-    }
-    isUserLoggedIn = true;
-    localStorage.setItem('examblox_user', JSON.stringify(currentUser));
-    updateAuthUI();
-}
-
-function logout() {
-    isUserLoggedIn = false;
-    currentUser = null;
-    localStorage.removeItem('examblox_user');
-    ensureProtectedAdmin();
-    updateAuthUI();
-    showNotification('Logged out successfully', 'success');
-}
-
-// Modal close functions
 function closeAuthModal() {
     const modal = document.getElementById('auth-modal');
     if (modal) document.body.removeChild(modal);
@@ -948,7 +974,390 @@ function closeSignupOTPModal() {
     if (modal) document.body.removeChild(modal);
 }
 
-// Admin Panel
+// ===== FILE UPLOAD WITH SIZE LIMITS =====
+function initializeEnhancedFileUpload() {
+    const uploadArea = document.querySelector('.upload-area');
+    const browseBtn = document.querySelector('.btn-browse');
+    const generateBtn = document.querySelector('.btn-generate');
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.pdf,.doc,.docx,.txt,.jpg,.jpeg,.png';
+    fileInput.multiple = true;
+    fileInput.style.display = 'none';
+    document.body.appendChild(fileInput);
+    
+    const cameraInput = document.createElement('input');
+    cameraInput.type = 'file';
+    cameraInput.accept = 'image/*';
+    cameraInput.capture = 'environment';
+    cameraInput.multiple = true;
+    cameraInput.style.display = 'none';
+    document.body.appendChild(cameraInput);
+    
+    if (browseBtn) {
+        browseBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            showFileUploadOptions(fileInput, cameraInput);
+        });
+    }
+    
+    if (uploadArea) {
+        uploadArea.addEventListener('click', function(e) {
+            e.preventDefault();
+            showFileUploadOptions(fileInput, cameraInput);
+        });
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+        });
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = Array.from(e.dataTransfer.files);
+            if (files.length > 0) handleMultipleFileSelection(files);
+        });
+    }
+    
+    fileInput.addEventListener('change', function(e) {
+        if (e.target.files.length > 0) handleMultipleFileSelection(Array.from(e.target.files));
+    });
+    
+    cameraInput.addEventListener('change', function(e) {
+        if (e.target.files.length > 0) handleMultipleFileSelection(Array.from(e.target.files));
+    });
+    
+    if (generateBtn) {
+        generateBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            handleGenerateQuestions();
+        });
+    }
+}
+
+function showFileUploadOptions(fileInput, cameraInput) {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (isMobile) {
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.innerHTML = `<div class="modal-content" style="max-width: 400px;"><h2>Choose an action</h2>
+            <div style="display: flex; flex-direction: column; gap: 20px; margin: 30px 0;">
+                <button id="camera-btn" style="background: transparent; border: none; padding: 15px; cursor: pointer; color: var(--text);">
+                    <div style="background: #ff3b30; border-radius: 50%; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px;">
+                        <i class="fas fa-camera" style="color: white; font-size: 24px;"></i></div><span>Camera</span></button>
+                <button id="files-btn" style="background: transparent; border: none; padding: 15px; cursor: pointer; color: var(--text);">
+                    <div style="background: #007aff; border-radius: 50%; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px;">
+                        <i class="fas fa-folder" style="color: white; font-size: 24px;"></i></div><span>Files</span></button>
+            </div></div>`;
+        document.body.appendChild(modal);
+        document.getElementById('camera-btn').onclick = () => {
+            document.body.removeChild(modal);
+            cameraInput.click();
+        };
+        document.getElementById('files-btn').onclick = () => {
+            document.body.removeChild(modal);
+            fileInput.click();
+        };
+        modal.onclick = (e) => {
+            if (e.target === modal) document.body.removeChild(modal);
+        };
+    } else {
+        fileInput.click();
+    }
+}
+
+// FILE SIZE LIMITS: Free = 5MB, Premium = 25MB
+function handleMultipleFileSelection(files) {
+    const validFiles = [];
+    const validExts = ['.pdf', '.doc', '.docx', '.txt', '.jpg', '.jpeg', '.png'];
+    
+    // Get file size limit based on user plan
+    const maxFileSize = (currentUser && currentUser.plan === 'premium') ? 25 * 1024 * 1024 : 5 * 1024 * 1024;
+    const maxFileSizeText = (currentUser && currentUser.plan === 'premium') ? '25MB' : '5MB';
+    
+    for (const file of files) {
+        const fileName = file.name.toLowerCase();
+        if (!validExts.some(ext => fileName.endsWith(ext))) {
+            showNotification(`Invalid file: ${file.name}`, 'error');
+            continue;
+        }
+        if (file.size > maxFileSize) {
+            showNotification(`File too large: ${file.name}. Max size is ${maxFileSizeText}`, 'error');
+            continue;
+        }
+        validFiles.push(file);
+    }
+    
+    if (validFiles.length === 0) {
+        showNotification('No valid files selected', 'error');
+        return;
+    }
+    
+    selectedFiles = validFiles;
+    extractedTexts = [];
+    totalExtractedText = '';
+    updateEnhancedUploadUI(validFiles);
+    extractTextFromMultipleFiles(validFiles);
+}
+
+function updateEnhancedUploadUI(files) {
+    const uploadIcon = document.querySelector('.upload-icon');
+    const uploadTitle = document.querySelector('.upload-title');
+    const uploadSubtitle = document.querySelector('.upload-subtitle');
+    const browseBtn = document.querySelector('.btn-browse');
+    const uploadArea = document.querySelector('.upload-area');
+    
+    if (uploadIcon) uploadIcon.innerHTML = '<i class="fas fa-files"></i>';
+    
+    const fileCount = files.length;
+    const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+    
+    if (uploadTitle) {
+        uploadTitle.textContent = fileCount === 1 ? `Selected: ${files[0].name}` : `Selected ${fileCount} files`;
+    }
+    if (uploadSubtitle) uploadSubtitle.textContent = `Total size: ${formatFileSize(totalSize)}`;
+    if (browseBtn) browseBtn.textContent = 'Change Files';
+    if (uploadArea) uploadArea.style.borderColor = '#4dfff3';
+    
+    enableControls();
+    showNotification(`${fileCount} file(s) selected!`, 'success');
+}
+
+function extractTextFromMultipleFiles(files) {
+    showNotification(`Processing ${files.length} files...`, 'info');
+    let processedCount = 0;
+    extractedTexts = [];
+    
+    files.forEach(file => {
+        const processFile = (text) => {
+            extractedTexts.push({fileName: file.name, text: text, label: file.name});
+            processedCount++;
+            if (processedCount >= files.length) combineAllExtractedTexts();
+        };
+        
+        const ext = '.' + file.name.split('.').pop().toLowerCase();
+        if (ext === '.txt') {
+            const reader = new FileReader();
+            reader.onload = (e) => processFile(e.target.result);
+            reader.onerror = () => processFile(`Error reading ${file.name}`);
+            reader.readAsText(file);
+        } else {
+            processFile(`Content extracted from ${file.name}`);
+        }
+    });
+}
+
+function combineAllExtractedTexts() {
+    totalExtractedText = '';
+    extractedTexts.forEach(item => {
+        totalExtractedText += `\n\n=== ${item.label} ===\n${item.text}\n=== End of ${item.label} ===\n`;
+    });
+    showNotification(`All ${selectedFiles.length} files processed!`, 'success');
+}
+
+function handleGenerateQuestions() {
+    if (!isUserLoggedIn) {
+        showNotification('Please sign in first', 'error');
+        showAuthModal('login');
+        return;
+    }
+    
+    // CHECK DEVICE TRIAL LIMIT for FREE users
+    if (currentUser.plan === 'free') {
+        const deviceUsage = checkDeviceTrialLimit();
+        if (deviceUsage.filesProcessed >= 5) {
+            showNotification('Free trial limit reached (5 uploads per device). Please upgrade to premium for unlimited access.', 'error');
+            return;
+        }
+    }
+    
+    if (!selectedFiles || selectedFiles.length === 0 || !totalExtractedText) {
+        showNotification('Please select files first', 'error');
+        return;
+    }
+    
+    const questionTypeSelect = document.querySelector('.upload-options select');
+    const numQuestionsRange = document.querySelector('.upload-options input[type="range"]');
+    const difficultySelects = document.querySelectorAll('.upload-options select');
+    const questionType = questionTypeSelect ? questionTypeSelect.value : 'Multiple Choice';
+    const numQuestions = numQuestionsRange ? numQuestionsRange.value : '10';
+    const difficulty = difficultySelects.length > 1 ? difficultySelects[1].value : 'Medium';
+    
+    showNotification('Connecting to backend...', 'info');
+    showProcessingProgress();
+    callBackendAPI(totalExtractedText, questionType, numQuestions, difficulty);
+}
+
+async function callBackendAPI(text, questionType, numQuestions, difficulty) {
+    try {
+        const userPlan = (currentUser && currentUser.plan) || 'free';
+        
+        const response = await fetch('https://examblox-production.up.railway.app/api/generate-questions', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+            body: JSON.stringify({
+                text: text, 
+                questionType: questionType, 
+                numQuestions: parseInt(numQuestions), 
+                difficulty: difficulty,
+                userPlan: userPlan
+            })
+        });
+        
+        if (!response.ok) throw new Error(`API error: ${response.status}`);
+        const result = await response.json();
+        
+        const progressModal = document.getElementById('progress-modal');
+        if (progressModal) document.body.removeChild(progressModal);
+        
+        if (result.data && result.data.questions && result.data.questions.length > 0) {
+            updateUserStats(selectedFiles.length, result.data.questions.length);
+            updateDeviceUsage(selectedFiles.length, result.data.questions.length);
+            saveToRecentActivities(selectedFiles, result.data.questions, questionType, difficulty);
+            
+            const questionData = {
+                questions: result.data.questions,
+                metadata: {
+                    fileName: selectedFiles.length === 1 ? selectedFiles[0].name : `${selectedFiles.length} files`,
+                    fileCount: selectedFiles.length,
+                    questionType: questionType,
+                    difficulty: difficulty,
+                    totalQuestions: result.data.questions.length,
+                    generatedAt: new Date().toISOString()
+                }
+            };
+            
+            localStorage.setItem('examblox_questions', JSON.stringify(questionData));
+            showNotification('Questions generated! Redirecting...', 'success');
+            setTimeout(() => window.location.href = 'questions.html', 1500);
+        } else {
+            showNotification('No questions generated. Try again.', 'error');
+        }
+    } catch (error) {
+        console.error('API error:', error);
+        showNotification('Error: ' + error.message, 'error');
+        const progressModal = document.getElementById('progress-modal');
+        if (progressModal) document.body.removeChild(progressModal);
+    }
+}
+
+function updateUserStats(filesProcessed, questionsGenerated) {
+    if (!isUserLoggedIn) return;
+    const stats = JSON.parse(localStorage.getItem('examblox_user_stats') || '{}');
+    stats.totalQuestions = (stats.totalQuestions || 0) + questionsGenerated;
+    stats.filesProcessed = (stats.filesProcessed || 0) + filesProcessed;
+    stats.studySessions = (stats.studySessions || 0) + 1;
+    stats.monthlyQuestions = (stats.monthlyQuestions || 0) + questionsGenerated;
+    stats.monthlyFiles = (stats.monthlyFiles || 0) + filesProcessed;
+    stats.lastActivity = new Date().toISOString();
+    localStorage.setItem('examblox_user_stats', JSON.stringify(stats));
+    broadcastUpdate();
+}
+
+function saveToRecentActivities(files, questions, questionType, difficulty) {
+    if (!isUserLoggedIn) return;
+    const activities = JSON.parse(localStorage.getItem('examblox_activities') || '[]');
+    const activity = {
+        id: Date.now(),
+        icon: 'fas fa-question-circle',
+        title: `Generated ${questions.length} ${questionType} questions from ${files.length} files`,
+        date: new Date().toLocaleDateString(),
+        timestamp: new Date().toISOString(),
+        type: 'question_generation',
+        details: {files: files.map(f => f.name), questionType: questionType, difficulty: difficulty, questionCount: questions.length},
+        questions: questions
+    };
+    activities.unshift(activity);
+    if (activities.length > 50) activities.splice(50);
+    localStorage.setItem('examblox_activities', JSON.stringify(activities));
+    broadcastUpdate();
+}
+
+function showProcessingProgress() {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.id = 'progress-modal';
+    modal.innerHTML = `<div class="modal-content" style="max-width: 500px;">
+        <h2>Generating Questions</h2>
+        <p style="text-align: center; color: var(--primary-light); margin-bottom: 20px;">Using Llama 3.3 70B AI</p>
+        <div class="progress-container">
+            <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+            <div class="progress-text" id="progress-text">Processing... 0%</div>
+        </div>
+        <div class="progress-steps">
+            <div class="step-item active" id="step-1">📄 Analyzing</div>
+            <div class="step-item" id="step-2">🤖 Generating</div>
+            <div class="step-item" id="step-3">✅ Finalizing</div>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+    
+    let progress = 0;
+    const interval = setInterval(() => {
+        progress += Math.random() * 15;
+        if (progress > 100) progress = 100;
+        const fill = document.getElementById('progress-fill');
+        const text = document.getElementById('progress-text');
+        if (fill) fill.style.width = progress + '%';
+        if (text) {
+            if (progress < 30) {
+                text.textContent = 'Analyzing... ' + Math.round(progress) + '%';
+            } else if (progress < 80) {
+                text.textContent = 'Generating questions... ' + Math.round(progress) + '%';
+                document.getElementById('step-1').classList.remove('active');
+                document.getElementById('step-2').classList.add('active');
+            } else {
+                text.textContent = 'Finalizing... ' + Math.round(progress) + '%';
+                document.getElementById('step-2').classList.remove('active');
+                document.getElementById('step-3').classList.add('active');
+            }
+        }
+        if (progress >= 100) clearInterval(interval);
+    }, 200);
+}
+
+function enableControls() {
+    document.querySelectorAll('.upload-options select').forEach(s => {
+        s.disabled = false;
+        s.style.opacity = '1';
+    });
+    const range = document.querySelector('.upload-options input[type="range"]');
+    if (range) {
+        range.disabled = false;
+        range.style.opacity = '1';
+        updateRangeDisplay();
+        range.addEventListener('input', updateRangeDisplay);
+    }
+    const btn = document.querySelector('.btn-generate');
+    if (btn) {
+        btn.disabled = false;
+        btn.classList.add('active');
+        btn.style.opacity = '1';
+    }
+}
+
+function updateRangeDisplay() {
+    const range = document.querySelector('.upload-options input[type="range"]');
+    if (range) {
+        const label = range.parentElement.querySelector('label');
+        if (label) label.textContent = 'Number of Questions: ' + range.value;
+    }
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// script.js - Part 3: Admin Panel with Promote/Demote/Delete, Utilities
+
+// ===== ADMIN PANEL WITH PROMOTE/DEMOTE/DELETE =====
 function showAdminPanel() {
     const modal = document.createElement('div');
     modal.className = 'admin-panel-modal';
@@ -1013,6 +1422,85 @@ function renderAdminPanelContent(modal) {
     `;
 }
 
+function generateUsersTable() {
+    let html = '';
+    Object.keys(localStorage).filter(k => k.startsWith('user_')).forEach(key => {
+        try {
+            const u = JSON.parse(localStorage.getItem(key));
+            const isProtected = u.username === PROTECTED_ADMIN.username;
+            const normalizedEmail = u.email.toLowerCase();
+            
+            html += `<tr ${isProtected ? 'style="background: rgba(255,107,53,0.1);"' : ''}>
+                <td>${u.username || 'N/A'} ${isProtected ? '🔒' : ''}</td>
+                <td>${u.email}</td>
+                <td><span style="color: ${u.plan === 'premium' ? '#4CAF50' : '#ff9800'}">${(u.plan || 'free').toUpperCase()}</span></td>
+                <td>${isProtected ? '<span style="color: #ff6b35;">PROTECTED</span>' : '<span style="color: #4CAF50;">ACTIVE</span>'}</td>
+                <td>
+                    ${!isProtected ? `
+                        ${u.plan === 'free' ? 
+                            `<button class="admin-btn" style="padding: 5px 10px; font-size: 0.8rem; background: #4CAF50;" onclick="promoteUser('${normalizedEmail}')"><i class="fas fa-arrow-up"></i> Promote</button>` 
+                            : 
+                            `<button class="admin-btn" style="padding: 5px 10px; font-size: 0.8rem; background: #ff9800;" onclick="demoteUser('${normalizedEmail}')"><i class="fas fa-arrow-down"></i> Demote</button>`
+                        }
+                        <button class="admin-btn" style="padding: 5px 10px; font-size: 0.8rem; background: #f44336; margin-left: 5px;" onclick="deleteUserFromAdmin('${normalizedEmail}', '${u.username}')"><i class="fas fa-trash"></i></button>
+                    ` : '🔒'}
+                </td>
+            </tr>`;
+        } catch (e) {}
+    });
+    return html || '<tr><td colspan="5">No users found</td></tr>';
+}
+
+function promoteUser(email) {
+    const normalizedEmail = email.toLowerCase().trim();
+    const userData = JSON.parse(localStorage.getItem(`user_${normalizedEmail}`));
+    if (userData) {
+        userData.plan = 'premium';
+        localStorage.setItem(`user_${normalizedEmail}`, JSON.stringify(userData));
+        showNotification(`User promoted to premium!`, 'success');
+        
+        // Reload admin panel
+        const adminPanel = document.getElementById('admin-panel');
+        if (adminPanel) {
+            closeAdminPanel();
+            setTimeout(() => showAdminPanel(), 500);
+        }
+        broadcastUpdate();
+    }
+}
+
+function demoteUser(email) {
+    const normalizedEmail = email.toLowerCase().trim();
+    const userData = JSON.parse(localStorage.getItem(`user_${normalizedEmail}`));
+    if (userData) {
+        userData.plan = 'free';
+        localStorage.setItem(`user_${normalizedEmail}`, JSON.stringify(userData));
+        showNotification(`User demoted to free plan!`, 'success');
+        
+        // Reload admin panel
+        const adminPanel = document.getElementById('admin-panel');
+        if (adminPanel) {
+            closeAdminPanel();
+            setTimeout(() => showAdminPanel(), 500);
+        }
+        broadcastUpdate();
+    }
+}
+
+function deleteUserFromAdmin(email, username) {
+    if (confirm(`Are you sure you want to permanently delete user "${username}"?\n\nThis action cannot be undone.`)) {
+        deleteUserCompletely(email, username);
+        showNotification('User deleted successfully', 'success');
+        
+        // Reload admin panel
+        const adminPanel = document.getElementById('admin-panel');
+        if (adminPanel) {
+            closeAdminPanel();
+            setTimeout(() => showAdminPanel(), 500);
+        }
+    }
+}
+
 function updateAdminStats() {
     const elem1 = document.getElementById('total-users-stat');
     const elem2 = document.getElementById('total-activities-stat');
@@ -1034,24 +1522,6 @@ function updateAdminStats() {
         }
     }
     if (elem3) elem3.textContent = getSystemStats().storageUsed + 'KB';
-}
-
-function generateUsersTable() {
-    let html = '';
-    Object.keys(localStorage).filter(k => k.startsWith('user_')).forEach(key => {
-        try {
-            const u = JSON.parse(localStorage.getItem(key));
-            const isProtected = u.username === PROTECTED_ADMIN.username;
-            html += `<tr ${isProtected ? 'style="background: rgba(255,107,53,0.1);"' : ''}>
-                <td>${u.username || 'N/A'} ${isProtected ? '🔒' : ''}</td>
-                <td>${u.email}</td>
-                <td><span style="color: ${u.plan === 'premium' ? '#4CAF50' : '#ff9800'}">${(u.plan || 'free').toUpperCase()}</span></td>
-                <td>${isProtected ? '<span style="color: #ff6b35;">PROTECTED</span>' : '<span style="color: #4CAF50;">ACTIVE</span>'}</td>
-                <td>${!isProtected ? `<button class="admin-btn" style="padding: 5px 10px; font-size: 0.8rem;" onclick="promoteUser('${u.email}')"><i class="fas fa-user-plus"></i></button>` : '🔒'}</td>
-            </tr>`;
-        } catch (e) {}
-    });
-    return html || '<tr><td colspan="5">No users found</td></tr>';
 }
 
 function getSystemStats() {
@@ -1141,365 +1611,7 @@ function clearSystemCache() {
     }
 }
 
-function promoteUser(email) {
-    const normalizedEmail = email.toLowerCase().trim();
-    const userData = JSON.parse(localStorage.getItem(`user_${normalizedEmail}`));
-    if (userData) {
-        userData.plan = 'premium';
-        localStorage.setItem(`user_${normalizedEmail}`, JSON.stringify(userData));
-        showNotification(`User promoted to premium!`, 'success');
-        broadcastUpdate();
-    }
-}
-
-// Close dropdown on click outside
-document.addEventListener('click', function(event) {
-    const dropdown = document.querySelector('.user-dropdown');
-    const dropdownMenu = document.getElementById('user-dropdown-menu');
-    if (dropdown && dropdownMenu && !dropdown.contains(event.target)) {
-        dropdownMenu.classList.add('hidden');
-    }
-});
-
-// FILE UPLOAD with DEVICE TRIAL LIMIT CHECK
-function initializeEnhancedFileUpload() {
-    const uploadArea = document.querySelector('.upload-area');
-    const browseBtn = document.querySelector('.btn-browse');
-    const generateBtn = document.querySelector('.btn-generate');
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = '.pdf,.doc,.docx,.txt,.jpg,.jpeg,.png';
-    fileInput.multiple = true;
-    fileInput.style.display = 'none';
-    document.body.appendChild(fileInput);
-    const cameraInput = document.createElement('input');
-    cameraInput.type = 'file';
-    cameraInput.accept = 'image/*';
-    cameraInput.capture = 'environment';
-    cameraInput.multiple = true;
-    cameraInput.style.display = 'none';
-    document.body.appendChild(cameraInput);
-    if (browseBtn) {
-        browseBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            showFileUploadOptions(fileInput, cameraInput);
-        });
-    }
-    if (uploadArea) {
-        uploadArea.addEventListener('click', function(e) {
-            e.preventDefault();
-            showFileUploadOptions(fileInput, cameraInput);
-        });
-        uploadArea.addEventListener('dragover', function(e) {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
-        });
-        uploadArea.addEventListener('dragleave', function(e) {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-        });
-        uploadArea.addEventListener('drop', function(e) {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-            const files = Array.from(e.dataTransfer.files);
-            if (files.length > 0) handleMultipleFileSelection(files);
-        });
-    }
-    fileInput.addEventListener('change', function(e) {
-        if (e.target.files.length > 0) handleMultipleFileSelection(Array.from(e.target.files));
-    });
-    cameraInput.addEventListener('change', function(e) {
-        if (e.target.files.length > 0) handleMultipleFileSelection(Array.from(e.target.files));
-    });
-    if (generateBtn) {
-        generateBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            handleGenerateQuestions();
-        });
-    }
-}
-
-function showFileUploadOptions(fileInput, cameraInput) {
-    const isMobile = /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    if (isMobile) {
-        const modal = document.createElement('div');
-        modal.className = 'modal';
-        modal.innerHTML = `<div class="modal-content" style="max-width: 400px;"><h2>Choose an action</h2>
-            <div style="display: flex; flex-direction: column; gap: 20px; margin: 30px 0;">
-                <button id="camera-btn" style="background: transparent; border: none; padding: 15px; cursor: pointer; color: var(--text);">
-                    <div style="background: #ff3b30; border-radius: 50%; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px;">
-                        <i class="fas fa-camera" style="color: white; font-size: 24px;"></i></div><span>Camera</span></button>
-                <button id="files-btn" style="background: transparent; border: none; padding: 15px; cursor: pointer; color: var(--text);">
-                    <div style="background: #007aff; border-radius: 50%; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px;">
-                        <i class="fas fa-folder" style="color: white; font-size: 24px;"></i></div><span>Files</span></button>
-            </div></div>`;
-        document.body.appendChild(modal);
-        document.getElementById('camera-btn').onclick = () => {
-            document.body.removeChild(modal);
-            cameraInput.click();
-        };
-        document.getElementById('files-btn').onclick = () => {
-            document.body.removeChild(modal);
-            fileInput.click();
-        };
-        modal.onclick = (e) => {
-            if (e.target === modal) document.body.removeChild(modal);
-        };
-    } else {
-        fileInput.click();
-    }
-}
-
-function handleMultipleFileSelection(files) {
-    const validFiles = [];
-    const validExts = ['.pdf', '.doc', '.docx', '.txt', '.jpg', '.jpeg', '.png'];
-    for (const file of files) {
-        const fileName = file.name.toLowerCase();
-        if (!validExts.some(ext => fileName.endsWith(ext))) {
-            showNotification(`Invalid file: ${file.name}`, 'error');
-            continue;
-        }
-        if (file.size > 10 * 1024 * 1024) {
-            showNotification(`File too large: ${file.name}`, 'error');
-            continue;
-        }
-        validFiles.push(file);
-    }
-    if (validFiles.length === 0) {
-        showNotification('No valid files selected', 'error');
-        return;
-    }
-    selectedFiles = validFiles;
-    extractedTexts = [];
-    totalExtractedText = '';
-    updateEnhancedUploadUI(validFiles);
-    extractTextFromMultipleFiles(validFiles);
-}
-
-function updateEnhancedUploadUI(files) {
-    const uploadIcon = document.querySelector('.upload-icon');
-    const uploadTitle = document.querySelector('.upload-title');
-    const uploadSubtitle = document.querySelector('.upload-subtitle');
-    const browseBtn = document.querySelector('.btn-browse');
-    const uploadArea = document.querySelector('.upload-area');
-    if (uploadIcon) uploadIcon.innerHTML = '<i class="fas fa-files"></i>';
-    const fileCount = files.length;
-    const totalSize = files.reduce((sum, f) => sum + f.size, 0);
-    if (uploadTitle) {
-        uploadTitle.textContent = fileCount === 1 ? `Selected: ${files[0].name}` : `Selected ${fileCount} files`;
-    }
-    if (uploadSubtitle) uploadSubtitle.textContent = `Total size: ${formatFileSize(totalSize)}`;
-    if (browseBtn) browseBtn.textContent = 'Change Files';
-    if (uploadArea) uploadArea.style.borderColor = '#4dfff3';
-    enableControls();
-    showNotification(`${fileCount} file(s) selected!`, 'success');
-}
-
-function extractTextFromMultipleFiles(files) {
-    showNotification(`Processing ${files.length} files...`, 'info');
-    let processedCount = 0;
-    extractedTexts = [];
-    files.forEach(file => {
-        const processFile = (text) => {
-            extractedTexts.push({fileName: file.name, text: text, label: file.name});
-            processedCount++;
-            if (processedCount >= files.length) combineAllExtractedTexts();
-        };
-        const ext = '.' + file.name.split('.').pop().toLowerCase();
-        if (ext === '.txt') {
-            const reader = new FileReader();
-            reader.onload = (e) => processFile(e.target.result);
-            reader.onerror = () => processFile(`Error reading ${file.name}`);
-            reader.readAsText(file);
-        } else {
-            processFile(`Content extracted from ${file.name}`);
-        }
-    });
-}
-
-function combineAllExtractedTexts() {
-    totalExtractedText = '';
-    extractedTexts.forEach(item => {
-        totalExtractedText += `\n\n=== ${item.label} ===\n${item.text}\n=== End of ${item.label} ===\n`;
-    });
-    showNotification(`All ${selectedFiles.length} files processed!`, 'success');
-}
-
-function handleGenerateQuestions() {
-    if (!isUserLoggedIn) {
-        showNotification('Please sign in first', 'error');
-        showAuthModal('login');
-        return;
-    }
-    
-    // CHECK DEVICE TRIAL LIMIT for FREE users
-    if (currentUser.plan === 'free') {
-        const deviceUsage = checkDeviceTrialLimit();
-        if (deviceUsage.filesProcessed >= 5) {
-            showNotification('Free trial limit reached (5 uploads per device). Please upgrade to premium for unlimited access.', 'error');
-            return;
-        }
-    }
-    
-    if (!selectedFiles || selectedFiles.length === 0 || !totalExtractedText) {
-        showNotification('Please select files first', 'error');
-        return;
-    }
-    const questionTypeSelect = document.querySelector('.upload-options select');
-    const numQuestionsRange = document.querySelector('.upload-options input[type="range"]');
-    const difficultySelects = document.querySelectorAll('.upload-options select');
-    const questionType = questionTypeSelect ? questionTypeSelect.value : 'Multiple Choice';
-    const numQuestions = numQuestionsRange ? numQuestionsRange.value : '10';
-    const difficulty = difficultySelects.length > 1 ? difficultySelects[1].value : 'Medium';
-    showNotification('Connecting to backend...', 'info');
-    showProcessingProgress();
-    callBackendAPI(totalExtractedText, questionType, numQuestions, difficulty);
-}
-
-// FINAL PART - Add to end of script.js after previous continuation
-
-async function callBackendAPI(text, questionType, numQuestions, difficulty) {
-    try {
-        const response = await fetch('https://examblox-production.up.railway.app/api/generate-questions', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
-            body: JSON.stringify({text: text, questionType: questionType, numQuestions: parseInt(numQuestions), difficulty: difficulty})
-        });
-        if (!response.ok) throw new Error(`API error: ${response.status}`);
-        const result = await response.json();
-        const progressModal = document.getElementById('progress-modal');
-        if (progressModal) document.body.removeChild(progressModal);
-        if (result.data && result.data.questions && result.data.questions.length > 0) {
-            updateUserStats(selectedFiles.length, result.data.questions.length);
-            updateDeviceUsage(selectedFiles.length, result.data.questions.length);
-            saveToRecentActivities(selectedFiles, result.data.questions, questionType, difficulty);
-            const questionData = {
-                questions: result.data.questions,
-                metadata: {
-                    fileName: selectedFiles.length === 1 ? selectedFiles[0].name : `${selectedFiles.length} files`,
-                    fileCount: selectedFiles.length,
-                    questionType: questionType,
-                    difficulty: difficulty,
-                    totalQuestions: result.data.questions.length,
-                    generatedAt: new Date().toISOString()
-                }
-            };
-            localStorage.setItem('examblox_questions', JSON.stringify(questionData));
-            showNotification('Questions generated! Redirecting...', 'success');
-            setTimeout(() => window.location.href = 'questions.html', 1500);
-        } else {
-            showNotification('No questions generated. Try again.', 'error');
-        }
-    } catch (error) {
-        console.error('API error:', error);
-        showNotification('Error: ' + error.message, 'error');
-        const progressModal = document.getElementById('progress-modal');
-        if (progressModal) document.body.removeChild(progressModal);
-    }
-}
-
-function updateUserStats(filesProcessed, questionsGenerated) {
-    if (!isUserLoggedIn) return;
-    const stats = JSON.parse(localStorage.getItem('examblox_user_stats') || '{}');
-    stats.totalQuestions = (stats.totalQuestions || 0) + questionsGenerated;
-    stats.filesProcessed = (stats.filesProcessed || 0) + filesProcessed;
-    stats.studySessions = (stats.studySessions || 0) + 1;
-    stats.monthlyQuestions = (stats.monthlyQuestions || 0) + questionsGenerated;
-    stats.monthlyFiles = (stats.monthlyFiles || 0) + filesProcessed;
-    stats.lastActivity = new Date().toISOString();
-    localStorage.setItem('examblox_user_stats', JSON.stringify(stats));
-    broadcastUpdate();
-}
-
-function saveToRecentActivities(files, questions, questionType, difficulty) {
-    if (!isUserLoggedIn) return;
-    const activities = JSON.parse(localStorage.getItem('examblox_activities') || '[]');
-    const activity = {
-        id: Date.now(),
-        icon: 'fas fa-question-circle',
-        title: `Generated ${questions.length} ${questionType} questions from ${files.length} files`,
-        date: new Date().toLocaleDateString(),
-        timestamp: new Date().toISOString(),
-        type: 'question_generation',
-        details: {files: files.map(f => f.name), questionType: questionType, difficulty: difficulty, questionCount: questions.length},
-        questions: questions
-    };
-    activities.unshift(activity);
-    if (activities.length > 50) activities.splice(50);
-    localStorage.setItem('examblox_activities', JSON.stringify(activities));
-    broadcastUpdate();
-}
-
-function showProcessingProgress() {
-    const modal = document.createElement('div');
-    modal.className = 'modal';
-    modal.id = 'progress-modal';
-    modal.innerHTML = `<div class="modal-content" style="max-width: 500px;">
-        <h2>Generating Questions</h2>
-        <p style="text-align: center; color: var(--primary-light); margin-bottom: 20px;">Using Llama 4 Scout AI</p>
-        <div class="progress-container">
-            <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
-            <div class="progress-text" id="progress-text">Processing... 0%</div>
-        </div>
-        <div class="progress-steps">
-            <div class="step-item active" id="step-1">📄 Analyzing</div>
-            <div class="step-item" id="step-2">🤖 Generating</div>
-            <div class="step-item" id="step-3">✅ Finalizing</div>
-        </div>
-    </div>`;
-    document.body.appendChild(modal);
-    let progress = 0;
-    const interval = setInterval(() => {
-        progress += Math.random() * 15;
-        if (progress > 100) progress = 100;
-        const fill = document.getElementById('progress-fill');
-        const text = document.getElementById('progress-text');
-        if (fill) fill.style.width = progress + '%';
-        if (text) {
-            if (progress < 30) {
-                text.textContent = 'Analyzing... ' + Math.round(progress) + '%';
-            } else if (progress < 80) {
-                text.textContent = 'Generating questions... ' + Math.round(progress) + '%';
-                document.getElementById('step-1').classList.remove('active');
-                document.getElementById('step-2').classList.add('active');
-            } else {
-                text.textContent = 'Finalizing... ' + Math.round(progress) + '%';
-                document.getElementById('step-2').classList.remove('active');
-                document.getElementById('step-3').classList.add('active');
-            }
-        }
-        if (progress >= 100) clearInterval(interval);
-    }, 200);
-}
-
-function enableControls() {
-    document.querySelectorAll('.upload-options select').forEach(s => {
-        s.disabled = false;
-        s.style.opacity = '1';
-    });
-    const range = document.querySelector('.upload-options input[type="range"]');
-    if (range) {
-        range.disabled = false;
-        range.style.opacity = '1';
-        updateRangeDisplay();
-        range.addEventListener('input', updateRangeDisplay);
-    }
-    const btn = document.querySelector('.btn-generate');
-    if (btn) {
-        btn.disabled = false;
-        btn.classList.add('active');
-        btn.style.opacity = '1';
-    }
-}
-
-function updateRangeDisplay() {
-    const range = document.querySelector('.upload-options input[type="range"]');
-    if (range) {
-        const label = range.parentElement.querySelector('label');
-        if (label) label.textContent = 'Number of Questions: ' + range.value;
-    }
-}
-
+// ===== NOTIFICATION SYSTEM =====
 function showNotification(message, type) {
     const existingNotifs = document.querySelectorAll('.notification');
     existingNotifs.forEach(n => {
@@ -1573,12 +1685,8 @@ function showNotification(message, type) {
     
     const closeBtn = notif.querySelector('button');
     if (closeBtn) {
-        closeBtn.addEventListener('mouseenter', () => {
-            closeBtn.style.opacity = '1';
-        });
-        closeBtn.addEventListener('mouseleave', () => {
-            closeBtn.style.opacity = '0.8';
-        });
+        closeBtn.addEventListener('mouseenter', () => closeBtn.style.opacity = '1');
+        closeBtn.addEventListener('mouseleave', () => closeBtn.style.opacity = '0.8');
         closeBtn.addEventListener('click', () => {
             clearTimeout(autoRemoveTimer);
             if (notif && notif.parentNode) {
@@ -1594,14 +1702,7 @@ function showNotification(message, type) {
     }
 }
 
-function formatFileSize(bytes) {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
+// ===== UTILITY FUNCTIONS =====
 function goToHomepage() {
     window.location.href = 'index.html';
 }
@@ -1654,6 +1755,7 @@ function initializeFooterLinks() {
             }
         });
     });
+    
     document.querySelectorAll('a[href="#blog"], a[href="#tutorials"], a[href="#documentation"], a[href="#support"], a[href="#about"], a[href="#careers"], a[href="#privacy"], a[href="#terms"]').forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
@@ -1663,11 +1765,13 @@ function initializeFooterLinks() {
     });
 }
 
-let selectedFiles = [];
-let extractedTexts = [];
-let totalExtractedText = '';
-
-console.log('✅ ExamBlox Complete Fixed Script Loaded');
+console.log('✅ ExamBlox Complete - All Fixes Applied');
 console.log('🔐 OTP Email System: ENABLED');
 console.log('🔤 Case-Insensitive Usernames: FIXED');
 console.log('📱 Device-Based Trial Limits: IMPLEMENTED');
+console.log('📏 File Size Limits: Free=5MB, Premium=25MB');
+console.log('👤 User Management: Promote/Demote/Delete');
+console.log('📧 DMARC Email: Compliant');
+console.log('🎯 Difficulty: Enhanced & Challenging');
+console.log('🗑️ Username Delete: Properly Fixed');
+console.log('📱 Mobile Dropdown: Centered & Fixed');
