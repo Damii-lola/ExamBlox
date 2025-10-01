@@ -485,6 +485,179 @@
         if (!confirmed) return;
       }
       
+      showResultsScreen();
+    }
+    
+    function showResultsScreen() {
+      // Calculate results
+      let correctAnswers = 0;
+      let incorrectAnswers = 0;
+      let skippedQuestions = 0;
+      
+      const questionResults = questions.map(question => {
+        const userAnswer = userAnswers[question.id];
+        const isAnswered = userAnswer !== undefined;
+        const isCorrect = isAnswered && userAnswer === question.correctAnswer;
+        
+        if (isAnswered) {
+          if (isCorrect) correctAnswers++;
+          else incorrectAnswers++;
+        } else {
+          skippedQuestions++;
+        }
+        
+        return {
+          ...question,
+          userAnswer,
+          isAnswered,
+          isCorrect,
+          page: `Question ${question.id}` // In production, extract from metadata
+        };
+      });
+      
+      const score = Math.round((correctAnswers / questions.length) * 100);
+      
+      // Hide quiz interface
+      document.getElementById('questions-display').style.display = 'none';
+      document.getElementById('submit-section').style.display = 'none';
+      document.getElementById('quiz-nav-controls').style.display = 'none';
+      
+      // Show results screen
+      const resultsHTML = generateResultsHTML(score, correctAnswers, incorrectAnswers, skippedQuestions, questionResults);
+      document.getElementById('questions-display').insertAdjacentHTML('beforebegin', resultsHTML);
+    }
+    
+    function generateResultsHTML(score, correct, incorrect, skipped, questionResults) {
+      const correctQuestions = questionResults.filter(q => q.isAnswered && q.isCorrect);
+      const incorrectQuestions = questionResults.filter(q => q.isAnswered && !q.isCorrect);
+      const skippedQuestionsList = questionResults.filter(q => !q.isAnswered);
+      
+      return `
+        <div id="results-screen" class="results-container active" style="background: rgba(30,28,44,0.8); border-radius: 20px; padding: 40px; margin-bottom: 30px;">
+          
+          <!-- Score Overview -->
+          <div style="text-align: center; margin-bottom: 40px;">
+            <h1 style="font-size: 2.5rem; margin-bottom: 10px; background: linear-gradient(90deg, #6a4bff, #4dfff3); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+              Quiz Complete!
+            </h1>
+            <div style="font-size: 4rem; font-weight: 800; color: #6a4bff; margin: 20px 0;">
+              ${score}%
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 30px;">
+              <div class="stat-card">
+                <div style="color: #4CAF50; font-size: 2rem; margin-bottom: 10px;">✓</div>
+                <div style="font-size: 2rem; font-weight: 700; color: #4CAF50;">${correct}</div>
+                <div style="color: #ccc; font-size: 0.9rem;">Correct</div>
+              </div>
+              
+              <div class="stat-card">
+                <div style="color: #f44336; font-size: 2rem; margin-bottom: 10px;">✗</div>
+                <div style="font-size: 2rem; font-weight: 700; color: #f44336;">${incorrect}</div>
+                <div style="color: #ccc; font-size: 0.9rem;">Incorrect</div>
+              </div>
+              
+              <div class="stat-card">
+                <div style="color: #ff9800; font-size: 2rem; margin-bottom: 10px;">○</div>
+                <div style="font-size: 2rem; font-weight: 700; color: #ff9800;">${skipped}</div>
+                <div style="color: #ccc; font-size: 0.9rem;">Skipped</div>
+              </div>
+              
+              <div class="stat-card">
+                <div style="color: #6a4bff; font-size: 2rem; margin-bottom: 10px;">📝</div>
+                <div style="font-size: 2rem; font-weight: 700; color: #6a4bff;">${questions.length}</div>
+                <div style="color: #ccc; font-size: 0.9rem;">Total</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Detailed Review -->
+          <h2 style="color: #6a4bff; margin: 30px 0 20px;">Question-by-Question Review</h2>
+          
+          ${correctQuestions.length > 0 ? `
+            <div style="margin-bottom: 30px;">
+              <h3 style="color: #4CAF50; margin-bottom: 15px;">✓ Correct Answers (${correctQuestions.length})</h3>
+              ${correctQuestions.map(q => `
+                <div class="question-review-item" style="border-left: 4px solid #4CAF50;">
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <strong>Q${q.id}:</strong>
+                    <span style="color: #ccc; font-size: 0.85rem;">${q.page}</span>
+                  </div>
+                  <div style="margin-bottom: 8px;">${q.question}</div>
+                  <div style="color: #4CAF50; font-size: 0.9rem;">
+                    ✓ Your answer: Option ${String.fromCharCode(65 + q.userAnswer)} (Correct!)
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+          
+          ${incorrectQuestions.length > 0 ? `
+            <div style="margin-bottom: 30px;">
+              <h3 style="color: #f44336; margin-bottom: 15px;">✗ Incorrect Answers - Review These (${incorrectQuestions.length})</h3>
+              ${incorrectQuestions.map(q => `
+                <div class="question-review-item" style="border-left: 4px solid #f44336;">
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <strong>Q${q.id}:</strong>
+                    <span style="color: #ccc; font-size: 0.85rem;">${q.page}</span>
+                  </div>
+                  <div style="margin-bottom: 8px;">${q.question}</div>
+                  <div style="color: #f44336; font-size: 0.9rem; margin-bottom: 4px;">
+                    ✗ Your answer: Option ${String.fromCharCode(65 + q.userAnswer)}
+                  </div>
+                  <div style="color: #4CAF50; font-size: 0.9rem;">
+                    ✓ Correct answer: Option ${String.fromCharCode(65 + q.correctAnswer)} - ${q.options[q.correctAnswer]}
+                  </div>
+                  ${q.explanation ? `<div style="margin-top: 8px; padding: 10px; background: rgba(77,255,243,0.1); border-radius: 6px; font-size: 0.85rem; color: #ccc;">${q.explanation}</div>` : ''}
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+          
+          ${skippedQuestionsList.length > 0 ? `
+            <div style="margin-bottom: 30px;">
+              <h3 style="color: #ff9800; margin-bottom: 15px;">○ Skipped Questions (${skippedQuestionsList.length})</h3>
+              ${skippedQuestionsList.map(q => `
+                <div class="question-review-item" style="border-left: 4px solid #ff9800;">
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <strong>Q${q.id}:</strong>
+                    <span style="color: #ccc; font-size: 0.85rem;">${q.page}</span>
+                  </div>
+                  <div style="margin-bottom: 8px;">${q.question}</div>
+                  <div style="color: #ff9800; font-size: 0.9rem; margin-bottom: 4px;">
+                    ○ Not answered
+                  </div>
+                  <div style="color: #4CAF50; font-size: 0.9rem;">
+                    ✓ Correct answer: Option ${String.fromCharCode(65 + q.correctAnswer)} - ${q.options[q.correctAnswer]}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+          
+          <!-- Action Buttons -->
+          <div style="display: flex; gap: 15px; justify-content: center; margin-top: 40px; flex-wrap: wrap;">
+            <button onclick="window.location.href='index.html'" style="background: linear-gradient(90deg, #6a4bff, #9b6aff); color: white; border: none; padding: 15px 30px; border-radius: 25px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 10px;">
+              <i class="fas fa-home"></i> Back to Home
+            </button>
+            <button onclick="location.reload()" style="background: rgba(255,255,255,0.1); color: white; border: none; padding: 15px 30px; border-radius: 25px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 10px;">
+              <i class="fas fa-redo"></i> Try Again
+            </button>
+          </div>
+        </div>
+      `;
+    }
+    function submitQuiz() {
+      if (isFlashcardMode) return;
+      
+      const totalQuestions = questions.length;
+      const answeredQuestions = Object.keys(userAnswers).length;
+      
+      if (answeredQuestions < totalQuestions) {
+        const confirmed = confirm(`You have answered ${answeredQuestions} out of ${totalQuestions} questions. Are you sure you want to submit?`);
+        if (!confirmed) return;
+      }
+      
       finishQuiz();
     }
 
