@@ -656,6 +656,8 @@ And finally he noted that sometimes the ai guesses when asking questions. Today 
 
 ALSO WHAT THE FUCK ARE U DOING< U ARE READING THE CONTENT BUT JUST THE BARE MININMUM OF IT, ARE U STUPID U FOOL, DO SOMETHING CORRECTLY FOR GOODNESS SAKE, READ AND GENERATE QUESTIONS BASED ON THE FUCKING TEXT NOTTTTTTTT JUST THE BARE TITLE
 
+Aiit seeee ur finally getting it but for multiple choice, the options ur giving makes it soo obvious which one is the answer, i want the options to be soooo close alike, like i want u to use this as an example when setting options, the answer is 0.23, option: A is 0.22, B i 0.24, C is 0.21 and D is 0.23. u get
+
 COGNITIVE LEVEL MIX:
 - 30% Knowledge/Recall (definitions, facts, terms)
 - 40% Understanding/Application (explain, apply, use)
