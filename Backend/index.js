@@ -484,7 +484,7 @@ app.post('/api/generate-questions', async (req, res) => {
         userSelectedDifficulty: difficulty,
         actualDifficulty: actualDifficulty,
         timestamp: new Date().toISOString(),
-        aiModel: 'llama-3.3-70b-versatile'
+        aiModel: 'deepseek-r1-distill-llama-70b'
       }
     });
 
@@ -567,7 +567,7 @@ async function generateQuestionsWithLlama(text, questionType, numQuestions, diff
     message: `Generated ${finalQuestions.length} questions`,
     questions: finalQuestions,
     provider: 'groq',
-    model: 'llama-3.3-70b-versatile',
+    model: 'deepseek-r1-distill-llama-70b',
     actualDifficulty: difficulty
   };
 }
@@ -575,7 +575,7 @@ async function generateQuestionsWithLlama(text, questionType, numQuestions, diff
 async function generateSingleBatchLlama(text, questionType, numQuestions, difficulty, batchId, API_KEY) {
   const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
   
-  const maxTextLength = 12000;
+  const maxTextLength = 18000;
   const textSection = text.length > maxTextLength ? text.substring(0, maxTextLength) : text;
   
   const prompt = createEnhancedPrompt(textSection, questionType, numQuestions, difficulty);
@@ -588,7 +588,7 @@ async function generateSingleBatchLlama(text, questionType, numQuestions, diffic
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "deepseek-r1-distill-llama-70b",
         messages: [
           {
             role: "system",
@@ -599,7 +599,7 @@ async function generateSingleBatchLlama(text, questionType, numQuestions, diffic
             content: prompt
           }
         ],
-        temperature: 0.8, // Higher for more creative/difficult questions
+        temperature: 0.7, // Higher for more creative/difficult questions
         max_tokens: 2800
       })
     });
@@ -654,6 +654,8 @@ Also i know tht when the ai generates the question, it reads the text and genera
 Also when my brother was using it he complained that the questions didnt use any acronym or synonyms of the text or questions rather to make the user think more abt it rather than just using the text or question plain as is, also from his review, he noted that the ai doesnt use all the info in the document when generating questions meaning, it skips some parts, 
 And finally he noted that sometimes the ai guesses when asking questions. Today my momsi noted that the ai doesnt read the text, it will just read the Main main points and guess/make up questions, meaning the ai fucking didnt read shiii, TELL THE AI TO READ AND UNDERSTND EVERYTHING, IF THE AI DOESNT UNDERSTAND IT SHOULD READ IT AGAIN. and that why it kept doing senario questions cuz it didnt fucking read the text, nahhhh it should read and understand both the text and the vibe of the text and it should create questions accordingly
 
+ALSO WHAT THE FUCK ARE U DOING< U ARE READING THE CONTENT BUT JUST THE BARE MININMUM OF IT, ARE U STUPID U FOOL, DO SOMETHING CORRECTLY FOR GOODNESS SAKE, READ AND GENERATE QUESTIONS BASED ON THE FUCKING TEXT NOTTTTTTTT JUST THE BARE TITLE
+
 COGNITIVE LEVEL MIX:
 - 30% Knowledge/Recall (definitions, facts, terms)
 - 40% Understanding/Application (explain, apply, use)
@@ -693,7 +695,7 @@ EXAMPLE OF GOOD QUESTION STYLE:
 Instead of: "According to the passage, mitochondria produce energy"
 Write: "Which cellular organelle is primarily responsible for ATP synthesis through aerobic respiration?"
 
-START GENERATING NOW:`;
+START GENERATING NOW AND FUCKING GENERATE GOOOOOOOD FUCKING QUESTIONS:`;
 
   } else if (questionType === 'True/False') {
     specificPrompt = `${baseInstructions}
@@ -717,7 +719,7 @@ Q1: [Clear declarative statement using text concepts]
 ANSWER: True
 EXPLANATION: [Why this is true/false, referencing text]
 
-START GENERATING NOW:`;
+START GENERATING NOW AND FUCKING GENERATE GOOOOOOOD FUCKING QUESTIONS:`;
 
   } else if (questionType === 'Flashcards') {
     specificPrompt = `${baseInstructions}
@@ -741,7 +743,7 @@ FORMAT:
 Q1: [Term/concept/process question]
 ANSWER: [Detailed 4-6 sentence explanation with examples and context]
 
-START GENERATING NOW:`;
+START GENERATING NOW AND FUCKING GENERATE GOOOOOOOD FUCKING QUESTIONS:`;
   }
 
   return specificPrompt;
@@ -867,7 +869,7 @@ app.use('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
-  console.log('🤖 AI Model: Llama 3.3 70B Versatile');
+  console.log('🤖 AI Model: Deepseek-r1-distill-llama-70b');
   console.log('📧 Email Service: SendGrid with DMARC compliance');
   console.log('📧 Email Status:', emailConfigured ? 'Enabled & Ready' : 'Check environment variables');
   console.log('📦 Daily Backups: Enabled');
