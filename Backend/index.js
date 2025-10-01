@@ -663,6 +663,8 @@ COGNITIVE LEVEL MIX:
 - 40% Understanding/Application (explain, apply, use)
 - 20% Analysis (compare, contrast, analyze)
 - 10% Synthesis/Evaluation (create, evaluate, judge)
+
+But all in all, i need u to make it difficult
 `;
 
   let specificPrompt = '';
