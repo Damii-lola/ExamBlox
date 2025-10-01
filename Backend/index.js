@@ -645,6 +645,15 @@ QUESTION GENERATION RULES:
 ✗ AVOID: US/UK-specific contexts unless text is region-specific
 ✗ AVOID: Overly complex wording that obscures the actual question
 
+THE FUCKING MOST IMPORTANT THING TO NOTE FROM MY TESTING, THIS IS THE MOST IMPORTANT INFO THAT U NEED TO KEEP IN MIND (when i meantion ai, i mean YOUUUUUUUUUUU):
+There's a problem with, repeatability ie some questions seamed very similar, The AI NEEDSSSS to generate Realistic questions and answers, the questions the ai is already generating is amazing but VERY NOT GOTTEN FROM THE TEXT ITSELF and when generating questions the ai, for each question, the ai should think to itself, If I'm writing a Realistic exam will this question even get the chance to be apart of the questions, 
+The questions generated are mainly sernerio questions, yes senerio based questions should be there BUT more of questions based on the text, When setting the questions the AI should imagine him as the professional who wrote the book and now u are asking questions My Guyyyy that doesn't mean that u will now ask questions like what did the author think about this what did the author think about that, 
+Also the ai should keep in mind the user, the user might not come from usa or england, so dont make questions which has a set exam theme from THOSE places, the questions generated should be of GLOBAL theme u get, 
+Also when my momsi was testing the questions generated, she though the questions were a bit too complex and not gotten from the text that she gave AND SHE LEFT THE WEBSITE AND WENT TO DEEPSEEK, FUCKING DEEPSEEK MANNNN (FOR HERRRRRRRRRRRRRRR TO DO THAT IT MUST MEAN UR QUESTIONS ARENT GOOD ATALLLL) FOR THEMMM TO GENERATE QUESTIONS, guyyyy nah what is this, 
+Also i know tht when the ai generates the question, it reads the text and generate questions accordingly BUT EACH SENETENCE HAS A PARTICULAR VIBE, the ai needss to understand this vibe and create questions according to this vibe, also these are humans of different skills levels answering these questions, not other ai. 
+Also when my brother was using it he complained that the questions didnt use any acronym or synonyms of the text or questions rather to make the user think more abt it rather than just using the text or question plain as is, also from his review, he noted that the ai doesnt use all the info in the document when generating questions meaning, it skips some parts, 
+And finally he noted that sometimes the ai guesses when asking questions. Today my momsi noted that the ai doesnt read the text, it will just read the Main main points and guess/make up questions, meaning the ai fucking didnt read shiii, TELL THE AI TO READ AND UNDERSTND EVERYTHING, IF THE AI DOESNT UNDERSTAND IT SHOULD READ IT AGAIN. and that why it kept doing senario questions cuz it didnt fucking read the text, nahhhh it should read and understand both the text and the vibe of the text and it should create questions accordingly
+
 COGNITIVE LEVEL MIX:
 - 30% Knowledge/Recall (definitions, facts, terms)
 - 40% Understanding/Application (explain, apply, use)
