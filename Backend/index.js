@@ -621,77 +621,121 @@ async function generateSingleBatchLlama(text, questionType, numQuestions, diffic
 }
 
 function createEnhancedPrompt(text, questionType, numQuestions, difficulty) {
-  const difficultyInstructions = {
-    'Medium': 'Create questions that require understanding and application of concepts. Questions should make students think beyond simple recall.',
-    'Hard': 'Create CHALLENGING questions that require deep analysis, synthesis, and critical thinking. Questions must be puzzling and require careful consideration.',
-    'Exam Level': 'Create VERY DIFFICULT exam-style questions that test mastery. Questions should be complex, multi-layered, and require comprehensive understanding.',
-    'Expert': 'Create EXTREMELY CHALLENGING questions at PhD/professional level. Questions must be highly complex, require advanced reasoning, and test expert-level knowledge.'
-  };
+  const baseInstructions = `
+YOU ARE AN EXPERT EXAM CREATOR. READ AND ANALYZE THE ENTIRE TEXT THOROUGHLY.
 
-  const instruction = difficultyInstructions[difficulty] || difficultyInstructions['Hard'];
+CRITICAL READING REQUIREMENTS:
+1. Read EVERY sentence - do NOT skip any content
+2. Extract ALL key concepts, definitions, processes, and facts
+3. Understand the context, tone, and educational level of the text
+4. Identify technical terms, acronyms, and their meanings
+5. Note relationships between concepts
 
-  let prompt = '';
+QUESTION GENERATION RULES:
+✓ Create REALISTIC exam-style questions that would appear in actual tests
+✓ Base questions DIRECTLY on text content - NO guessing or assumptions
+✓ Use synonyms and paraphrasing - don't copy text verbatim
+✓ Include acronyms when relevant (explain if needed)
+✓ Mix question types: definitions, applications, comparisons, analysis
+✓ Make questions globally appropriate - avoid region-specific contexts
+✓ Test understanding at various cognitive levels
+
+✗ AVOID: Pure scenario questions, made-up examples, assumptions
+✗ AVOID: Questions not directly supported by the text
+✗ AVOID: US/UK-specific contexts unless text is region-specific
+✗ AVOID: Overly complex wording that obscures the actual question
+
+COGNITIVE LEVEL MIX:
+- 30% Knowledge/Recall (definitions, facts, terms)
+- 40% Understanding/Application (explain, apply, use)
+- 20% Analysis (compare, contrast, analyze)
+- 10% Synthesis/Evaluation (create, evaluate, judge)
+`;
+
+  let specificPrompt = '';
 
   if (questionType === 'Multiple Choice') {
-    prompt = `You are creating ${difficulty} difficulty multiple choice questions. ${instruction}
+    specificPrompt = `${baseInstructions}
 
-TEXT:
+TEXT TO ANALYZE:
+"""
 ${text}
+"""
 
-CRITICAL REQUIREMENTS:
-- Questions MUST be challenging and thought-provoking
-- NO simple recall questions - test APPLICATION and ANALYSIS
-- Distractors must be highly plausible
-- Questions should make students pause and think carefully
-- Require connecting multiple concepts
-- Test understanding, NOT memorization
+CREATE ${numQuestions} MULTIPLE CHOICE QUESTIONS
 
-FORMAT (STRICT):
-Q1: [Complex, multi-layered question requiring deep thinking]
-A) [Highly plausible distractor]
-B) [Correct answer - requires careful analysis to identify]
-C) [Highly plausible distractor]
-D) [Highly plausible distractor]
+FORMAT REQUIREMENTS:
+Q1: [Clear, direct question using synonyms/paraphrasing from text]
+A) [Plausible distractor based on related concepts]
+B) [Correct answer - requires understanding, not just memorization]
+C) [Plausible distractor - common misconception]
+D) [Plausible distractor - partially correct but incomplete]
 ANSWER: B
-EXPLANATION: [Detailed explanation of why B is correct and why others are wrong]
+EXPLANATION: [Brief explanation linking answer to specific text content]
 
-Create exactly ${numQuestions} ${difficulty} questions now.`;
+QUESTION VARIETY REQUIRED:
+- Definition questions (What is...? Define...)
+- Process questions (How does...work? Describe the process...)
+- Comparison questions (What distinguishes X from Y?)
+- Application questions (When would you use...?)
+- Cause-effect questions (What causes...? What results from...?)
+
+EXAMPLE OF GOOD QUESTION STYLE:
+Instead of: "According to the passage, mitochondria produce energy"
+Write: "Which cellular organelle is primarily responsible for ATP synthesis through aerobic respiration?"
+
+START GENERATING NOW:`;
 
   } else if (questionType === 'True/False') {
-    prompt = `Create ${numQuestions} ${difficulty} True/False statements. ${instruction}
+    specificPrompt = `${baseInstructions}
 
-TEXT:
+TEXT TO ANALYZE:
+"""
 ${text}
+"""
+
+CREATE ${numQuestions} TRUE/FALSE STATEMENTS
 
 REQUIREMENTS:
-- Statements must be nuanced and require careful analysis
-- Avoid obvious answers
-- Test understanding of subtle concepts
-- Include tricky wording that requires attention
+- Base ALL statements on actual text content
+- Use paraphrasing and synonyms
+- Mix obviously true/false with nuanced statements
+- Test genuine understanding, not trick questions
+- Include statements about definitions, processes, and relationships
 
 FORMAT:
-Q1: [Nuanced statement requiring careful thought]
+Q1: [Clear declarative statement using text concepts]
 ANSWER: True
-EXPLANATION: [Why this is true/false]`;
+EXPLANATION: [Why this is true/false, referencing text]
+
+START GENERATING NOW:`;
 
   } else if (questionType === 'Flashcards') {
-    prompt = `Create ${numQuestions} ${difficulty} flashcards. ${instruction}
+    specificPrompt = `${baseInstructions}
 
-TEXT:
+TEXT TO ANALYZE:
+"""
 ${text}
+"""
+
+CREATE ${numQuestions} FLASHCARDS FOR ACTIVE RECALL
 
 REQUIREMENTS:
-- Front: Complex concepts or challenging questions
-- Back: Comprehensive, detailed explanations (4-6 sentences minimum)
-- Include examples, context, and connections
-- Make content exam-ready and challenging
+- Front: Key term, concept, or process question from text
+- Back: Comprehensive explanation (4-6 sentences) with:
+  * Clear definition
+  * Context from the text
+  * Example or application
+  * Connection to related concepts
 
 FORMAT:
-Q1: [Complex concept or challenging question]
-ANSWER: [Detailed 4-6 sentence explanation with depth and examples]`;
+Q1: [Term/concept/process question]
+ANSWER: [Detailed 4-6 sentence explanation with examples and context]
+
+START GENERATING NOW:`;
   }
 
-  return prompt;
+  return specificPrompt;
 }
 
 function parseQuestionsResponse(response, questionType) {
