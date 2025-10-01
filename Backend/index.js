@@ -592,7 +592,7 @@ async function generateSingleBatchLlama(text, questionType, numQuestions, diffic
         messages: [
           {
             role: "system",
-            content: `You are an expert exam creator specializing in ${difficulty} difficulty questions. Create challenging, thought-provoking questions that test deep understanding and critical thinking.`
+            content: `You are an expert exam creator specializing in ${difficulty} difficulty questions. Create challenging, thought-provoking questions that test deep understanding and critical thinking BUT u should actually read the FULL text that was uploaded, and get quesstions from it not just skimming through it and generating guess work questions, go through the document for goodness sakes. Also be mindful of the difficulty. ALSO I DONT WANT TO SEE REPEATING QUESTIONS, and when generating questions, ask urself, is this the kind of question that will be in an actual REAL-LIFE exam, if not remove it and regenerate new questions, if yes then keep.`
           },
           {
             role: "user",
