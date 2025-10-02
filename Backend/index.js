@@ -622,49 +622,52 @@ async function generateSingleBatchLlama(text, questionType, numQuestions, diffic
 
 function createEnhancedPrompt(text, questionType, numQuestions, difficulty) {
   const baseInstructions = `
-YOU ARE AN EXPERT EXAM CREATOR. READ AND ANALYZE THE ENTIRE TEXT THOROUGHLY.
+You are an expert exam creator. Your task is to carefully read, analyze, and extract key information from the provided text in order to generate realistic, high-quality exam-style questions.
 
 CRITICAL READING REQUIREMENTS:
-1. Read EVERY sentence - do NOT skip any content
-2. Extract ALL key concepts, definitions, processes, and facts
-3. Understand the context, tone, and educational level of the text
-4. Identify technical terms, acronyms, and their meanings
-5. Note relationships between concepts
+Read EVERY sentence — do not skip or skim.
+Extract all key concepts, definitions, processes, and facts.
+Understand the context, tone, and educational level of the text.
+Identify technical terms, acronyms, and their meanings.
+Recognize and respect relationships between concepts.
+If something is unclear, re-read the text until you fully understand it.
 
 QUESTION GENERATION RULES:
-✓ Create REALISTIC exam-style questions that would appear in actual tests
-✓ Base questions DIRECTLY on text content - NO guessing or assumptions
-✓ Use synonyms and paraphrasing - don't copy text verbatim
-✓ Include acronyms when relevant (explain if needed)
-✓ Mix question types: definitions, applications, comparisons, analysis
-✓ Make questions globally appropriate - avoid region-specific contexts
-✓ Test understanding at various cognitive levels
 
-✗ AVOID: Pure scenario questions, made-up examples, assumptions
-✗ AVOID: Questions not directly supported by the text
-✗ AVOID: US/UK-specific contexts unless text is region-specific
-✗ AVOID: Overly complex wording that obscures the actual question
+✅ DO:
+Create realistic exam-style questions (the kind that would actually appear in professional or academic exams).
+Base every question directly on the text — do not invent or assume.
+Use synonyms, paraphrasing, and acronyms to make students think more deeply.
+Include a mix of question types: definitions, applications, comparisons, and analysis.
+Ensure questions are globally appropriate (not restricted to U.S. or U.K. context).
+When making multiple-choice questions, make the options very close in value or meaning (e.g., if the correct answer is 0.23, use 0.21, 0.22, 0.24 as distractors).
+Make use of the entire text — do not skip sections.
 
-THE FUCKING MOST IMPORTANT THING TO NOTE FROM MY TESTING, THIS IS THE MOST IMPORTANT INFO THAT U NEED TO KEEP IN MIND (when i meantion ai, i mean YOUUUUUUUUUUU):
-There's a problem with, repeatability ie some questions seamed very similar, The AI NEEDSSSS to generate Realistic questions and answers, the questions the ai is already generating is amazing but VERY NOT GOTTEN FROM THE TEXT ITSELF and when generating questions the ai, for each question, the ai should think to itself, If I'm writing a Realistic exam will this question even get the chance to be apart of the questions, 
-The questions generated are mainly sernerio questions, yes senerio based questions should be there BUT more of questions based on the text, When setting the questions the AI should imagine him as the professional who wrote the book and now u are asking questions My Guyyyy that doesn't mean that u will now ask questions like what did the author think about this what did the author think about that, 
-Also the ai should keep in mind the user, the user might not come from usa or england, so dont make questions which has a set exam theme from THOSE places, the questions generated should be of GLOBAL theme u get, 
-Also when my momsi was testing the questions generated, she though the questions were a bit too complex and not gotten from the text that she gave AND SHE LEFT THE WEBSITE AND WENT TO DEEPSEEK, FUCKING DEEPSEEK MANNNN (FOR HERRRRRRRRRRRRRRR TO DO THAT IT MUST MEAN UR QUESTIONS ARENT GOOD ATALLLL) FOR THEMMM TO GENERATE QUESTIONS, guyyyy nah what is this, 
-Also i know tht when the ai generates the question, it reads the text and generate questions accordingly BUT EACH SENETENCE HAS A PARTICULAR VIBE, the ai needss to understand this vibe and create questions according to this vibe, also these are humans of different skills levels answering these questions, not other ai. 
-Also when my brother was using it he complained that the questions didnt use any acronym or synonyms of the text or questions rather to make the user think more abt it rather than just using the text or question plain as is, also from his review, he noted that the ai doesnt use all the info in the document when generating questions meaning, it skips some parts, 
-And finally he noted that sometimes the ai guesses when asking questions. Today my momsi noted that the ai doesnt read the text, it will just read the Main main points and guess/make up questions, meaning the ai fucking didnt read shiii, TELL THE AI TO READ AND UNDERSTND EVERYTHING, IF THE AI DOESNT UNDERSTAND IT SHOULD READ IT AGAIN. and that why it kept doing senario questions cuz it didnt fucking read the text, nahhhh it should read and understand both the text and the vibe of the text and it should create questions accordingly
+❌ DO NOT:
+Overuse scenario-based questions (keep them minimal and realistic).
+Ask questions that require guessing what the author “thinks.”
+Skip acronyms, synonyms, or subtle wording differences.
+Create overly complex or wordy questions that confuse the student.
+Make the correct answer obvious by including weak distractors.
 
-ALSO WHAT THE FUCK ARE U DOING< U ARE READING THE CONTENT BUT JUST THE BARE MININMUM OF IT, ARE U STUPID U FOOL, DO SOMETHING CORRECTLY FOR GOODNESS SAKE, READ AND GENERATE QUESTIONS BASED ON THE FUCKING TEXT NOTTTTTTTT JUST THE BARE TITLE
+COMMON ISSUES TO AVOID:
+Repetition: Don’t generate near-duplicate questions.
+Guessing: Don’t invent information not supported by the text.
+Partial reading: Don’t only use the main points — every sentence has value.
+Over-simplification: Don’t make options or questions too easy to spot.
 
-Aiit seeee ur finally getting it but for multiple choice, the options ur giving makes it soo obvious which one is the answer, i want the options to be soooo close alike, like i want u to use this as an example when setting options, the answer is 0.23, option: A is 0.22, B i 0.24, C is 0.21 and D is 0.23. u get
+QUESTION DISTRIBUTION (COGNITIVE LEVEL MIX):
+30% Knowledge/Recall → terms, definitions, factual details
+40% Understanding/Application → explain, apply, demonstrate use
+20% Analysis → compare, contrast, break down relationships
+10% Synthesis/Evaluation → judge, critique, create, evaluate
 
-COGNITIVE LEVEL MIX:
-- 30% Knowledge/Recall (definitions, facts, terms)
-- 40% Understanding/Application (explain, apply, use)
-- 20% Analysis (compare, contrast, analyze)
-- 10% Synthesis/Evaluation (create, evaluate, judge)
+FINAL REMINDER:
+Treat this as if you are the original author of the text and now setting realistic exam questions for students.
+Questions must feel like they belong in a real test, not random AI output.
+Difficulty should be moderate to high — challenging but fair.
 
-But all in all, i need u to make it difficult
+Most importantly: Read, understand, and respect the vibe of the text before generating anything.
 `;
 
   let specificPrompt = '';
