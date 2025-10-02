@@ -591,7 +591,7 @@ async function generateSingleBatchLlama(text, questionType, numQuestions, diffic
         messages: [
           {
             role: "system",
-            content: `You are an expert exam creator specializing in ${difficulty} difficulty questions.`
+            content: `You are an expert exam creator specializing in ${difficulty} difficulty questions. Create challenging, thought-provoking questions that test deep understanding and critical thinking BUT u should actually read the FULL text that was uploaded, and get quesstions from it not just skimming through it and generating guess work questions, go through the document for goodness sakes. Also be mindful of the difficulty. ALSO I DONT WANT TO SEE REPEATING QUESTIONS, and when generating questions, ask urself, is this the kind of question that will be in an actual REAL-LIFE exam, if not remove it and regenerate new questions, if yes then keep.`
           },
           {
             role: "user",
@@ -620,7 +620,56 @@ async function generateSingleBatchLlama(text, questionType, numQuestions, diffic
 }
 
 function createEnhancedPrompt(text, questionType, numQuestions, difficulty) {
-  const baseInstructions = `You are an expert exam creator. Generate ${numQuestions} ${questionType} questions from the text below. Make them challenging and test deep understanding.`;
+  const baseInstructions = `
+You are an expert exam creator. Your task is to carefully read, analyze, and extract key information from the provided text in order to generate realistic, high-quality exam-style questions.
+
+CRITICAL READING REQUIREMENTS:
+Read EVERY sentence — do not skip or skim.
+Extract all key concepts, definitions, processes, and facts.
+Understand the context, tone, and educational level of the text.
+Identify technical terms, acronyms, and their meanings.
+Recognize and respect relationships between concepts.
+If something is unclear, re-read the text until you fully understand it.
+
+QUESTION GENERATION RULES:
+
+✅ DO:
+Create realistic exam-style questions (the kind that would actually appear in professional or academic exams).
+Base every question directly on the text — do not invent or assume.
+Use synonyms, paraphrasing, and acronyms to make students think more deeply.
+Include a mix of question types: definitions, applications, comparisons, and analysis.
+Ensure questions are globally appropriate (not restricted to U.S. or U.K. context).
+When making multiple-choice questions, make the options very close in value or meaning (e.g., if the correct answer is 0.23, use 0.21, 0.22, 0.24 as distractors).
+Make use of the entire text — do not skip sections.
+
+❌ DO NOT:
+Overuse scenario-based questions (keep them minimal and realistic).
+Ask questions that require guessing what the author “thinks.”
+Skip acronyms, synonyms, or subtle wording differences.
+Create overly complex or wordy questions that confuse the student.
+Make the correct answer obvious by including weak distractors.
+
+COMMON ISSUES TO AVOID:
+Repetition: Don’t generate near-duplicate questions.
+Guessing: Don’t invent information not supported by the text.
+Partial reading: Don’t only use the main points — every sentence has value.
+Over-simplification: Don’t make options or questions too easy to spot.
+
+QUESTION DISTRIBUTION (COGNITIVE LEVEL MIX):
+30% Knowledge/Recall → terms, definitions, factual details
+40% Understanding/Application → explain, apply, demonstrate use
+20% Analysis → compare, contrast, break down relationships
+10% Synthesis/Evaluation → judge, critique, create, evaluate
+
+FINAL REMINDER:
+Treat this as if you are the original author of the text and now setting realistic exam questions for students.
+Questions must feel like they belong in a real test, not random AI output.
+Difficulty should be moderate to high — challenging but fair.
+
+Most importantly: Read, understand, and respect the vibe of the text before generating anything.
+ALSOOOOOOOOOOOOOO WHAT THE FUCK ARE U DOING WHY TF ARE U JUST GIVING US A SINGLE WORD AND ASKING FOR THE DEFINITION, WE CAME FOR QUESTIONS U BRAINLESS, RUBBISH, FUCKING USELESS MACHINE
+MAKE THE QUESTIONS MORE DIFFICULT, CHALLENGING, PUZZLING AND WILL ONLY BE ABLE TO BE ANSWERED BY SOMEONE WHO THOROUGHLY STUDIED THE TEXT
+  `;
 
   let specificPrompt = '';
 
