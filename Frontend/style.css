@@ -2725,32 +2725,130 @@ button:focus, input:focus, select:focus, textarea:focus {
   }
 }
 
-/* Mobile Dropdown Fixes - Add these to your style.css file */
+/* FIXED USER DROPDOWN CSS - Add to your style.css */
+/* This fixes both desktop and mobile dropdown positioning */
 
-/* User Dropdown Base Styles */
+/* User Avatar Container */
 .user-dropdown {
   position: relative;
-  margin-left: auto;
+  display: inline-block;
 }
 
-/* Mobile Specific Fixes */
-@media (max-width: 767px) {
-  /* Fix mobile nav */
-  .nav-links.active {
-    position: fixed;
-    top: 70px;
-    left: 0;
-    right: 0;
-    background: var(--dark-light);
-    width: 100%;
-    flex-direction: column;
-    padding: var(--spacing-md);
-    gap: var(--spacing-sm);
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
-    border-radius: 0 0 15px 15px;
-  }
+/* Dropdown Content - HIDDEN BY DEFAULT */
+.user-dropdown-content {
+  position: absolute;
+  top: 100%;
+  right: 0; /* Desktop: align to right of avatar */
+  background: var(--dark-light);
+  backdrop-filter: blur(15px);
+  border-radius: 12px;
+  min-width: 220px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  z-index: 1000;
+  margin-top: 8px;
   
-  /* Center user dropdown in mobile menu */
+  /* CRITICAL: Hidden by default */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Show dropdown when NOT hidden */
+.user-dropdown-content:not(.hidden) {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+/* Dropdown arrow - DESKTOP: Right side */
+.user-dropdown-content::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  right: 15px; /* Desktop position */
+  width: 12px;
+  height: 12px;
+  background: var(--dark-light);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-bottom: none;
+  border-right: none;
+  transform: rotate(45deg);
+  z-index: -1;
+}
+
+/* Dropdown Header */
+.dropdown-header {
+  padding: var(--spacing-md);
+  text-align: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dropdown-header h4 {
+  color: var(--text);
+  font-size: var(--font-size-base);
+  margin-bottom: var(--spacing-xs);
+  font-weight: 600;
+}
+
+.dropdown-plan {
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+/* Dropdown Menu */
+.dropdown-menu {
+  padding: var(--spacing-sm);
+}
+
+.dropdown-item {
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  text-align: left;
+  margin-bottom: var(--spacing-xs);
+}
+
+.dropdown-item:last-child {
+  margin-bottom: 0;
+}
+
+.dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--primary-light);
+}
+
+.dropdown-item.danger:hover {
+  background: rgba(244, 67, 54, 0.15);
+  color: var(--error);
+}
+
+.dropdown-item i {
+  width: 16px;
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: inherit;
+}
+
+/* Mobile Responsive for User Dropdown */
+@media (max-width: 767px) {
+  /* Mobile: Center the dropdown */
   .user-dropdown {
     width: 100%;
     margin-left: 0;
@@ -2759,27 +2857,27 @@ button:focus, input:focus, select:focus, textarea:focus {
     align-items: center;
   }
   
-  /* Center user avatar */
+  /* Center user avatar in mobile menu */
   .user-avatar {
     margin: 0 auto;
   }
   
-  /* Center dropdown menu */
+  /* Center dropdown menu in mobile */
   .user-dropdown-content {
     left: 50% !important;
     right: auto !important;
-    transform: translateX(-50%) !important;
+    transform: translateX(-50%) translateY(-10px) !important;
     margin-top: 8px;
   }
   
-  /* Center and fix dropdown arrow */
+  /* Center and fix dropdown arrow for mobile */
   .user-dropdown-content::before {
     left: 50% !important;
     right: auto !important;
     transform: translateX(-50%) rotate(45deg) !important;
   }
   
-  /* Show dropdown when not hidden */
+  /* Show dropdown when not hidden - MOBILE */
   .user-dropdown-content:not(.hidden) {
     opacity: 1;
     visibility: visible;
@@ -2792,9 +2890,14 @@ button:focus, input:focus, select:focus, textarea:focus {
     visibility: hidden !important;
     transform: translateX(-50%) translateY(-10px) !important;
   }
+  
+  .dropdown-item {
+    padding: var(--spacing-sm);
+    font-size: var(--font-size-base);
+  }
 }
 
-/* Tablet adjustments */
+/* Tablet adjustments - KEEP DESKTOP BEHAVIOR */
 @media (min-width: 768px) and (max-width: 1024px) {
   .user-dropdown-content {
     right: 0;
@@ -2802,15 +2905,60 @@ button:focus, input:focus, select:focus, textarea:focus {
   }
   
   .user-dropdown-content::before {
-    right: 20px;
+    right: 15px;
     left: auto;
   }
 }
 
-/* Ensure dropdown works on all screen sizes */
-.user-dropdown-content {
-  position: absolute;
-  top: 100%;
-  min-width: 220px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+/* Desktop - ORIGINAL BEHAVIOR PRESERVED */
+@media (min-width: 1025px) {
+  .user-dropdown-content {
+    right: 0; /* Align to right */
+    left: auto;
+  }
+  
+  .user-dropdown-content::before {
+    right: 15px; /* Arrow on right side */
+    left: auto;
+  }
+}
+
+/* Ensure dropdown appears above other content */
+.user-dropdown {
+  z-index: 1001;
+}
+
+/* Additional utility class to ensure hidden state */
+.hidden {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none;
+}
+
+/* User Avatar Styles */
+.user-avatar {
+  width: clamp(35px, 8vw, 40px);
+  height: clamp(35px, 8vw, 40px);
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 2px 8px rgba(106, 75, 255, 0.3);
+}
+
+.user-avatar:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(106, 75, 255, 0.4);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.user-avatar span {
+  color: white;
+  font-weight: 700;
+  font-size: clamp(14px, 3vw, 16px);
+  text-transform: uppercase;
 }
