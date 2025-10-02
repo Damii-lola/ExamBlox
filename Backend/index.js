@@ -668,6 +668,7 @@ Questions must feel like they belong in a real test, not random AI output.
 Difficulty should be moderate to high — challenging but fair.
 
 Most importantly: Read, understand, and respect the vibe of the text before generating anything.
+ALSOOOOOOOOOOOOOO WHAT THE FUCK ARE U DOING WHY TF ARE U JUST GIVING US A SINGLE WORD AND ASKING FOR THE DEFINITION, WE CAME FOR QUESTIONS U BRAINLESS, RUBBISH, FUCKING USELESS MACHINE
 `;
 
   let specificPrompt = '';
