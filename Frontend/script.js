@@ -1,94 +1,36 @@
-// script.js - COMPLETE FIX with Supabase Integration
-// Replace your entire script.js with this
-
-// ===== SUPABASE CONFIGURATION =====
-// IMPORTANT: Replace these with YOUR Supabase credentials
-const SUPABASE_URL = 'YOUR_SUPABASE_URL_HERE'; // e.g., https://xxxxx.supabase.co
-const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY_HERE'; // Your anon public key
-
-// Simple Supabase client
-const supabase = {
-  async query(table, options = {}) {
-    const url = `${SUPABASE_URL}/rest/v1/${table}${options.select ? `?select=${options.select}` : ''}`;
-    const headers = {
-      'apikey': SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`,
-      'Content-Type': 'application/json',
-      'Prefer': 'return=representation'
-    };
-    
-    if (options.filter) {
-      const filterUrl = url + (url.includes('?') ? '&' : '?') + options.filter;
-      const response = await fetch(filterUrl, { headers });
-      return response.json();
-    }
-    
-    const response = await fetch(url, { headers });
-    return response.json();
-  },
-  
-  async insert(table, data) {
-    const url = `${SUPABASE_URL}/rest/v1/${table}`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
-      },
-      body: JSON.stringify(data)
-    });
-    return response.json();
-  },
-  
-  async update(table, filter, data) {
-    const url = `${SUPABASE_URL}/rest/v1/${table}?${filter}`;
-    const response = await fetch(url, {
-      method: 'PATCH',
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
-      },
-      body: JSON.stringify(data)
-    });
-    return response.json();
-  },
-  
-  async delete(table, filter) {
-    const url = `${SUPABASE_URL}/rest/v1/${table}?${filter}`;
-    const response = await fetch(url, {
-      method: 'DELETE',
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    return response.ok;
-  }
-};
+// script.js - COMPLETE FRONTEND with Backend API Calls
+// Replace your entire Frontend/script.js with this
 
 let isUserLoggedIn = false;
 let currentUser = null;
+
+const BACKEND_URL = 'https://examblox-production.up.railway.app';
 
 const PROTECTED_ADMIN = {
   username: 'damii-lola',
   name: 'Damilola',
   email: 'examblox.team@gmail.com',
-  password: 'admin123secure',
   plan: 'premium',
   role: 'admin',
-  isPermanent: true,
-  createdAt: '2024-01-01T00:00:00Z'
+  isPermanent: true
 };
 
-// ===== INITIALIZATION =====
+// Helper function to call backend
+async function apiCall(endpoint, method = 'GET', body = null) {
+  const options = {
+    method,
+    headers: { 'Content-Type': 'application/json' }
+  };
+  
+  if (body) options.body = JSON.stringify(body);
+  
+  const response = await fetch(`${BACKEND_URL}${endpoint}`, options);
+  return response.json();
+}
+
+// INITIALIZATION
 document.addEventListener('DOMContentLoaded', function() {
-  console.log('ExamBlox initialized - Complete Fix');
-  ensureProtectedAdmin();
+  console.log('ExamBlox initialized - Supabase Backend Active');
   checkAuthState();
   initializeAuth();
   initializeEnhancedFileUpload();
@@ -98,27 +40,7 @@ document.addEventListener('DOMContentLoaded', function() {
   initializeFooterLinks();
 });
 
-async function ensureProtectedAdmin() {
-  try {
-    // Check if admin exists in Supabase
-    const adminCheck = await supabase.query('users', {
-      filter: `email=eq.${PROTECTED_ADMIN.email}`
-    });
-    
-    if (!adminCheck || adminCheck.length === 0) {
-      // Create protected admin in Supabase
-      await supabase.insert('users', PROTECTED_ADMIN);
-      console.log('✅ Protected admin created in Supabase');
-    }
-  } catch (error) {
-    console.error('Supabase admin check failed:', error);
-    // Fallback to localStorage
-    localStorage.setItem(`user_${PROTECTED_ADMIN.email}`, JSON.stringify(PROTECTED_ADMIN));
-    localStorage.setItem(`username_${PROTECTED_ADMIN.username}`, PROTECTED_ADMIN.email);
-  }
-}
-
-async function checkAuthState() {
+function checkAuthState() {
   const userData = localStorage.getItem('examblox_user');
   if (userData) {
     try {
@@ -157,7 +79,7 @@ function initializeAuth() {
   }
 }
 
-// ===== FIXED: Desktop & Mobile User Dropdown =====
+// USER DROPDOWN - FIXED for Desktop & Mobile
 function updateAuthUI() {
   const loginBtn = document.querySelector('.btn-login');
   const signupBtn = document.querySelector('.btn-signup');
@@ -277,7 +199,6 @@ function closeDropdown() {
   if (dropdown) dropdown.classList.add('hidden');
 }
 
-// Close dropdown when clicking outside
 document.addEventListener('click', function(event) {
   const dropdown = document.querySelector('.user-dropdown');
   const dropdownMenu = document.getElementById('user-dropdown-menu');
@@ -295,7 +216,7 @@ function confirmLogout() {
   }
 }
 
-async function loginUser(userData) {
+function loginUser(userData) {
   currentUser = {
     username: userData.username,
     name: userData.name,
@@ -320,100 +241,49 @@ function logout() {
   showNotification('Logged out successfully', 'success');
 }
 
-// ===== CASE-INSENSITIVE CHECKS with Supabase =====
+// API FUNCTIONS
 async function checkUsernameExists(username) {
   try {
-    const result = await supabase.query('users', {
-      filter: `username=ilike.${username}`
-    });
-    return result && result.length > 0;
+    const result = await apiCall('/api/users');
+    return result.users && result.users.some(u => u.username.toLowerCase() === username.toLowerCase());
   } catch (error) {
-    // Fallback to localStorage
-    const normalizedUsername = username.toLowerCase().trim();
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith('username_')) {
-        const storedUsername = key.substring(9).toLowerCase();
-        if (storedUsername === normalizedUsername) return true;
-      }
-    }
+    console.error('Check username error:', error);
     return false;
   }
 }
 
 async function checkEmailExists(email) {
   try {
-    const result = await supabase.query('users', {
-      filter: `email=ilike.${email}`
-    });
-    return result && result.length > 0;
+    const result = await apiCall('/api/users');
+    return result.users && result.users.some(u => u.email.toLowerCase() === email.toLowerCase());
   } catch (error) {
-    // Fallback to localStorage
-    const normalizedEmail = email.toLowerCase().trim();
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith('user_')) {
-        const storedEmail = key.substring(5).toLowerCase();
-        if (storedEmail === normalizedEmail) return true;
-      }
-    }
+    console.error('Check email error:', error);
     return false;
   }
 }
 
-async function findUserByEmailOrUsername(emailOrUsername) {
+async function getTotalUsers() {
   try {
-    const normalized = emailOrUsername.toLowerCase().trim();
-    
-    // Try email first
-    let result = await supabase.query('users', {
-      filter: `email=ilike.${normalized}`
-    });
-    
-    if (result && result.length > 0) return result[0];
-    
-    // Try username
-    result = await supabase.query('users', {
-      filter: `username=ilike.${normalized}`
-    });
-    
-    if (result && result.length > 0) return result[0];
-    
-    return null;
+    const result = await apiCall('/api/users');
+    return result.users ? result.users.length : 0;
   } catch (error) {
-    // Fallback to localStorage
-    const normalized = emailOrUsername.toLowerCase().trim();
-    
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith('user_')) {
-        const email = key.substring(5).toLowerCase();
-        if (email === normalized) {
-          const userData = localStorage.getItem(key);
-          if (userData) return JSON.parse(userData);
-        }
-      }
-    }
-    
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith('username_')) {
-        const username = key.substring(9).toLowerCase();
-        if (username === normalized) {
-          const email = localStorage.getItem(key);
-          if (email) {
-            const userData = localStorage.getItem(`user_${email.toLowerCase()}`);
-            if (userData) return JSON.parse(userData);
-          }
-        }
-      }
-    }
-    
-    return null;
+    return 0;
   }
 }
 
-// ===== ADMIN PANEL with Supabase =====
+async function getTotalActivities() {
+  return JSON.parse(localStorage.getItem('examblox_activities') || '[]').length;
+}
+
+function getSystemStats() {
+  let totalSize = 0;
+  for (let key in localStorage) {
+    if (localStorage.hasOwnProperty(key)) totalSize += localStorage[key].length;
+  }
+  return {storageUsed: Math.round(totalSize / 1024)};
+}
+
+// ADMIN PANEL
 async function showAdminPanel() {
   const modal = document.createElement('div');
   modal.className = 'admin-panel-modal';
@@ -437,17 +307,17 @@ async function renderAdminPanelContent(modal) {
         <div class="admin-card">
           <div class="admin-card-header"><div class="admin-card-icon"><i class="fas fa-users"></i></div><h3>Total Users</h3></div>
           <div class="admin-stat" id="total-users-stat">${totalUsers}</div>
-          <p>Registered users across all devices</p>
+          <p>Registered users (Supabase)</p>
         </div>
         <div class="admin-card">
           <div class="admin-card-header"><div class="admin-card-icon"><i class="fas fa-chart-bar"></i></div><h3>Total Activities</h3></div>
           <div class="admin-stat" id="total-activities-stat">${totalActivities}</div>
-          <p>Questions generated system-wide</p>
+          <p>Questions generated</p>
         </div>
         <div class="admin-card">
           <div class="admin-card-header"><div class="admin-card-icon"><i class="fas fa-database"></i></div><h3>Storage</h3></div>
           <div class="admin-stat" id="storage-usage-stat">${systemStats.storageUsed}KB</div>
-          <p>Supabase + Local storage</p>
+          <p>Local cache usage</p>
         </div>
         <div class="admin-card">
           <div class="admin-card-header"><div class="admin-card-icon"><i class="fas fa-shield-alt"></i></div><h3>System Status</h3></div>
@@ -464,45 +334,19 @@ async function renderAdminPanelContent(modal) {
       </div>
       <div class="admin-actions">
         <button class="admin-btn" onclick="exportUserData()"><i class="fas fa-download"></i>Export Data</button>
-        <button class="admin-btn" onclick="syncAllData()"><i class="fas fa-sync"></i>Sync to Cloud</button>
         <button class="admin-btn" onclick="createBackup()"><i class="fas fa-save"></i>Create Backup</button>
       </div>
     </div>
   `;
 }
 
-async function getTotalUsers() {
-  try {
-    const result = await supabase.query('users');
-    return result ? result.length : 0;
-  } catch (error) {
-    return Object.keys(localStorage).filter(key => key.startsWith('user_')).length;
-  }
-}
-
-async function getTotalActivities() {
-  try {
-    const result = await supabase.query('activities');
-    return result ? result.length : 0;
-  } catch (error) {
-    return JSON.parse(localStorage.getItem('examblox_activities') || '[]').length;
-  }
-}
-
-function getSystemStats() {
-  let totalSize = 0;
-  for (let key in localStorage) {
-    if (localStorage.hasOwnProperty(key)) totalSize += localStorage[key].length;
-  }
-  return {storageUsed: Math.round(totalSize / 1024)};
-}
-
 async function generateUsersTable() {
   let html = '';
   try {
-    const users = await supabase.query('users');
+    const result = await apiCall('/api/users');
+    const users = result.users || [];
     
-    if (!users || users.length === 0) {
+    if (users.length === 0) {
       return '<tr><td colspan="5">No users found</td></tr>';
     }
     
@@ -529,7 +373,7 @@ async function generateUsersTable() {
     });
   } catch (error) {
     console.error('Error loading users:', error);
-    html = '<tr><td colspan="5">Error loading users</td></tr>';
+    html = '<tr><td colspan="5">Error loading users from backend</td></tr>';
   }
   
   return html || '<tr><td colspan="5">No users found</td></tr>';
@@ -537,8 +381,8 @@ async function generateUsersTable() {
 
 async function promoteUser(email) {
   try {
-    await supabase.update('users', `email=eq.${email}`, { plan: 'premium' });
-    showNotification(`User promoted to premium!`, 'success');
+    await apiCall(`/api/users/${email}`, 'PATCH', { plan: 'premium' });
+    showNotification('User promoted to premium!', 'success');
     closeAdminPanel();
     setTimeout(() => showAdminPanel(), 500);
   } catch (error) {
@@ -548,8 +392,8 @@ async function promoteUser(email) {
 
 async function demoteUser(email) {
   try {
-    await supabase.update('users', `email=eq.${email}`, { plan: 'free' });
-    showNotification(`User demoted to free plan!`, 'success');
+    await apiCall(`/api/users/${email}`, 'PATCH', { plan: 'free' });
+    showNotification('User demoted to free plan!', 'success');
     closeAdminPanel();
     setTimeout(() => showAdminPanel(), 500);
   } catch (error) {
@@ -560,46 +404,13 @@ async function demoteUser(email) {
 async function deleteUserFromAdmin(email, username) {
   if (confirm(`Are you sure you want to permanently delete user "${username}"?\n\nThis action cannot be undone.`)) {
     try {
-      await supabase.delete('users', `email=eq.${email}`);
+      await apiCall(`/api/users/${email}`, 'DELETE');
       showNotification('User deleted successfully', 'success');
       closeAdminPanel();
       setTimeout(() => showAdminPanel(), 500);
     } catch (error) {
       showNotification('Error deleting user', 'error');
     }
-  }
-}
-
-async function syncAllData() {
-  showNotification('Syncing all data to cloud...', 'info');
-  
-  try {
-    // Sync localStorage users to Supabase
-    let syncedCount = 0;
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith('user_')) {
-        const email = key.substring(5);
-        const userData = JSON.parse(localStorage.getItem(key));
-        
-        // Check if user exists
-        const existing = await supabase.query('users', {
-          filter: `email=eq.${email}`
-        });
-        
-        if (!existing || existing.length === 0) {
-          await supabase.insert('users', userData);
-          syncedCount++;
-        }
-      }
-    }
-    
-    showNotification(`Synced ${syncedCount} users to cloud database!`, 'success');
-    closeAdminPanel();
-    setTimeout(() => showAdminPanel(), 500);
-  } catch (error) {
-    console.error('Sync error:', error);
-    showNotification('Error syncing data. Check console.', 'error');
   }
 }
 
@@ -642,7 +453,7 @@ function exportUserData() {
   showNotification('User data exported!', 'success');
 }
 
-// ===== AUTH MODALS =====
+// AUTH MODALS
 function showAuthModal(type) {
   const isLogin = type === 'login';
   const modal = document.createElement('div');
@@ -682,11 +493,6 @@ function showAuthModal(type) {
       </form>
       
       <div style="text-align: center; margin-top: 20px; color: var(--text-secondary);">
-        ${isLogin ? `
-        <a href="#" id="forgot-password" style="color: var(--primary-light); text-decoration: none; display: block; margin-bottom: 10px;">
-          Forgot Password?
-        </a>
-        ` : ''}
         ${isLogin ? "Don't have an account?" : "Already have an account?"}
         <a href="#" id="auth-switch" style="color: var(--primary-light); text-decoration: none; margin-left: 5px;">
           ${isLogin ? 'Sign up' : 'Sign in'}
@@ -712,17 +518,6 @@ function showAuthModal(type) {
     closeAuthModal();
     showAuthModal(isLogin ? 'signup' : 'login');
   });
-
-  if (isLogin) {
-    const forgotBtn = document.getElementById('forgot-password');
-    if (forgotBtn) {
-      forgotBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-        closeAuthModal();
-        showNotification('Password reset feature coming soon!', 'info');
-      });
-    }
-  }
 }
 
 function setupPasswordToggle(inputId, buttonId) {
@@ -776,43 +571,26 @@ async function handleAuth(isLogin) {
       return;
     }
     
-    // Create user in Supabase
-    try {
-      const normalizedEmail = emailUsername.toLowerCase().trim();
-      const normalizedUsername = username.toLowerCase().trim();
-      
-      const userData = {
-        username: username,
-        name: name,
-        email: emailUsername,
-        password: password,
-        created_at: new Date().toISOString(),
-        plan: normalizedUsername === PROTECTED_ADMIN.username.toLowerCase() ? 'premium' : 'free',
-        role: normalizedUsername === PROTECTED_ADMIN.username.toLowerCase() ? 'admin' : 'user'
-      };
-      
-      await supabase.insert('users', userData);
-      
-      // Also save to localStorage as backup
-      localStorage.setItem(`user_${normalizedEmail}`, JSON.stringify(userData));
-      localStorage.setItem(`username_${normalizedUsername}`, normalizedEmail);
-      
-      closeAuthModal();
-      loginUser(userData);
-      showNotification('Account created successfully! Welcome to ExamBlox!', 'success');
-    } catch (error) {
-      console.error('Signup error:', error);
-      showNotification('Error creating account. Please try again.', 'error');
-    }
+    // Send OTP
+    closeAuthModal();
+    showSignupOTPModal(username, name, emailUsername, password);
   } else {
     // Login
-    const userData = await findUserByEmailOrUsername(emailUsername);
-    if (userData && userData.password === password) {
-      loginUser(userData);
-      closeAuthModal();
-      showNotification('Welcome back!', 'success');
-    } else {
-      showNotification('Invalid credentials. Please try again.', 'error');
+    try {
+      const result = await apiCall('/api/login', 'POST', { 
+        emailOrUsername: emailUsername, 
+        password: password 
+      });
+      
+      if (result.success && result.user) {
+        loginUser(result.user);
+        closeAuthModal();
+        showNotification('Welcome back!', 'success');
+      } else {
+        showNotification(result.error || 'Invalid credentials', 'error');
+      }
+    } catch (error) {
+      showNotification('Login failed. Please try again.', 'error');
     }
   }
 }
@@ -822,7 +600,135 @@ function closeAuthModal() {
   if (modal) document.body.removeChild(modal);
 }
 
-// ===== FILE UPLOAD =====
+// OTP MODAL - NO WELCOME EMAIL
+function showSignupOTPModal(username, name, email, password) {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'signup-otp-modal';
+  
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 450px;">
+      <div class="close-modal" onclick="closeSignupOTPModal()">&times;</div>
+      <h2>Verify Your Email</h2>
+      <p class="modal-subtitle">We've sent a 6-digit code to ${email}</p>
+      
+      <form id="signup-otp-form" style="display: flex; flex-direction: column; gap: 20px;">
+        <input type="text" id="signup-otp" placeholder="Enter 6-digit code" maxlength="6" required style="padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(21,19,32,0.8); color: var(--text); text-align: center; font-size: 18px; letter-spacing: 2px;">
+        
+        <button type="submit" style="background: linear-gradient(90deg, var(--primary-light), var(--primary)); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: 600; cursor: pointer;">
+          Verify & Create Account
+        </button>
+      </form>
+      
+      <div style="text-align: center; margin-top: 20px; color: var(--text-secondary);">
+        <a href="#" id="resend-signup-code" style="color: var(--primary-light); text-decoration: none; margin-right: 15px;">
+          Resend Code
+        </a>
+        <a href="#" id="back-to-signup" style="color: var(--primary-light); text-decoration: none;">
+          Back to Sign Up
+        </a>
+      </div>
+      
+      <div style="background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); border-radius: 8px; padding: 10px; margin-top: 15px; text-align: center;">
+        <small style="color: var(--warning);">Code expires in 10 minutes</small>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+  sendSignupOTP(email, name);
+
+  document.getElementById('signup-otp-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    verifySignupOTP(username, name, email, password);
+  });
+
+  document.getElementById('resend-signup-code').addEventListener('click', function(e) {
+    e.preventDefault();
+    sendSignupOTP(email, name);
+  });
+
+  document.getElementById('back-to-signup').addEventListener('click', function(e) {
+    e.preventDefault();
+    closeSignupOTPModal();
+    showAuthModal('signup');
+  });
+}
+
+async function sendSignupOTP(email, name) {
+  try {
+    showNotification('Sending verification code...', 'info');
+
+    const response = await fetch(`${BACKEND_URL}/api/send-otp`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        email: email,
+        name: name,
+        type: 'signup'
+      })
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      showNotification('Verification code sent to your email!', 'success');
+    } else {
+      showNotification(result.message || 'Failed to send verification code. Please try again.', 'error');
+    }
+  } catch (error) {
+    console.error('Error sending OTP:', error);
+    showNotification('Network error. Please check your connection.', 'error');
+  }
+}
+
+async function verifySignupOTP(username, name, email, password) {
+  const otp = document.getElementById('signup-otp').value.trim();
+
+  if (!otp || otp.length !== 6) {
+    showNotification('Please enter a valid 6-digit code', 'error');
+    return;
+  }
+
+  try {
+    showNotification('Verifying code...', 'info');
+
+    const verifyResponse = await fetch(`${BACKEND_URL}/api/verify-otp`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({email: email, otp: otp})
+    });
+
+    const verifyResult = await verifyResponse.json();
+
+    if (verifyResult.success) {
+      // Create user in Supabase via backend
+      const createResult = await apiCall('/api/users', 'POST', {
+        username, name, email, password, plan: 'free', role: 'user'
+      });
+      
+      if (createResult.success) {
+        closeSignupOTPModal();
+        loginUser(createResult.user);
+        showNotification('Account created successfully! Welcome to ExamBlox!', 'success');
+      } else {
+        showNotification(createResult.error || 'Failed to create account', 'error');
+      }
+    } else {
+      showNotification(verifyResult.message || 'Invalid or expired code', 'error');
+    }
+  } catch (error) {
+    console.error('Error verifying OTP:', error);
+    showNotification('Network error. Please try again.', 'error');
+  }
+}
+
+function closeSignupOTPModal() {
+  const modal = document.getElementById('signup-otp-modal');
+  if (modal) document.body.removeChild(modal);
+}
+
+// FILE UPLOAD
 let selectedFiles = [];
 let extractedTexts = [];
 let totalExtractedText = '';
@@ -996,7 +902,7 @@ async function callBackendAPI(text, questionType, numQuestions, difficulty) {
   try {
     const userPlan = (currentUser && currentUser.plan) || 'free';
     
-    const response = await fetch('https://examblox-production.up.railway.app/api/generate-questions', {
+    const response = await fetch(`${BACKEND_URL}/api/generate-questions`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
       body: JSON.stringify({
@@ -1120,7 +1026,7 @@ function formatFileSize(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-// ===== NOTIFICATION SYSTEM =====
+// NOTIFICATION SYSTEM
 function showNotification(message, type) {
   const existingNotifs = document.querySelectorAll('.notification');
   existingNotifs.forEach(n => {
@@ -1211,7 +1117,7 @@ function showNotification(message, type) {
   }
 }
 
-// ===== UTILITY FUNCTIONS =====
+// UTILITY FUNCTIONS
 function goToHomepage() {
   window.location.href = 'index.html';
 }
@@ -1274,7 +1180,6 @@ function initializeFooterLinks() {
   });
 }
 
-console.log('ExamBlox Complete - All Fixes Applied');
-console.log('Cloud Database: Supabase Integration Active');
-console.log('User Sync: Cross-Device Enabled');
+console.log('ExamBlox Complete - Supabase Backend Integration Active');
+console.log('Cloud Database: Users sync across all devices');
 console.log('Desktop & Mobile Dropdowns: Fixed');
