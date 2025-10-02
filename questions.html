@@ -1,4 +1,5 @@
-<!-- questions.html -->
+// questions.html - COMPLETE FIX
+// Save this as your questions.html file
 
 <!DOCTYPE html>
 <html lang="en">
@@ -11,11 +12,11 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    /* Questions Page Specific Styles - Fixed */
     .questions-container {
       background: var(--darker);
       min-height: 100vh;
       padding-top: 120px;
+      padding-bottom: 80px;
     }
 
     .questions-header {
@@ -32,16 +33,17 @@
       background: var(--card-bg);
       backdrop-filter: blur(10px);
       border-radius: 15px;
-      padding: 30px;
+      padding: 40px 30px 30px;
       margin-bottom: 25px;
       border: 1px solid rgba(255, 255, 255, 0.1);
       transition: all 0.3s;
       position: relative;
     }
 
+    /* FIXED: Question number positioning */
     .question-number {
       position: absolute;
-      top: -8px;
+      top: 15px;
       left: 20px;
       background: var(--primary);
       color: white;
@@ -52,7 +54,17 @@
       z-index: 10;
     }
 
-    /* Special handling for flashcards */
+    /* FIXED: Question text spacing */
+    .question-text {
+      font-size: 1.2rem;
+      font-weight: 500;
+      color: var(--text);
+      line-height: 1.6;
+      margin: 40px 0 20px 0;
+      padding-right: 0;
+      word-wrap: break-word;
+    }
+
     .flashcard .question-number {
       position: static;
       display: inline-block;
@@ -61,7 +73,7 @@
 
     .flashcard .question-text {
       text-align: center;
-      padding-right: 0;
+      margin-top: 20px;
     }
 
     .flashcard-container {
@@ -105,15 +117,6 @@
       transform: rotateY(0deg);
     }
 
-    /* Show navigation for flashcards */
-    .flashcard-mode #submit-quiz-btn {
-      display: none !important;
-    }
-    
-    .flashcard-mode #answered-count {
-      display: none !important;
-    }
-
     .option-item {
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(255, 255, 255, 0.1);
@@ -125,6 +128,16 @@
       align-items: center;
       gap: 12px;
       margin-bottom: 10px;
+    }
+
+    .option-item:hover {
+      background: rgba(106, 75, 255, 0.1);
+      border-color: var(--primary-light);
+    }
+
+    .option-item.selected {
+      background: rgba(106, 75, 255, 0.2);
+      border-color: var(--primary);
     }
 
     .option-letter {
@@ -165,13 +178,30 @@
       gap: 8px;
     }
 
-    /* Results Screen Styles */
+    .control-btn:hover {
+      background: var(--primary);
+      color: white;
+      transform: translateY(-2px);
+    }
+
+    /* ENHANCED RESULTS SCREEN */
     .results-container {
       display: none;
+      background: rgba(30,28,44,0.9);
+      border-radius: 20px;
+      padding: 40px;
+      margin-bottom: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
     }
     
     .results-container.active {
       display: block;
+      animation: fadeIn 0.5s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     
     .stat-card {
@@ -180,20 +210,42 @@
       padding: 20px;
       text-align: center;
       border: 1px solid rgba(255,255,255,0.1);
+      transition: transform 0.3s;
     }
-    
-    .page-performance {
-      background: rgba(255,255,255,0.05);
-      border-radius: 10px;
-      padding: 15px;
-      margin-bottom: 10px;
+
+    .stat-card:hover {
+      transform: translateY(-5px);
     }
     
     .question-review-item {
       background: rgba(255,255,255,0.05);
       border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 10px;
+      padding: 15px;
+      margin-bottom: 12px;
+      transition: all 0.3s;
+    }
+
+    .question-review-item:hover {
+      background: rgba(255,255,255,0.08);
+      transform: translateX(5px);
+    }
+
+    @media (max-width: 768px) {
+      .quiz-controls {
+        position: static;
+        margin-top: 20px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      .question-card {
+        padding: 35px 20px 20px;
+      }
+
+      .question-text {
+        font-size: 1.05rem;
+        margin-top: 35px;
+      }
     }
   </style>
 </head>
@@ -306,7 +358,6 @@
         document.getElementById('questions-main').classList.add('flashcard-mode');
         document.getElementById('submit-section').style.display = 'none';
         document.getElementById('answered-count-meta').style.display = 'none';
-        // Keep navigation controls for flashcards
       }
     }
 
@@ -349,11 +400,20 @@
       document.getElementById('difficulty-level').textContent = 'Medium Difficulty';
     }
 
+    // FIXED: Clean question text (remove ** markdown)
+    function cleanQuestionText(text) {
+      if (!text) return '';
+      return text.replace(/\*\*/g, '').replace(/^\*\*|\*\*$/g, '').trim();
+    }
+
     function displayCurrentQuestion() {
       if (questions.length === 0) return;
 
       const question = questions[currentQuestionIndex];
       const questionsDisplay = document.getElementById('questions-display');
+      
+      // FIXED: Clean the question text
+      const cleanQuestion = cleanQuestionText(question.question);
       
       let questionHTML = '';
       
@@ -361,7 +421,7 @@
         questionHTML = `
           <div class="question-card flashcard">
             <div class="question-number">Question ${currentQuestionIndex + 1}</div>
-            <div class="question-text">${question.question}</div>
+            <div class="question-text">${cleanQuestion}</div>
             <div class="flashcard-container ${showingExplanations[question.id] ? 'flipped' : ''}" onclick="flipFlashcard(${question.id})">
               <div class="flashcard-front">
                 <h3>Click to reveal answer</h3>
@@ -371,7 +431,7 @@
               </div>
               <div class="flashcard-back">
                 <h3 style="color: var(--accent); margin-bottom: 15px;">Answer</h3>
-                <p>${question.answer || question.explanation}</p>
+                <p>${cleanQuestionText(question.answer || question.explanation)}</p>
               </div>
             </div>
           </div>
@@ -380,7 +440,7 @@
         questionHTML = `
           <div class="question-card">
             <div class="question-number">Question ${currentQuestionIndex + 1}</div>
-            <div class="question-text">${question.question}</div>
+            <div class="question-text">${cleanQuestion}</div>
         `;
 
         if (question.type === 'Multiple Choice') {
@@ -388,11 +448,12 @@
           question.options.forEach((option, index) => {
             const letter = String.fromCharCode(65 + index);
             const isSelected = userAnswers[question.id] === index;
+            const cleanOption = cleanQuestionText(option);
             
             questionHTML += `
               <div class="option-item ${isSelected ? 'selected' : ''}" onclick="selectOption(${question.id}, ${index})">
                 <div class="option-letter">${letter}</div>
-                <div class="option-text">${option}</div>
+                <div class="option-text">${cleanOption}</div>
               </div>
             `;
           });
@@ -444,7 +505,6 @@
         document.getElementById('progress-text').textContent = `Question ${currentQuestionIndex + 1} of ${totalQuestions}`;
         document.getElementById('answered-count').textContent = `${answeredQuestions} Answered`;
       } else {
-        // For flashcards, show progress differently
         document.getElementById('progress-bar').style.width = `${progressPercentage}%`;
         document.getElementById('progress-text').textContent = `Flashcard ${currentQuestionIndex + 1} of ${totalQuestions}`;
       }
@@ -462,10 +522,8 @@
       
       if (currentQuestionIndex === questions.length - 1) {
         nextBtn.style.display = 'none';
-        if (!isFlashcardMode) {
-          finishBtn.style.display = 'flex';
-        } else {
-          finishBtn.style.display = 'flex';
+        finishBtn.style.display = 'flex';
+        if (isFlashcardMode) {
           finishBtn.innerHTML = '<i class="fas fa-flag-checkered"></i> Finish Review';
         }
       } else {
@@ -485,16 +543,25 @@
         if (!confirmed) return;
       }
       
-      showResultsScreen();
+      finishQuiz();
     }
-    
-    function showResultsScreen() {
-      // Calculate results
+
+    // COMPLETELY REDESIGNED RESULTS SCREEN
+    function finishQuiz() {
+      if (isFlashcardMode) {
+        const confirmed = confirm('Flashcard review completed!\n\nYou have reviewed all flashcards. Great job studying!\n\nClick OK to return home or Cancel to stay here.');
+        if (confirmed) {
+          window.location.href = 'index.html';
+        }
+        return;
+      }
+
+      // Calculate detailed results
       let correctAnswers = 0;
       let incorrectAnswers = 0;
       let skippedQuestions = 0;
       
-      const questionResults = questions.map(question => {
+      const questionResults = questions.map((question, index) => {
         const userAnswer = userAnswers[question.id];
         const isAnswered = userAnswer !== undefined;
         const isCorrect = isAnswered && userAnswer === question.correctAnswer;
@@ -508,10 +575,11 @@
         
         return {
           ...question,
+          questionNumber: index + 1,
           userAnswer,
           isAnswered,
           isCorrect,
-          page: `Question ${question.id}` // In production, extract from metadata
+          page: `Question ${index + 1}`
         };
       });
       
@@ -521,30 +589,55 @@
       document.getElementById('questions-display').style.display = 'none';
       document.getElementById('submit-section').style.display = 'none';
       document.getElementById('quiz-nav-controls').style.display = 'none';
+      document.getElementById('progress-container').style.display = 'none';
+      document.getElementById('progress-text').style.display = 'none';
       
-      // Show results screen
-      const resultsHTML = generateResultsHTML(score, correctAnswers, incorrectAnswers, skippedQuestions, questionResults);
-      document.getElementById('questions-display').insertAdjacentHTML('beforebegin', resultsHTML);
+      // Show enhanced results screen
+      const resultsHTML = generateEnhancedResultsHTML(score, correctAnswers, incorrectAnswers, skippedQuestions, questionResults);
+      
+      // Insert before header
+      const container = document.querySelector('.questions-container .container');
+      const header = document.querySelector('.questions-header');
+      header.insertAdjacentHTML('afterend', resultsHTML);
+      
+      // Update header
+      document.getElementById('file-source').textContent = `Quiz Results - ${score}% Score`;
+      document.querySelector('.questions-meta').style.display = 'none';
     }
     
-    function generateResultsHTML(score, correct, incorrect, skipped, questionResults) {
+    function generateEnhancedResultsHTML(score, correct, incorrect, skipped, questionResults) {
       const correctQuestions = questionResults.filter(q => q.isAnswered && q.isCorrect);
       const incorrectQuestions = questionResults.filter(q => q.isAnswered && !q.isCorrect);
       const skippedQuestionsList = questionResults.filter(q => !q.isAnswered);
       
+      // Performance feedback
+      let performanceFeedback = '';
+      if (score >= 90) {
+        performanceFeedback = '🌟 Outstanding! You have excellent mastery of this material!';
+      } else if (score >= 75) {
+        performanceFeedback = '🎯 Great job! You have a strong understanding. Review the missed questions to perfect your knowledge.';
+      } else if (score >= 60) {
+        performanceFeedback = '📚 Good effort! Focus on reviewing the incorrect answers to improve your understanding.';
+      } else {
+        performanceFeedback = '💪 Keep studying! Review all questions carefully and try again to improve your score.';
+      }
+      
       return `
-        <div id="results-screen" class="results-container active" style="background: rgba(30,28,44,0.8); border-radius: 20px; padding: 40px; margin-bottom: 30px;">
+        <div id="results-screen" class="results-container active">
           
           <!-- Score Overview -->
           <div style="text-align: center; margin-bottom: 40px;">
             <h1 style="font-size: 2.5rem; margin-bottom: 10px; background: linear-gradient(90deg, #6a4bff, #4dfff3); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
               Quiz Complete!
             </h1>
-            <div style="font-size: 4rem; font-weight: 800; color: #6a4bff; margin: 20px 0;">
+            <div style="font-size: 5rem; font-weight: 800; color: ${score >= 75 ? '#4CAF50' : score >= 60 ? '#ff9800' : '#f44336'}; margin: 20px 0;">
               ${score}%
             </div>
+            <p style="font-size: 1.2rem; color: var(--text-secondary); margin: 20px auto; max-width: 600px;">
+              ${performanceFeedback}
+            </p>
             
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 30px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 30px; max-width: 800px; margin-left: auto; margin-right: auto;">
               <div class="stat-card">
                 <div style="color: #4CAF50; font-size: 2rem; margin-bottom: 10px;">✓</div>
                 <div style="font-size: 2rem; font-weight: 700; color: #4CAF50;">${correct}</div>
@@ -572,21 +665,22 @@
           </div>
           
           <!-- Detailed Review -->
-          <h2 style="color: #6a4bff; margin: 30px 0 20px;">Question-by-Question Review</h2>
+          <h2 style="color: #6a4bff; margin: 40px 0 20px; font-size: 1.8rem;">📋 Question-by-Question Review</h2>
           
           ${correctQuestions.length > 0 ? `
             <div style="margin-bottom: 30px;">
-              <h3 style="color: #4CAF50; margin-bottom: 15px;">✓ Correct Answers (${correctQuestions.length})</h3>
+              <h3 style="color: #4CAF50; margin-bottom: 15px; font-size: 1.3rem;">✓ Correct Answers (${correctQuestions.length})</h3>
               ${correctQuestions.map(q => `
                 <div class="question-review-item" style="border-left: 4px solid #4CAF50;">
-                  <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <strong>Q${q.id}:</strong>
-                    <span style="color: #ccc; font-size: 0.85rem;">${q.page}</span>
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 10px;">
+                    <strong style="color: var(--text);">Question ${q.questionNumber}:</strong>
+                    <span style="color: #4CAF50; font-size: 0.85rem;">✓ Correct</span>
                   </div>
-                  <div style="margin-bottom: 8px;">${q.question}</div>
-                  <div style="color: #4CAF50; font-size: 0.9rem;">
-                    ✓ Your answer: Option ${String.fromCharCode(65 + q.userAnswer)} (Correct!)
+                  <div style="margin-bottom: 8px; color: var(--text-secondary);">${cleanQuestionText(q.question)}</div>
+                  <div style="color: #4CAF50; font-size: 0.9rem; background: rgba(76,175,80,0.1); padding: 8px; border-radius: 6px;">
+                    <strong>Your answer:</strong> Option ${String.fromCharCode(65 + q.userAnswer)} - ${cleanQuestionText(q.options[q.userAnswer])}
                   </div>
+                  ${q.explanation ? `<div style="margin-top: 8px; padding: 10px; background: rgba(77,255,243,0.1); border-radius: 6px; font-size: 0.85rem; color: #ccc;"><strong>📖 Explanation:</strong> ${cleanQuestionText(q.explanation)}</div>` : ''}
                 </div>
               `).join('')}
             </div>
@@ -594,111 +688,4 @@
           
           ${incorrectQuestions.length > 0 ? `
             <div style="margin-bottom: 30px;">
-              <h3 style="color: #f44336; margin-bottom: 15px;">✗ Incorrect Answers - Review These (${incorrectQuestions.length})</h3>
-              ${incorrectQuestions.map(q => `
-                <div class="question-review-item" style="border-left: 4px solid #f44336;">
-                  <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <strong>Q${q.id}:</strong>
-                    <span style="color: #ccc; font-size: 0.85rem;">${q.page}</span>
-                  </div>
-                  <div style="margin-bottom: 8px;">${q.question}</div>
-                  <div style="color: #f44336; font-size: 0.9rem; margin-bottom: 4px;">
-                    ✗ Your answer: Option ${String.fromCharCode(65 + q.userAnswer)}
-                  </div>
-                  <div style="color: #4CAF50; font-size: 0.9rem;">
-                    ✓ Correct answer: Option ${String.fromCharCode(65 + q.correctAnswer)} - ${q.options[q.correctAnswer]}
-                  </div>
-                  ${q.explanation ? `<div style="margin-top: 8px; padding: 10px; background: rgba(77,255,243,0.1); border-radius: 6px; font-size: 0.85rem; color: #ccc;">${q.explanation}</div>` : ''}
-                </div>
-              `).join('')}
-            </div>
-          ` : ''}
-          
-          ${skippedQuestionsList.length > 0 ? `
-            <div style="margin-bottom: 30px;">
-              <h3 style="color: #ff9800; margin-bottom: 15px;">○ Skipped Questions (${skippedQuestionsList.length})</h3>
-              ${skippedQuestionsList.map(q => `
-                <div class="question-review-item" style="border-left: 4px solid #ff9800;">
-                  <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                    <strong>Q${q.id}:</strong>
-                    <span style="color: #ccc; font-size: 0.85rem;">${q.page}</span>
-                  </div>
-                  <div style="margin-bottom: 8px;">${q.question}</div>
-                  <div style="color: #ff9800; font-size: 0.9rem; margin-bottom: 4px;">
-                    ○ Not answered
-                  </div>
-                  <div style="color: #4CAF50; font-size: 0.9rem;">
-                    ✓ Correct answer: Option ${String.fromCharCode(65 + q.correctAnswer)} - ${q.options[q.correctAnswer]}
-                  </div>
-                </div>
-              `).join('')}
-            </div>
-          ` : ''}
-          
-          <!-- Action Buttons -->
-          <div style="display: flex; gap: 15px; justify-content: center; margin-top: 40px; flex-wrap: wrap;">
-            <button onclick="window.location.href='index.html'" style="background: linear-gradient(90deg, #6a4bff, #9b6aff); color: white; border: none; padding: 15px 30px; border-radius: 25px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 10px;">
-              <i class="fas fa-home"></i> Back to Home
-            </button>
-            <button onclick="location.reload()" style="background: rgba(255,255,255,0.1); color: white; border: none; padding: 15px 30px; border-radius: 25px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 10px;">
-              <i class="fas fa-redo"></i> Try Again
-            </button>
-          </div>
-        </div>
-      `;
-    }
-    function submitQuiz() {
-      if (isFlashcardMode) return;
-      
-      const totalQuestions = questions.length;
-      const answeredQuestions = Object.keys(userAnswers).length;
-      
-      if (answeredQuestions < totalQuestions) {
-        const confirmed = confirm(`You have answered ${answeredQuestions} out of ${totalQuestions} questions. Are you sure you want to submit?`);
-        if (!confirmed) return;
-      }
-      
-      finishQuiz();
-    }
-
-    function finishQuiz() {
-      if (isFlashcardMode) {
-        alert('Flashcard review completed!\n\nYou have reviewed all flashcards. Great job studying!');
-        return;
-      }
-
-      const totalQuestions = questions.length;
-      const answeredQuestions = Object.keys(userAnswers).length;
-      
-      let correctAnswers = 0;
-      questions.forEach(question => {
-        const userAnswer = userAnswers[question.id];
-        if (question.type === 'Multiple Choice' && userAnswer === question.correctAnswer) {
-          correctAnswers++;
-        }
-      });
-      
-      const percentage = Math.round((correctAnswers / totalQuestions) * 100);
-      
-      alert(`Quiz Complete!\n\nScore: ${correctAnswers}/${totalQuestions} (${percentage}%)\nAnswered: ${answeredQuestions}/${totalQuestions} questions`);
-    }
-
-    function goToHomepage() {
-      window.location.href = 'index.html';
-    }
-
-    function initializeStarsBackground() {
-      const starsContainer = document.querySelector('.stars');
-      if (!starsContainer) return;
-      
-      for (let i = 0; i < 100; i++) {
-        const star = document.createElement('span');
-        star.style.left = Math.random() * 100 + '%';
-        star.style.top = Math.random() * 100 + '%';
-        star.style.animationDelay = Math.random() * 4 + 's';
-        starsContainer.appendChild(star);
-      }
-    }
-  </script>
-</body>
-</html>
+              <h3 style="color: #f44336; margin-bottom: 15px; font-size: 1.3rem;">✗ Incorrect Answers - Review These! (${incorrectQuestions.length}
