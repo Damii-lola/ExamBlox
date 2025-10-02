@@ -1,9 +1,8 @@
-// index.js - FIXED: DMARC, File Size Limits, Difficulty, Backups
+// index.js - COMPLETE RAILWAY BACKEND with Supabase
 const express = require('express');
 const cors = require('cors');
 const sgMail = require('@sendgrid/mail');
-const fs = require('fs').promises;
-const path = require('path');
+const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
 const app = express();
@@ -21,9 +20,15 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.use(express.json({ limit: '30mb' })); // Increased for larger files
+app.use(express.json({ limit: '30mb' }));
 
-// SendGrid Configuration with DMARC alignment
+// Initialize Supabase
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY
+);
+
+// SendGrid Configuration
 let emailConfigured = false;
 let verifiedSender = null;
 
@@ -31,118 +36,179 @@ if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_VERIFIED_SENDER) {
   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
   verifiedSender = process.env.SENDGRID_VERIFIED_SENDER;
   emailConfigured = true;
-  console.log('✅ SendGrid configured with DMARC compliance');
+  console.log('✅ SendGrid configured');
   console.log(`📧 Verified Sender: ${verifiedSender}`);
 } else {
-  console.error('❌ SendGrid not configured - Set SENDGRID_API_KEY and SENDGRID_VERIFIED_SENDER');
+  console.error('❌ SendGrid not configured');
 }
 
 const otpStorage = new Map();
-const dailyBackups = new Map(); // Store backups in memory
-
-// AUTOMATIC DAILY BACKUP SYSTEM
-async function createDailyBackup() {
-  const today = new Date().toISOString().split('T')[0];
-  
-  if (!dailyBackups.has(today)) {
-    const backupData = {
-      date: today,
-      timestamp: new Date().toISOString(),
-      data: {} // In production, fetch from database
-    };
-    
-    dailyBackups.set(today, backupData);
-    console.log(`📦 Daily backup created for ${today}`);
-    
-    // Keep only last 30 days
-    if (dailyBackups.size > 30) {
-      const oldest = Array.from(dailyBackups.keys()).sort()[0];
-      dailyBackups.delete(oldest);
-    }
-  }
-}
-
-// Run backup at midnight
-setInterval(() => {
-  const now = new Date();
-  if (now.getHours() === 0 && now.getMinutes() === 0) {
-    createDailyBackup();
-  }
-}, 60000); // Check every minute
-
-// Create initial backup
-createDailyBackup();
 
 app.get('/', (req, res) => {
   res.json({ 
-    message: 'ExamBlox Backend API - All Fixed',
+    message: 'ExamBlox Backend API - Supabase Integrated',
     status: 'active',
     platform: 'railway',
-    aiModel: 'llama-3.3-70b-versatile',
-    emailService: 'SendGrid with DMARC',
+    database: 'supabase',
+    emailService: 'SendGrid',
     emailEnabled: emailConfigured,
-    verifiedSender: emailConfigured ? verifiedSender : 'Not configured',
-    features: {
-      dmarcCompliance: true,
-      dailyBackups: true,
-      fileSizeLimits: { free: '5MB', premium: '25MB' },
-      difficultyLevels: ['Medium', 'Hard', 'Exam Level', 'Expert']
-    },
     endpoints: {
       test: 'GET /',
       generate: 'POST /api/generate-questions',
       sendOtp: 'POST /api/send-otp',
       verifyOtp: 'POST /api/verify-otp',
-      welcomeEmail: 'POST /api/send-welcome-email',
-      backups: 'GET /api/backups',
-      restoreBackup: 'POST /api/restore-backup'
+      users: {
+        getAll: 'GET /api/users',
+        create: 'POST /api/users',
+        login: 'POST /api/login',
+        update: 'PATCH /api/users/:email',
+        delete: 'DELETE /api/users/:email'
+      }
     }
   });
 });
 
-// GET AVAILABLE BACKUPS
-app.get('/api/backups', (req, res) => {
-  const backupList = Array.from(dailyBackups.entries()).map(([date, backup]) => ({
-    date: date,
-    timestamp: backup.timestamp,
-    size: JSON.stringify(backup.data).length
-  }));
-  
-  res.json({
-    success: true,
-    backups: backupList.sort((a, b) => b.date.localeCompare(a.date))
-  });
+// ===== USER MANAGEMENT ENDPOINTS =====
+
+// GET ALL USERS (for admin panel)
+app.get('/api/users', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    res.json({ success: true, users: data || [] });
+  } catch (error) {
+    console.error('Get users error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
-// RESTORE FROM BACKUP
-app.post('/api/restore-backup', (req, res) => {
-  const { date } = req.body;
-  
-  if (!date) {
-    return res.status(400).json({
-      success: false,
-      error: 'Date required'
-    });
+// CREATE USER (signup)
+app.post('/api/users', async (req, res) => {
+  try {
+    const { username, name, email, password, plan, role } = req.body;
+    
+    if (!username || !name || !email || !password) {
+      return res.status(400).json({ success: false, error: 'Missing required fields' });
+    }
+    
+    // Check if user exists
+    const { data: existing } = await supabase
+      .from('users')
+      .select('email, username')
+      .or(`email.ilike.${email},username.ilike.${username}`)
+      .limit(1);
+    
+    if (existing && existing.length > 0) {
+      const existingUser = existing[0];
+      return res.status(400).json({ 
+        success: false, 
+        error: existingUser.email.toLowerCase() === email.toLowerCase() 
+          ? 'Email already exists' 
+          : 'Username already exists' 
+      });
+    }
+    
+    // Create user
+    const { data, error } = await supabase
+      .from('users')
+      .insert([{ 
+        username, 
+        name, 
+        email, 
+        password, 
+        plan: plan || 'free', 
+        role: role || 'user',
+        is_permanent: false
+      }])
+      .select();
+    
+    if (error) throw error;
+    
+    console.log(`✅ User created: ${email}`);
+    res.json({ success: true, user: data[0] });
+  } catch (error) {
+    console.error('Create user error:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
-  
-  const backup = dailyBackups.get(date);
-  
-  if (!backup) {
-    return res.status(404).json({
-      success: false,
-      error: 'Backup not found'
-    });
-  }
-  
-  res.json({
-    success: true,
-    message: 'Backup retrieved',
-    backup: backup.data,
-    timestamp: backup.timestamp
-  });
 });
 
-// SEND OTP with DMARC compliance
+// LOGIN USER
+app.post('/api/login', async (req, res) => {
+  try {
+    const { emailOrUsername, password } = req.body;
+    
+    if (!emailOrUsername || !password) {
+      return res.status(400).json({ success: false, error: 'Email/username and password required' });
+    }
+    
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .or(`email.ilike.${emailOrUsername},username.ilike.${emailOrUsername}`)
+      .eq('password', password)
+      .limit(1);
+    
+    if (error) throw error;
+    
+    if (!data || data.length === 0) {
+      return res.status(401).json({ success: false, error: 'Invalid credentials' });
+    }
+    
+    console.log(`✅ User logged in: ${data[0].email}`);
+    res.json({ success: true, user: data[0] });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// UPDATE USER (promote/demote)
+app.patch('/api/users/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+    const updates = req.body;
+    
+    const { data, error } = await supabase
+      .from('users')
+      .update(updates)
+      .eq('email', email)
+      .select();
+    
+    if (error) throw error;
+    
+    console.log(`✅ User updated: ${email}`);
+    res.json({ success: true, user: data[0] });
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// DELETE USER
+app.delete('/api/users/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+    
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('email', email);
+    
+    if (error) throw error;
+    
+    console.log(`✅ User deleted: ${email}`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ===== OTP ENDPOINT (NO WELCOME EMAIL) =====
 app.post('/api/send-otp', async (req, res) => {
   try {
     if (!emailConfigured) {
@@ -277,7 +343,6 @@ app.post('/api/send-otp', async (req, res) => {
     
     const template = emailTemplates[type] || emailTemplates.signup;
     
-    // DMARC-compliant message configuration
     const msg = {
       to: email,
       from: {
@@ -291,17 +356,12 @@ app.post('/api/send-otp', async (req, res) => {
       trackingSettings: {
         clickTracking: { enable: false },
         openTracking: { enable: false }
-      },
-      mailSettings: {
-        bypassListManagement: { enable: false },
-        footer: { enable: false },
-        sandboxMode: { enable: false }
       }
     };
     
     try {
       await sgMail.send(msg);
-      console.log(`✅ OTP email sent to ${email} (DMARC compliant)`);
+      console.log(`✅ OTP email sent to ${email}`);
       
       res.json({
         success: true,
@@ -385,67 +445,7 @@ app.post('/api/verify-otp', (req, res) => {
   }
 });
 
-app.post('/api/send-welcome-email', async (req, res) => {
-  try {
-    if (!emailConfigured) {
-      return res.json({ success: true, message: 'Email not configured' });
-    }
-
-    const { email, name } = req.body;
-    
-    if (!email || !name) {
-      return res.status(400).json({ success: false, error: 'Email and name required' });
-    }
-    
-    const msg = {
-      to: email,
-      from: {
-        email: verifiedSender,
-        name: 'ExamBlox'
-      },
-      subject: 'Welcome to ExamBlox!',
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
-          <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
-            <tr>
-              <td align="center">
-                <table width="600" cellpadding="0" cellspacing="0" style="background: white; border-radius: 10px;">
-                  <tr>
-                    <td style="padding: 40px 30px; text-align: center;">
-                      <h1 style="color: #6a4bff;">Welcome to ExamBlox!</h1>
-                      <p>Hi <strong>${name}</strong>,</p>
-                      <p>Thank you for joining ExamBlox!</p>
-                      <p style="margin: 30px 0;"><strong>Your free plan includes:</strong></p>
-                      <ul style="text-align: left; display: inline-block;">
-                        <li>5 file uploads per month</li>
-                        <li>Up to 10 questions per upload</li>
-                        <li>5MB file size limit</li>
-                      </ul>
-                      <p>Wishing you success in your studies!</p>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-        </body>
-        </html>
-      `,
-      text: `Welcome to ExamBlox, ${name}!\n\nYour free plan includes:\n- 5 file uploads per month\n- Up to 10 questions per upload\n- 5MB file size limit\n\nBest regards,\nThe ExamBlox Team`
-    };
-    
-    await sgMail.send(msg);
-    res.json({ success: true });
-    
-  } catch (error) {
-    console.error('Welcome email failed:', error);
-    res.json({ success: true, note: 'Email failed but signup succeeded' });
-  }
-});
-
-// QUESTION GENERATION with ACTUAL DIFFICULTY
+// ===== QUESTION GENERATION =====
 app.post('/api/generate-questions', async (req, res) => {
   try {
     const { text, questionType, numQuestions, difficulty, userPlan = 'free' } = req.body;
@@ -454,12 +454,11 @@ app.post('/api/generate-questions', async (req, res) => {
       return res.status(400).json({ error: 'Text is required' });
     }
 
-    // Map frontend difficulty to actual AI difficulty
     const difficultyMapping = {
-      'Easy': 'Medium',  // Easy becomes Medium
-      'Medium': 'Hard',  // Medium becomes Hard
-      'Hard': 'Exam Level',  // Hard becomes Exam Level
-      'Exam Level': 'Expert'  // Exam Level becomes Expert
+      'Easy': 'Medium',
+      'Medium': 'Hard',
+      'Hard': 'Exam Level',
+      'Exam Level': 'Expert'
     };
 
     const actualDifficulty = difficultyMapping[difficulty] || 'Hard';
@@ -592,14 +591,14 @@ async function generateSingleBatchLlama(text, questionType, numQuestions, diffic
         messages: [
           {
             role: "system",
-            content: `You are an expert exam creator specializing in ${difficulty} difficulty questions. Create challenging, thought-provoking questions that test deep understanding and critical thinking BUT u should actually read the FULL text that was uploaded, and get quesstions from it not just skimming through it and generating guess work questions, go through the document for goodness sakes. Also be mindful of the difficulty. ALSO I DONT WANT TO SEE REPEATING QUESTIONS, and when generating questions, ask urself, is this the kind of question that will be in an actual REAL-LIFE exam, if not remove it and regenerate new questions, if yes then keep.`
+            content: `You are an expert exam creator specializing in ${difficulty} difficulty questions.`
           },
           {
             role: "user",
             content: prompt
           }
         ],
-        temperature: 0.7, // Higher for more creative/difficult questions
+        temperature: 0.7,
         max_tokens: 2800
       })
     });
@@ -621,138 +620,51 @@ async function generateSingleBatchLlama(text, questionType, numQuestions, diffic
 }
 
 function createEnhancedPrompt(text, questionType, numQuestions, difficulty) {
-  const baseInstructions = `
-You are an expert exam creator. Your task is to carefully read, analyze, and extract key information from the provided text in order to generate realistic, high-quality exam-style questions.
-
-CRITICAL READING REQUIREMENTS:
-Read EVERY sentence — do not skip or skim.
-Extract all key concepts, definitions, processes, and facts.
-Understand the context, tone, and educational level of the text.
-Identify technical terms, acronyms, and their meanings.
-Recognize and respect relationships between concepts.
-If something is unclear, re-read the text until you fully understand it.
-
-QUESTION GENERATION RULES:
-
-✅ DO:
-Create realistic exam-style questions (the kind that would actually appear in professional or academic exams).
-Base every question directly on the text — do not invent or assume.
-Use synonyms, paraphrasing, and acronyms to make students think more deeply.
-Include a mix of question types: definitions, applications, comparisons, and analysis.
-Ensure questions are globally appropriate (not restricted to U.S. or U.K. context).
-When making multiple-choice questions, make the options very close in value or meaning (e.g., if the correct answer is 0.23, use 0.21, 0.22, 0.24 as distractors).
-Make use of the entire text — do not skip sections.
-
-❌ DO NOT:
-Overuse scenario-based questions (keep them minimal and realistic).
-Ask questions that require guessing what the author “thinks.”
-Skip acronyms, synonyms, or subtle wording differences.
-Create overly complex or wordy questions that confuse the student.
-Make the correct answer obvious by including weak distractors.
-
-COMMON ISSUES TO AVOID:
-Repetition: Don’t generate near-duplicate questions.
-Guessing: Don’t invent information not supported by the text.
-Partial reading: Don’t only use the main points — every sentence has value.
-Over-simplification: Don’t make options or questions too easy to spot.
-
-QUESTION DISTRIBUTION (COGNITIVE LEVEL MIX):
-30% Knowledge/Recall → terms, definitions, factual details
-40% Understanding/Application → explain, apply, demonstrate use
-20% Analysis → compare, contrast, break down relationships
-10% Synthesis/Evaluation → judge, critique, create, evaluate
-
-FINAL REMINDER:
-Treat this as if you are the original author of the text and now setting realistic exam questions for students.
-Questions must feel like they belong in a real test, not random AI output.
-Difficulty should be moderate to high — challenging but fair.
-
-Most importantly: Read, understand, and respect the vibe of the text before generating anything.
-ALSOOOOOOOOOOOOOO WHAT THE FUCK ARE U DOING WHY TF ARE U JUST GIVING US A SINGLE WORD AND ASKING FOR THE DEFINITION, WE CAME FOR QUESTIONS U BRAINLESS, RUBBISH, FUCKING USELESS MACHINE
-MAKE THE QUESTIONS MORE DIFFICULT, CHALLENGING, PUZZLING AND WILL ONLY BE ABLE TO BE ANSWERED BY SOMEONE WHO THOROUGHLY STUDIED THE TEXT
-`;
+  const baseInstructions = `You are an expert exam creator. Generate ${numQuestions} ${questionType} questions from the text below. Make them challenging and test deep understanding.`;
 
   let specificPrompt = '';
 
   if (questionType === 'Multiple Choice') {
     specificPrompt = `${baseInstructions}
 
-TEXT TO ANALYZE:
+TEXT:
 """
 ${text}
 """
 
-CREATE ${numQuestions} MULTIPLE CHOICE QUESTIONS
-
-FORMAT REQUIREMENTS:
-Q1: [Clear, direct question using synonyms/paraphrasing from text]
-A) [Plausible distractor based on related concepts]
-B) [Correct answer - requires understanding, not just memorization]
-C) [Plausible distractor - common misconception]
-D) [Plausible distractor - partially correct but incomplete]
+FORMAT:
+Q1: [Question]
+A) [Option]
+B) [Option]
+C) [Option]
+D) [Option]
 ANSWER: B
-EXPLANATION: [Brief explanation linking answer to specific text content]
-
-QUESTION VARIETY REQUIRED:
-- Definition questions (What is...? Define...)
-- Process questions (How does...work? Describe the process...)
-- Comparison questions (What distinguishes X from Y?)
-- Application questions (When would you use...?)
-- Cause-effect questions (What causes...? What results from...?)
-
-EXAMPLE OF GOOD QUESTION STYLE:
-Instead of: "According to the passage, mitochondria produce energy"
-Write: "Which cellular organelle is primarily responsible for ATP synthesis through aerobic respiration?"
-
-START GENERATING NOW AND FUCKING GENERATE GOOOOOOOD FUCKING QUESTIONS:`;
+EXPLANATION: [Brief explanation]`;
 
   } else if (questionType === 'True/False') {
     specificPrompt = `${baseInstructions}
 
-TEXT TO ANALYZE:
+TEXT:
 """
 ${text}
 """
 
-CREATE ${numQuestions} TRUE/FALSE STATEMENTS
-
-REQUIREMENTS:
-- Base ALL statements on actual text content
-- Use paraphrasing and synonyms
-- Mix obviously true/false with nuanced statements
-- Test genuine understanding, not trick questions
-- Include statements about definitions, processes, and relationships
-
 FORMAT:
-Q1: [Clear declarative statement using text concepts]
+Q1: [Statement]
 ANSWER: True
-EXPLANATION: [Why this is true/false, referencing text]
-
-START GENERATING NOW AND FUCKING GENERATE GOOOOOOOD FUCKING QUESTIONS:`;
+EXPLANATION: [Why]`;
 
   } else if (questionType === 'Flashcards') {
     specificPrompt = `${baseInstructions}
 
-TEXT TO ANALYZE:
+TEXT:
 """
 ${text}
 """
 
-CREATE ${numQuestions} FLASHCARDS FOR ACTIVE RECALL
-
-REQUIREMENTS:
-- Front: Key term, concept, or process question from text
-- Back: Comprehensive explanation (4-6 sentences) with:
-  * Clear definition
-  * Context from the text
-  * Example or application
-  * Connection to related concepts
-
 FORMAT:
-Q1: [Term/concept/process question]
-ANSWER: [Detailed 4-6 sentence explanation with examples and context]
-
-START GENERATING NOW AND FUCKING GENERATE GOOOOOOOD FUCKING QUESTIONS:`;
+Q1: [Term/Concept]
+ANSWER: [Detailed explanation]`;
   }
 
   return specificPrompt;
@@ -878,10 +790,8 @@ app.use('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
+  console.log('🗄️ Database: Supabase Connected');
   console.log('🤖 AI Model: Deepseek-r1-distill-llama-70b');
-  console.log('📧 Email Service: SendGrid with DMARC compliance');
+  console.log('📧 Email Service: SendGrid');
   console.log('📧 Email Status:', emailConfigured ? 'Enabled & Ready' : 'Check environment variables');
-  console.log('📦 Daily Backups: Enabled');
-  console.log('🎯 Enhanced Difficulty: Active');
-  console.log('📏 File Limits: Free=5MB, Premium=25MB');
 });
