@@ -6,7 +6,7 @@ let currentUser = null;
 
 const PROTECTED_ADMIN = {
   username: 'damii-lola',
-  name: 'Damiilola',
+  name: 'Damilola',
   email: 'examblox.team@gmail.com',
   password: 'admin123secure',
   plan: 'premium',
