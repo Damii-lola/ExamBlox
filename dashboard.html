@@ -1,21 +1,201 @@
-<!-- dashboard.html -->
-
+<!-- questions.html - COMPLETE FIXED VERSION -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard - ExamBlox</title>
+  <title>Practice Questions - ExamBlox</title>
   <link rel="icon" type="image/png" href="images/favicon.png">
   <link rel="stylesheet" href="Frontend/style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    .questions-container {
+      background: var(--darker);
+      min-height: 100vh;
+      padding-top: 120px;
+      padding-bottom: 80px;
+    }
+    .questions-header {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: 30px;
+      margin-bottom: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      text-align: center;
+    }
+    .question-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      padding: 40px 30px 30px;
+      margin-bottom: 25px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.3s;
+      position: relative;
+    }
+    .question-number {
+      position: absolute;
+      top: 15px;
+      left: 20px;
+      background: var(--primary);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      z-index: 10;
+    }
+    .question-text {
+      font-size: 1.2rem;
+      font-weight: 500;
+      color: var(--text);
+      line-height: 1.6;
+      margin: 40px 0 20px 0;
+      padding-right: 0;
+      word-wrap: break-word;
+    }
+    .option-item {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 15px 20px;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .option-item:hover {
+      background: rgba(106, 75, 255, 0.1);
+      border-color: var(--primary-light);
+    }
+    .option-item.selected {
+      background: rgba(106, 75, 255, 0.2);
+      border-color: var(--primary);
+    }
+    .option-letter {
+      background: var(--primary);
+      color: white;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 0.9rem;
+      flex-shrink: 0;
+    }
+    .quiz-controls {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      display: flex;
+      gap: 15px;
+      z-index: 100;
+    }
+    .control-btn {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text);
+      padding: 12px 20px;
+      border-radius: 25px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .control-btn:hover {
+      background: var(--primary);
+      color: white;
+      transform: translateY(-2px);
+    }
+    .results-container {
+      display: none;
+      background: rgba(30,28,44,0.9);
+      border-radius: 20px;
+      padding: 40px;
+      margin-bottom: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .results-container.active {
+      display: block;
+      animation: fadeIn 0.5s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .stat-card {
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,0.1);
+      transition: transform 0.3s;
+    }
+    .stat-card:hover {
+      transform: translateY(-5px);
+    }
+    .question-review-item {
+      background: rgba(255,255,255,0.05);
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 12px;
+      transition: all 0.3s;
+    }
+    .question-review-item:hover {
+      background: rgba(255,255,255,0.08);
+      transform: translateX(5px);
+    }
+    /* Flashcard Styles */
+    .flashcard-container {
+      min-height: 200px;
+      cursor: pointer;
+      position: relative;
+      perspective: 1000px;
+      padding: 30px;
+      text-align: center;
+    }
+    .flashcard-front, .flashcard-back {
+      transition: transform 0.6s;
+      backface-visibility: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    .flashcard-container.flipped .flashcard-front {
+      transform: rotateY(180deg);
+    }
+    .flashcard-container.flipped .flashcard-back {
+      transform: rotateY(0deg);
+    }
+    @media (max-width: 768px) {
+      .quiz-controls {
+        position: static;
+        margin-top: 20px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .question-card {
+        padding: 35px 20px 20px;
+      }
+      .question-text {
+        font-size: 1.05rem;
+        margin-top: 35px;
+      }
+    }
+  </style>
 </head>
 <body>
-  <!-- STAR BACKGROUND -->
   <div class="stars"></div>
-
-  <!-- Navigation -->
   <nav class="navbar">
     <div class="container">
       <div class="site-logo" onclick="goToHomepage()" style="cursor: pointer;">
@@ -24,6 +204,7 @@
       </div>
       <ul class="nav-links">
         <li><a href="index.html">Home</a></li>
+        <li><a href="dashboard.html">Dashboard</a></li>
         <li><a href="#" class="btn-login">Login</a></li>
         <li><a href="#" class="btn-signup">Sign Up</a></li>
       </ul>
@@ -34,459 +215,430 @@
       </div>
     </div>
   </nav>
-
-  <!-- Dashboard Container -->
-  <div class="dashboard-container">
+  <div class="questions-container" id="questions-main">
     <div class="container">
-      <!-- Dashboard Header -->
-      <div class="dashboard-header">
-        <h1>Welcome back, <span id="user-name" style="font-size: inherit; color: var(--accent);">User</span>!</h1>
-        <p>Track your learning progress and manage your study sessions</p>
+      <div class="questions-header">
+        <h1>Practice Questions</h1>
+        <p id="file-source">Generated from your uploaded document</p>
+        <div class="questions-meta">
+          <div class="meta-item">
+            <i class="fas fa-list-ol"></i>
+            <span id="total-questions">10 Questions</span>
+          </div>
+          <div class="meta-item">
+            <i class="fas fa-clock"></i>
+            <span id="question-type">Multiple Choice</span>
+          </div>
+          <div class="meta-item">
+            <i class="fas fa-chart-line"></i>
+            <span id="difficulty-level">Medium Difficulty</span>
+          </div>
+          <div class="meta-item" id="answered-count-meta">
+            <i class="fas fa-check-circle"></i>
+            <span id="answered-count">0 Answered</span>
+          </div>
+        </div>
+        <div class="progress-bar-container" id="progress-container">
+          <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        <div class="progress-text" id="progress-text">Question 1 of 10</div>
       </div>
-
-      <!-- Dashboard Stats -->
-      <div class="dashboard-stats">
-        <div class="stat-card">
-          <div class="stat-icon"><i class="fas fa-question-circle"></i></div>
-          <div class="stat-content">
-            <h3 id="total-questions">0</h3>
-            <p>Questions Generated</p>
-          </div>
-        </div>
-        
-        <div class="stat-card">
-          <div class="stat-icon"><i class="fas fa-file-alt"></i></div>
-          <div class="stat-content">
-            <h3 id="files-processed">0</h3>
-            <p>Files Processed</p>
-          </div>
-        </div>
-        
-        <div class="stat-card">
-          <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
-          <div class="stat-content">
-            <h3 id="avg-score">0%</h3>
-            <p>Average Score</p>
-          </div>
-        </div>
-        
-        <div class="stat-card">
-          <div class="stat-icon"><i class="fas fa-calendar-check"></i></div>
-          <div class="stat-content">
-            <h3 id="study-sessions">0</h3>
-            <p>Study Sessions</p>
-          </div>
-        </div>
+      <div id="questions-display"></div>
+      <div style="text-align: center; margin: 40px 0;" id="submit-section">
+        <button class="control-btn" id="submit-quiz-btn" onclick="submitQuiz()" style="background: var(--success); font-size: 16px; padding: 15px 30px;">
+          <i class="fas fa-check-circle"></i>
+          Submit Quiz
+        </button>
       </div>
-
-      <!-- Recent Activities -->
-      <div class="dashboard-section">
-        <h2>Recent Activities</h2>
-        <div class="activities-container" id="activities-list">
-          <div class="activity-item placeholder">
-            <div class="activity-icon"><i class="fas fa-info-circle"></i></div>
-            <div class="activity-content">
-              <p>No activities yet. Start by uploading a document and generating questions!</p>
-              <small>Upload your first file to get started</small>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Quick Actions -->
-      <div class="dashboard-section">
-        <h2>Quick Actions</h2>
-        <div class="quick-actions">
-          <a href="index.html" class="action-card">
-            <div class="action-icon"><i class="fas fa-plus-circle"></i></div>
-            <h3>Generate New Questions</h3>
-            <p>Upload documents and create practice questions</p>
-          </a>
-          
-          <div class="action-card" onclick="showUpgradeModal()">
-            <div class="action-icon"><i class="fas fa-crown"></i></div>
-            <h3>Upgrade Plan</h3>
-            <p>Get unlimited questions and advanced features</p>
-          </div>
-          
-          <div class="action-card" onclick="showSettingsModal()">
-            <div class="action-icon"><i class="fas fa-cog"></i></div>
-            <h3>Account Settings</h3>
-            <p>Manage your profile and preferences</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Plan Information -->
-      <div class="dashboard-section">
-        <h2>Your Plan</h2>
-        <div class="plan-info">
-          <div class="plan-card">
-            <h3 id="current-plan">Free Plan</h3>
-            <div class="plan-usage">
-              <div class="usage-item">
-                <span>Questions this month:</span>
-                <span id="monthly-questions">0 / 50</span>
-              </div>
-              <div class="usage-item">
-                <span>Files uploaded:</span>
-                <span id="monthly-files">0 / 5</span>
-              </div>
-            </div>
-            <div class="plan-progress">
-              <div class="progress-bar">
-                <div class="progress-fill" id="usage-progress" style="width: 0%"></div>
-              </div>
-              <p id="usage-text">0% of monthly limit used</p>
-            </div>
-          </div>
-        </div>
+      <div class="quiz-controls" id="quiz-nav-controls">
+        <button class="control-btn" id="prev-btn" onclick="previousQuestion()" disabled>
+          <i class="fas fa-chevron-left"></i>
+          Previous
+        </button>
+        <button class="control-btn" id="next-btn" onclick="nextQuestion()">
+          Next
+          <i class="fas fa-chevron-right"></i>
+        </button>
+        <button class="control-btn" id="finish-btn" onclick="finishQuiz()" style="display: none;">
+          <i class="fas fa-flag-checkered"></i>
+          Finish Quiz
+        </button>
       </div>
     </div>
   </div>
-
-  <style>
-    /* Dashboard Specific Styles */
-    .dashboard-container {
-      background: var(--darker);
-      min-height: 100vh;
-      padding-top: clamp(100px, 15vh, 140px);
-      padding-bottom: var(--spacing-2xl);
-    }
-
-    .dashboard-header {
-      text-align: center;
-      margin-bottom: var(--spacing-2xl);
-    }
-
-    .dashboard-header h1 {
-      color: var(--primary-light);
-      margin-bottom: var(--spacing-sm);
-    }
-
-    .dashboard-header span {
-      color: var(--accent);
-    }
-
-    .dashboard-stats {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: var(--spacing-lg);
-      margin-bottom: var(--spacing-2xl);
-    }
-
-    .stat-card {
-      background: var(--card-bg);
-      backdrop-filter: blur(10px);
-      border-radius: 15px;
-      padding: var(--spacing-lg);
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-md);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      transition: all 0.3s;
-    }
-
-    .stat-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-    }
-
-    .stat-icon {
-      width: 60px;
-      height: 60px;
-      border-radius: 12px;
-      background: linear-gradient(135deg, var(--primary), var(--primary-light));
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.5rem;
-      color: white;
-    }
-
-    .stat-content h3 {
-      font-size: 2rem;
-      margin-bottom: 4px;
-      color: var(--text);
-    }
-
-    .stat-content p {
-      color: var(--text-secondary);
-      font-size: var(--font-size-sm);
-      margin: 0;
-    }
-
-    .dashboard-section {
-      margin-bottom: var(--spacing-2xl);
-    }
-
-    .dashboard-section h2 {
-      text-align: left;
-      margin-bottom: var(--spacing-lg);
-      color: var(--text);
-      background: none;
-      -webkit-text-fill-color: inherit;
-    }
-
-    .activities-container {
-      background: var(--card-bg);
-      backdrop-filter: blur(10px);
-      border-radius: 15px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      max-height: 400px;
-      overflow-y: auto;
-    }
-
-    .activity-item {
-      padding: var(--spacing-md);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-      display: flex;
-      align-items: center;
-      gap: var(--spacing-md);
-    }
-
-    .activity-item:last-child {
-      border-bottom: none;
-    }
-
-    .activity-item.placeholder {
-      justify-content: center;
-      text-align: center;
-      opacity: 0.7;
-    }
-
-    .activity-icon {
-      width: 40px;
-      height: 40px;
-      border-radius: 8px;
-      background: var(--primary);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-size: 1rem;
-    }
-
-    .activity-content p {
-      margin: 0 0 4px 0;
-      color: var(--text);
-    }
-
-    .activity-content small {
-      color: var(--text-secondary);
-    }
-
-    .quick-actions {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: var(--spacing-lg);
-    }
-
-    .action-card {
-      background: var(--card-bg);
-      backdrop-filter: blur(10px);
-      border-radius: 15px;
-      padding: var(--spacing-lg);
-      text-decoration: none;
-      color: var(--text);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      transition: all 0.3s;
-      cursor: pointer;
-      text-align: center;
-    }
-
-    .action-card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
-      border-color: var(--primary);
-    }
-
-    .action-icon {
-      width: 60px;
-      height: 60px;
-      border-radius: 12px;
-      background: linear-gradient(135deg, var(--accent), var(--primary));
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.5rem;
-      color: white;
-      margin: 0 auto var(--spacing-md);
-    }
-
-    .action-card h3 {
-      margin-bottom: var(--spacing-sm);
-      color: var(--text);
-    }
-
-    .action-card p {
-      color: var(--text-secondary);
-      font-size: var(--font-size-sm);
-      margin: 0;
-    }
-
-    .plan-info {
-      max-width: 600px;
-    }
-
-    .plan-card {
-      background: var(--card-bg);
-      backdrop-filter: blur(10px);
-      border-radius: 15px;
-      padding: var(--spacing-xl);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .plan-card h3 {
-      color: var(--primary-light);
-      margin-bottom: var(--spacing-lg);
-      text-align: center;
-    }
-
-    .plan-usage {
-      margin-bottom: var(--spacing-lg);
-    }
-
-    .usage-item {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: var(--spacing-sm);
-      color: var(--text);
-    }
-
-    .plan-progress {
-      text-align: center;
-    }
-
-    .progress-bar {
-      width: 100%;
-      height: 8px;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 10px;
-      overflow: hidden;
-      margin-bottom: var(--spacing-sm);
-    }
-
-    .progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, var(--primary), var(--accent));
-      border-radius: 10px;
-      transition: width 0.3s ease;
-    }
-
-    #usage-text {
-      color: var(--text-secondary);
-      font-size: var(--font-size-sm);
-      margin: 0;
-    }
-
-    @media (max-width: 768px) {
-      .dashboard-stats {
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: var(--spacing-md);
-      }
-
-      .quick-actions {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
-
   <script src="Frontend/script.js"></script>
   <script>
-    // Dashboard-specific functionality
+    let questions = [];
+    let currentQuestionIndex = 0;
+    let userAnswers = {};
+    let showingExplanations = {};
+    let isFlashcardMode = false;
+
     document.addEventListener('DOMContentLoaded', function() {
-      loadDashboardData();
+      initializeStarsBackground();
+      loadQuestions();
+      if (questions.length === 0) loadDemoQuestions();
+      checkQuestionType();
+      displayCurrentQuestion();
+      updateProgress();
+      updateNavigationButtons();
     });
 
-    function loadDashboardData() {
-      // Check if user is logged in
-      if (!isUserLoggedIn) {
-        window.location.href = 'index.html';
+    function loadQuestions() {
+      const stored = localStorage.getItem('examblox_questions');
+      if (stored) {
+        try {
+          const data = JSON.parse(stored);
+          questions = data.questions || [];
+          if (data.metadata) {
+            document.getElementById('file-source').textContent = `Generated from ${data.metadata.fileName || 'your document'}`;
+            document.getElementById('question-type').textContent = data.metadata.questionType || 'Multiple Choice';
+            document.getElementById('difficulty-level').textContent = `${data.metadata.difficulty || 'Medium'} Difficulty`;
+            document.getElementById('total-questions').textContent = `${questions.length} Questions`;
+          }
+        } catch (e) {
+          questions = [];
+        }
+      }
+    }
+
+    function loadDemoQuestions() {
+      questions = [{
+        id: 1,
+        type: 'Multiple Choice',
+        question: 'What is the primary function of mitochondria in cells?',
+        options: ['Protein synthesis', 'Energy production through cellular respiration', 'DNA replication', 'Waste removal'],
+        correctAnswer: 1,
+        explanation: 'Mitochondria generate ATP through cellular respiration.'
+      }];
+      document.getElementById('file-source').textContent = 'Demo Questions';
+      document.getElementById('total-questions').textContent = '1 Question';
+    }
+
+    function checkQuestionType() {
+      const type = document.getElementById('question-type').textContent;
+      isFlashcardMode = type.toLowerCase().includes('flashcard');
+      if (isFlashcardMode) {
+        document.getElementById('submit-section').style.display = 'none';
+        document.getElementById('answered-count-meta').style.display = 'none';
+      }
+    }
+
+    function cleanQuestionText(text) {
+      return text ? text.replace(/\*\*/g, '').trim() : '';
+    }
+
+    function displayCurrentQuestion() {
+      if (!questions.length) {
+        document.getElementById('questions-display').innerHTML = `
+          <div style="text-align:center;padding:40px;color:var(--text-secondary)">
+            <i class="fas fa-exclamation-triangle" style="font-size:3rem;margin-bottom:20px;color:var(--warning)"></i>
+            <h3>No Questions Available</h3>
+            <p>Please generate questions from your documents.</p>
+            <button onclick="window.location.href='index.html'" style="margin-top:20px;background:var(--primary);color:white;border:none;padding:12px 24px;border-radius:8px;cursor:pointer">Go Home</button>
+          </div>`;
         return;
       }
-
-      // Update user name
-      document.getElementById('user-name').textContent = currentUser.name || currentUser.email;
-
-      // Load user stats (from localStorage for now)
-      const userStats = JSON.parse(localStorage.getItem('examblox_user_stats') || '{}');
       
-      document.getElementById('total-questions').textContent = userStats.totalQuestions || 0;
-      document.getElementById('files-processed').textContent = userStats.filesProcessed || 0;
-      document.getElementById('avg-score').textContent = (userStats.averageScore || 0) + '%';
-      document.getElementById('study-sessions').textContent = userStats.studySessions || 0;
-
-      // Plan information
-      document.getElementById('current-plan').textContent = (currentUser.plan || 'free').toUpperCase() + ' Plan';
-      document.getElementById('monthly-questions').textContent = `${userStats.monthlyQuestions || 0} / ${currentUser.plan === 'premium' ? 'Unlimited' : '50'}`;
-      document.getElementById('monthly-files').textContent = `${userStats.monthlyFiles || 0} / ${currentUser.plan === 'premium' ? 'Unlimited' : '5'}`;
+      const q = questions[currentQuestionIndex];
+      const display = document.getElementById('questions-display');
+      let html = `<div class="question-card">
+        <div class="question-number">Question ${currentQuestionIndex + 1}</div>
+        <div class="question-text">${cleanQuestionText(q.question)}</div>`;
       
-      if (currentUser.plan !== 'premium') {
-        const usage = ((userStats.monthlyQuestions || 0) / 50) * 100;
-        document.getElementById('usage-progress').style.width = usage + '%';
-        document.getElementById('usage-text').textContent = Math.round(usage) + '% of monthly limit used';
+      // FLASHCARD FIX - Display answer properly
+      if (q.type === 'Flashcards' || isFlashcardMode) {
+        const isFlipped = showingExplanations[q.id] || false;
+        html += `
+          <div class="flashcard-container ${isFlipped ? 'flipped' : ''}" onclick="flipFlashcard(${q.id})" style="min-height: 200px; cursor: pointer; position: relative;">
+            <div class="flashcard-front" style="position: absolute; width: 100%; backface-visibility: hidden;">
+              <p style="font-size: 1.2rem; color: var(--text); margin: 20px 0;">Click to reveal answer</p>
+              <i class="fas fa-sync-alt" style="font-size: 2rem; color: var(--primary); margin-top: 20px;"></i>
+            </div>
+            <div class="flashcard-back" style="position: absolute; width: 100%; backface-visibility: hidden; transform: rotateY(180deg);">
+              <h4 style="color: var(--accent); margin-bottom: 15px;">Answer:</h4>
+              <p style="font-size: 1.1rem; color: var(--text); line-height: 1.6;">${cleanQuestionText(q.answer || q.explanation || 'No answer provided')}</p>
+            </div>
+          </div>`;
       }
-
-      // Load recent activities
-      loadRecentActivities();
-    }
-
-    function loadRecentActivities() {
-      const activities = JSON.parse(localStorage.getItem('examblox_activities') || '[]');
-      const container = document.getElementById('activities-list');
+      // MULTIPLE CHOICE
+      else if (q.type === 'Multiple Choice' && q.options) {
+        html += '<div class="question-options">';
+        q.options.forEach((opt, i) => {
+          const letter = String.fromCharCode(65 + i);
+          const selected = userAnswers[q.id] === i ? 'selected' : '';
+          html += `<div class="option-item ${selected}" onclick="selectOption(${q.id}, ${i})">
+            <div class="option-letter">${letter}</div>
+            <div class="option-text">${cleanQuestionText(opt)}</div>
+          </div>`;
+        });
+        html += '</div>';
+      }
+      // TRUE/FALSE
+      else if (q.type === 'True/False') {
+        html += '<div class="question-options true-false-options">';
+        ['True', 'False'].forEach((opt) => {
+          const selected = userAnswers[q.id] === opt ? 'selected' : '';
+          html += `<div class="option-item ${selected}" onclick="selectTrueFalse(${q.id}, '${opt}')">
+            <div class="option-letter">${opt === 'True' ? 'T' : 'F'}</div>
+            <div class="option-text">${opt}</div>
+          </div>`;
+        });
+        html += '</div>';
+      }
       
-      if (activities.length === 0) return;
-
-      container.innerHTML = '';
-      activities.slice(0, 5).forEach(activity => {
-        const item = document.createElement('div');
-        item.className = 'activity-item clickable';
-        item.style.cursor = 'pointer';
-        item.onclick = () => viewPreviousQuestions(activity);
-        
-        item.innerHTML = `
-          <div class="activity-icon"><i class="${activity.icon}"></i></div>
-          <div class="activity-content">
-            <p>${activity.title}</p>
-            <small>${activity.date}</small>
-          </div>
-          <div class="activity-action">
-            <i class="fas fa-chevron-right" style="color: var(--primary-light);"></i>
-          </div>
-        `;
-        container.appendChild(item);
-      });
+      html += '</div>';
+      display.innerHTML = html;
     }
 
-    function viewPreviousQuestions(activity) {
-      if (activity.questions && activity.questions.length > 0) {
-        // Store the questions for viewing
-        const questionData = {
-          questions: activity.questions,
-          metadata: {
-            fileName: activity.details.files.join(', '),
-            questionType: activity.details.questionType,
-            difficulty: activity.details.difficulty,
-            totalQuestions: activity.questions.length,
-            isReview: true,
-            reviewTitle: `Review: ${activity.title}`
-          }
-        };
-        
-        localStorage.setItem('examblox_questions', JSON.stringify(questionData));
-        window.location.href = 'questions.html';
+    function flipFlashcard(qid) {
+      showingExplanations[qid] = !showingExplanations[qid];
+      displayCurrentQuestion();
+    }
+
+    function selectOption(qid, idx) {
+      userAnswers[qid] = idx;
+      displayCurrentQuestion();
+      updateProgress();
+    }
+
+    function selectTrueFalse(qid, value) {
+      userAnswers[qid] = value;
+      displayCurrentQuestion();
+      updateProgress();
+    }
+
+    function previousQuestion() {
+      if (currentQuestionIndex > 0) {
+        currentQuestionIndex--;
+        displayCurrentQuestion();
+        updateProgress();
+        updateNavigationButtons();
+      }
+    }
+
+    function nextQuestion() {
+      if (currentQuestionIndex < questions.length - 1) {
+        currentQuestionIndex++;
+        displayCurrentQuestion();
+        updateProgress();
+        updateNavigationButtons();
+      }
+    }
+
+    function updateProgress() {
+      const total = questions.length;
+      const answered = Object.keys(userAnswers).length;
+      const percent = ((currentQuestionIndex + 1) / total) * 100;
+      document.getElementById('progress-bar').style.width = `${percent}%`;
+      document.getElementById('progress-text').textContent = `Question ${currentQuestionIndex + 1} of ${total}`;
+      document.getElementById('answered-count').textContent = `${answered} Answered`;
+      document.getElementById('total-questions').textContent = `${total} Questions`;
+    }
+
+    function updateNavigationButtons() {
+      const prev = document.getElementById('prev-btn');
+      const next = document.getElementById('next-btn');
+      const finish = document.getElementById('finish-btn');
+      if (prev) prev.disabled = currentQuestionIndex === 0;
+      if (currentQuestionIndex === questions.length - 1) {
+        if (next) next.style.display = 'none';
+        if (finish) finish.style.display = 'flex';
       } else {
-        alert('Questions data not available for this activity.');
+        if (next) next.style.display = 'flex';
+        if (finish) finish.style.display = 'none';
       }
     }
 
-    function showUpgradeModal() {
-      alert('Upgrade feature coming soon!');
+    function submitQuiz() {
+      const answered = Object.keys(userAnswers).length;
+      if (answered < questions.length) {
+        if (!confirm(`You answered ${answered}/${questions.length}. Submit anyway?`)) return;
+      }
+      finishQuiz();
     }
 
-    function showSettingsModal() {
-      alert('Settings feature coming soon!');
+    // FIXED ANSWER VALIDATION
+    function finishQuiz() {
+      let correct = 0, incorrect = 0, skipped = 0;
+      
+      const results = questions.map((q, i) => {
+        const ans = userAnswers[q.id];
+        const isAns = ans !== undefined && ans !== null;
+        let isCorr = false;
+        
+        if (isAns) {
+          if (q.type === 'Multiple Choice') {
+            // Handle multiple answer formats
+            if (typeof q.correctAnswer === 'number') {
+              isCorr = ans === q.correctAnswer;
+            } else if (q.correctLetter) {
+              const correctIndex = q.correctLetter.charCodeAt(0) - 65;
+              isCorr = ans === correctIndex;
+            } else if (typeof q.correctAnswer === 'string') {
+              const correctIndex = q.correctAnswer.charCodeAt(0) - 65;
+              isCorr = ans === correctIndex;
+            }
+          } else if (q.type === 'True/False') {
+            const correctAns = typeof q.correctAnswer === 'string' ? q.correctAnswer : (q.correctAnswer ? 'True' : 'False');
+            isCorr = ans === correctAns;
+          } else if (q.type === 'Flashcards') {
+            isCorr = true;
+          }
+          
+          isCorr ? correct++ : incorrect++;
+        } else {
+          skipped++;
+        }
+        
+        return {...q, questionNumber: i + 1, userAnswer: ans, isAnswered: isAns, isCorrect: isCorr};
+      });
+      
+      const score = Math.round((correct / questions.length) * 100);
+      
+      document.getElementById('questions-display').style.display = 'none';
+      document.getElementById('submit-section').style.display = 'none';
+      document.getElementById('quiz-nav-controls').style.display = 'none';
+      document.getElementById('progress-container').style.display = 'none';
+      document.getElementById('progress-text').style.display = 'none';
+      
+      const header = document.querySelector('.questions-header');
+      header.insertAdjacentHTML('afterend', generateResults(score, correct, incorrect, skipped, results));
+      
+      document.getElementById('file-source').textContent = `Quiz Results - ${score}%`;
+      document.querySelector('.questions-meta').style.display = 'none';
+    }
+
+    // PDF DOWNLOAD FUNCTION
+    function downloadQuestionsPDF() {
+      const metadata = JSON.parse(localStorage.getItem('examblox_questions'))?.metadata || {};
+      const fileName = metadata.fileName || 'Document';
+      const questionType = metadata.questionType || 'Multiple Choice';
+      const difficulty = metadata.difficulty || 'Medium';
+      const totalQuestions = questions.length;
+      
+      let pdfContent = `EXAM BLOX
+${totalQuestions} QUESTIONS
+${questionType}
+${difficulty.toUpperCase()} DIFFICULTY
+
+Generated from: ${fileName}
+Date: ${new Date().toLocaleDateString()}
+
+${'='.repeat(60)}
+
+`;
+
+      questions.forEach((q, index) => {
+        pdfContent += `\nQUESTION ${index + 1}:\n`;
+        pdfContent += `${cleanQuestionText(q.question)}\n\n`;
+        
+        if (q.type === 'Multiple Choice' && q.options) {
+          q.options.forEach((opt, i) => {
+            const letter = String.fromCharCode(65 + i);
+            const isCorrect = (typeof q.correctAnswer === 'number' && i === q.correctAnswer) ||
+                             (q.correctLetter && letter === q.correctLetter);
+            pdfContent += `${letter}) ${cleanQuestionText(opt)}${isCorrect ? ' ✓' : ''}\n`;
+          });
+          
+          const correctLetter = typeof q.correctAnswer === 'number' 
+            ? String.fromCharCode(65 + q.correctAnswer)
+            : q.correctLetter || 'A';
+          pdfContent += `\nCORRECT ANSWER: ${correctLetter}\n`;
+          
+        } else if (q.type === 'True/False') {
+          pdfContent += `A) True\n`;
+          pdfContent += `B) False\n`;
+          pdfContent += `\nCORRECT ANSWER: ${q.correctAnswer}\n`;
+          
+        } else if (q.type === 'Flashcards') {
+          pdfContent += `ANSWER: ${cleanQuestionText(q.answer || q.explanation || 'No answer provided')}\n`;
+        }
+        
+        if (q.explanation) {
+          pdfContent += `\nEXPLANATION: ${cleanQuestionText(q.explanation)}\n`;
+        }
+        
+        pdfContent += `\n${'-'.repeat(60)}\n`;
+      });
+      
+      const blob = new Blob([pdfContent], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `ExamBlox_Questions_${new Date().getTime()}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      showNotification('Questions downloaded successfully!', 'success');
+    }
+
+    function generateResults(score, correct, incorrect, skipped, results) {
+      const corrQ = results.filter(q => q.isAnswered && q.isCorrect);
+      const incorrQ = results.filter(q => q.isAnswered && !q.isCorrect);
+      const skipQ = results.filter(q => !q.isAnswered);
+      let feedback = score >= 90 ? '🌟 Outstanding!' : score >= 75 ? '🎯 Great job!' : score >= 60 ? '📚 Good effort!' : '💪 Keep studying!';
+      
+      return `<div class="results-container active">
+        <div style="text-align:center;margin-bottom:40px">
+          <h1 style="font-size:2.5rem;margin-bottom:10px;background:linear-gradient(90deg,#6a4bff,#4dfff3);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Quiz Complete!</h1>
+          <div style="font-size:5rem;font-weight:800;color:${score>=75?'#4CAF50':score>=60?'#ff9800':'#f44336'};margin:20px 0">${score}%</div>
+          <p style="font-size:1.2rem;color:var(--text-secondary);margin:20px auto;max-width:600px">${feedback}</p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:15px;margin-top:30px;max-width:800px;margin-left:auto;margin-right:auto">
+            <div class="stat-card"><div style="color:#4CAF50;font-size:2rem;margin-bottom:10px">✓</div><div style="font-size:2rem;font-weight:700;color:#4CAF50">${correct}</div><div style="color:#ccc;font-size:0.9rem">Correct</div></div>
+            <div class="stat-card"><div style="color:#f44336;font-size:2rem;margin-bottom:10px">✗</div><div style="font-size:2rem;font-weight:700;color:#f44336">${incorrect}</div><div style="color:#ccc;font-size:0.9rem">Incorrect</div></div>
+            <div class="stat-card"><div style="color:#ff9800;font-size:2rem;margin-bottom:10px">○</div><div style="font-size:2rem;font-weight:700;color:#ff9800">${skipped}</div><div style="color:#ccc;font-size:0.9rem">Skipped</div></div>
+            <div class="stat-card"><div style="color:#6a4bff;font-size:2rem;margin-bottom:10px">📝</div><div style="font-size:2rem;font-weight:700;color:#6a4bff">${questions.length}</div><div style="color:#ccc;font-size:0.9rem">Total</div></div>
+          </div>
+        </div>
+        <h2 style="color:#6a4bff;margin:40px 0 20px;font-size:1.8rem">📋 Review</h2>
+        ${corrQ.length>0?`<div style="margin-bottom:30px"><h3 style="color:#4CAF50;margin-bottom:15px">✓ Correct (${corrQ.length})</h3>${corrQ.map(q=>`<div class="question-review-item" style="border-left:4px solid #4CAF50"><strong>Q${q.questionNumber}:</strong> ${cleanQuestionText(q.question)}<br><span style="color:#4CAF50">Your answer: ${formatUserAnswer(q)}</span></div>`).join('')}</div>`:''}
+        ${incorrQ.length>0?`<div style="margin-bottom:30px"><h3 style="color:#f44336;margin-bottom:15px">✗ Incorrect (${incorrQ.length})</h3>${incorrQ.map(q=>`<div class="question-review-item" style="border-left:4px solid #f44336"><strong>Q${q.questionNumber}:</strong> ${cleanQuestionText(q.question)}<br><span style="color:#f44336">Your answer: ${formatUserAnswer(q)}</span><br><span style="color:#4CAF50">Correct: ${formatCorrectAnswer(q)}</span></div>`).join('')}</div>`:''}
+        ${skipQ.length>0?`<div><h3 style="color:#ff9800;margin-bottom:15px">○ Skipped (${skipQ.length})</h3>${skipQ.map(q=>`<div class="question-review-item" style="border-left:4px solid #ff9800"><strong>Q${q.questionNumber}:</strong> ${cleanQuestionText(q.question)}<br><span style="color:#4CAF50">Answer: ${formatCorrectAnswer(q)}</span></div>`).join('')}</div>`:''}
+        <div style="display:flex;gap:15px;justify-content:center;margin-top:50px;flex-wrap:wrap;padding-top:30px;border-top:1px solid rgba(255,255,255,0.1)">
+          <button onclick="downloadQuestionsPDF()" style="background:linear-gradient(90deg,#4CAF50,#45a049);color:white;border:none;padding:15px 30px;border-radius:25px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px"><i class="fas fa-download"></i> Download PDF</button>
+          <button onclick="window.location.href='index.html'" style="background:linear-gradient(90deg,#6a4bff,#9b6aff);color:white;border:none;padding:15px 30px;border-radius:25px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px"><i class="fas fa-home"></i> Home</button>
+          <button onclick="location.reload()" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);padding:15px 30px;border-radius:25px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px"><i class="fas fa-redo"></i> Try Again</button>
+        </div>
+      </div>`;
+    }
+
+    function formatUserAnswer(q) {
+      if (q.type === 'Multiple Choice') {
+        return typeof q.userAnswer === 'number' ? String.fromCharCode(65 + q.userAnswer) : q.userAnswer;
+      }
+      return q.userAnswer;
+    }
+
+    function formatCorrectAnswer(q) {
+      if (q.type === 'Multiple Choice') {
+        const correctIndex = typeof q.correctAnswer === 'number' ? q.correctAnswer : (q.correctLetter ? q.correctLetter.charCodeAt(0) - 65 : 0);
+        const letter = String.fromCharCode(65 + correctIndex);
+        return `${letter} - ${cleanQuestionText(q.options[correctIndex])}`;
+      } else if (q.type === 'True/False') {
+        return q.correctAnswer;
+      } else if (q.type === 'Flashcards') {
+        return cleanQuestionText(q.answer || q.explanation || 'See flashcard');
+      }
+      return 'N/A';
+    }
+
+    function goToHomepage() {
+      window.location.href = 'index.html';
+    }
+
+    function initializeStarsBackground() {
+      const container = document.querySelector('.stars');
+      if (!container) return;
+      for (let i = 0; i < 100; i++) {
+        const star = document.createElement('span');
+        star.style.left = Math.random() * 100 + '%';
+        star.style.top = Math.random() * 100 + '%';
+        star.style.animationDelay = Math.random() * 4 + 's';
+        container.appendChild(star);
+      }
     }
   </script>
 </body>
