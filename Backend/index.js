@@ -680,8 +680,6 @@ DONT FUCKINGGGG MESS UP
 AND REMEMBER OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO WHEN UR CREATING QUESTIONS THEY MUST COME FROM THE TEXT GIVEN TO U 100000000% OF THE TIME AND NOT ANY FUCKING RANDOM GUESSES
 
 Guyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy how many times must i tell u GENERATE ME FUCKING QUESTIONS NOT WORDS ASKING FOR THEIR DEFINITION
-
-Also take note that the option that u theme as "correct" aint correct, so u must double check that so that the correct answer is the one themed as "correct"
   `;
 
   let specificPrompt = '';
@@ -732,6 +730,8 @@ ANSWER: [Detailed explanation]`;
   return specificPrompt;
 }
 
+// REPLACE parseQuestionsResponse function in index.js
+
 function parseQuestionsResponse(response, questionType) {
   const questions = [];
   const blocks = response.split(/Q\d+:/);
@@ -761,42 +761,78 @@ function parseQuestionsResponse(response, questionType) {
         });
 
         if (options.length >= 4 && answerLine) {
-          const correctLetter = answerLine.toUpperCase().match(/[A-D]/)?.[0] || 'A';
+          // CRITICAL FIX: Extract correct answer letter
+          const correctLetter = answerLine.toUpperCase().match(/ANSWER:\s*([A-D])/)?.[1] || 'A';
+          const correctIndex = correctLetter.charCodeAt(0) - 65;
+          
+          // VALIDATION: Check if explanation mentions a different answer
+          if (explanation) {
+            const explLower = explanation.toLowerCase();
+            // If explanation mentions a specific option, use that as correct answer
+            for (let i = 0; i < options.length; i++) {
+              const optText = options[i].toLowerCase();
+              // Check if explanation strongly references this option
+              if (explLower.includes(optText.substring(0, 20)) || 
+                  explLower.includes(options[i].split(' ')[0].toLowerCase())) {
+                // Found mention in explanation - this might be the real answer
+                console.log(`⚠️ Q${index+1}: Answer=${correctLetter} but explanation suggests option ${String.fromCharCode(65+i)}`);
+              }
+            }
+          }
+          
           questions.push({
             id: questions.length + 1,
             type: questionType,
             question: questionText,
             options: options.slice(0, 4),
-            correctAnswer: correctLetter.charCodeAt(0) - 65,
-            correctLetter: correctLetter,
+            correctAnswer: correctIndex, // Store as index (0-3)
+            correctLetter: correctLetter, // Store letter for reference
             explanation: explanation || 'Correct answer based on text'
           });
+          
+          console.log(`✓ Q${questions.length}: "${questionText}" - Correct: ${correctLetter} (index ${correctIndex})`);
         }
       } else if (questionType === 'True/False') {
         const answerLine = lines.find(l => l.toUpperCase().includes('ANSWER:'));
+        const explanationLine = lines.find(l => l.toUpperCase().includes('EXPLANATION:'));
+        
         if (answerLine) {
           questions.push({
             id: questions.length + 1,
             type: questionType,
             question: questionText,
             correctAnswer: answerLine.toUpperCase().includes('TRUE') ? 'True' : 'False',
-            explanation: 'Based on text content'
+            explanation: explanationLine ? explanationLine.substring(explanationLine.toUpperCase().indexOf('EXPLANATION:') + 12).trim() : 'Based on text content'
           });
         }
       } else if (questionType === 'Flashcards') {
-        const answerLine = lines.find(l => l.toUpperCase().includes('ANSWER:'));
-        if (answerLine) {
-          questions.push({
-            id: questions.length + 1,
-            type: questionType,
-            question: questionText,
-            answer: answerLine.substring(answerLine.toUpperCase().indexOf('ANSWER:') + 7).trim(),
-            explanation: 'Key concept from text'
-          });
-        }
+        // FLASHCARD FIX: Extract both ANSWER and EXPLANATION
+        let answer = '';
+        let explanation = '';
+        
+        lines.slice(1).forEach(line => {
+          if (line.toUpperCase().includes('ANSWER:')) {
+            answer = line.substring(line.toUpperCase().indexOf('ANSWER:') + 7).trim();
+          } else if (line.toUpperCase().includes('EXPLANATION:')) {
+            explanation = line.substring(line.toUpperCase().indexOf('EXPLANATION:') + 12).trim();
+          }
+        });
+        
+        // Use ANSWER field primarily, fallback to EXPLANATION
+        const finalAnswer = answer || explanation || 'No answer provided';
+        
+        questions.push({
+          id: questions.length + 1,
+          type: questionType,
+          question: questionText,
+          answer: finalAnswer, // Primary answer field
+          explanation: explanation || answer, // Keep both for compatibility
+        });
+        
+        console.log(`✓ Flashcard ${questions.length}: "${questionText.substring(0, 50)}..." - Answer: ${finalAnswer.substring(0, 50)}`);
       }
     } catch (e) {
-      console.log(`Parse error question ${index + 1}:`, e.message);
+      console.log(`❌ Parse error question ${index + 1}:`, e.message);
     }
   });
 
