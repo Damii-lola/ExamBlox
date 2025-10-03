@@ -1,3 +1,4 @@
+<!-- questions.html - COMPLETE FIXED VERSION -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -153,6 +154,29 @@
       background: rgba(255,255,255,0.08);
       transform: translateX(5px);
     }
+    /* Flashcard Styles */
+    .flashcard-container {
+      min-height: 200px;
+      cursor: pointer;
+      position: relative;
+      perspective: 1000px;
+      padding: 30px;
+      text-align: center;
+    }
+    .flashcard-front, .flashcard-back {
+      transition: transform 0.6s;
+      backface-visibility: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    .flashcard-container.flipped .flashcard-front {
+      transform: rotateY(180deg);
+    }
+    .flashcard-container.flipped .flashcard-back {
+      transform: rotateY(0deg);
+    }
     @media (max-width: 768px) {
       .quiz-controls {
         position: static;
@@ -262,12 +286,10 @@
 
     function loadQuestions() {
       const stored = localStorage.getItem('examblox_questions');
-      console.log('Loading questions:', stored);
       if (stored) {
         try {
           const data = JSON.parse(stored);
           questions = data.questions || [];
-          console.log('Parsed questions:', questions);
           if (data.metadata) {
             document.getElementById('file-source').textContent = `Generated from ${data.metadata.fileName || 'your document'}`;
             document.getElementById('question-type').textContent = data.metadata.questionType || 'Multiple Choice';
@@ -275,7 +297,6 @@
             document.getElementById('total-questions').textContent = `${questions.length} Questions`;
           }
         } catch (e) {
-          console.error('Parse error:', e);
           questions = [];
         }
       }
@@ -289,16 +310,9 @@
         options: ['Protein synthesis', 'Energy production through cellular respiration', 'DNA replication', 'Waste removal'],
         correctAnswer: 1,
         explanation: 'Mitochondria generate ATP through cellular respiration.'
-      },{
-        id: 2,
-        type: 'Multiple Choice',
-        question: 'Which programming paradigm does JavaScript support?',
-        options: ['Only OOP', 'Only functional', 'Multi-paradigm', 'Only procedural'],
-        correctAnswer: 2,
-        explanation: 'JavaScript supports functional, OOP, and imperative programming.'
       }];
       document.getElementById('file-source').textContent = 'Demo Questions';
-      document.getElementById('total-questions').textContent = '2 Questions';
+      document.getElementById('total-questions').textContent = '1 Question';
     }
 
     function checkQuestionType() {
@@ -325,12 +339,30 @@
           </div>`;
         return;
       }
+      
       const q = questions[currentQuestionIndex];
       const display = document.getElementById('questions-display');
       let html = `<div class="question-card">
         <div class="question-number">Question ${currentQuestionIndex + 1}</div>
         <div class="question-text">${cleanQuestionText(q.question)}</div>`;
-      if (q.type === 'Multiple Choice' && q.options) {
+      
+      // FLASHCARD FIX - Display answer properly
+      if (q.type === 'Flashcards' || isFlashcardMode) {
+        const isFlipped = showingExplanations[q.id] || false;
+        html += `
+          <div class="flashcard-container ${isFlipped ? 'flipped' : ''}" onclick="flipFlashcard(${q.id})" style="min-height: 200px; cursor: pointer; position: relative;">
+            <div class="flashcard-front" style="position: absolute; width: 100%; backface-visibility: hidden;">
+              <p style="font-size: 1.2rem; color: var(--text); margin: 20px 0;">Click to reveal answer</p>
+              <i class="fas fa-sync-alt" style="font-size: 2rem; color: var(--primary); margin-top: 20px;"></i>
+            </div>
+            <div class="flashcard-back" style="position: absolute; width: 100%; backface-visibility: hidden; transform: rotateY(180deg);">
+              <h4 style="color: var(--accent); margin-bottom: 15px;">Answer:</h4>
+              <p style="font-size: 1.1rem; color: var(--text); line-height: 1.6;">${cleanQuestionText(q.answer || q.explanation || 'No answer provided')}</p>
+            </div>
+          </div>`;
+      }
+      // MULTIPLE CHOICE
+      else if (q.type === 'Multiple Choice' && q.options) {
         html += '<div class="question-options">';
         q.options.forEach((opt, i) => {
           const letter = String.fromCharCode(65 + i);
@@ -342,12 +374,36 @@
         });
         html += '</div>';
       }
+      // TRUE/FALSE
+      else if (q.type === 'True/False') {
+        html += '<div class="question-options true-false-options">';
+        ['True', 'False'].forEach((opt) => {
+          const selected = userAnswers[q.id] === opt ? 'selected' : '';
+          html += `<div class="option-item ${selected}" onclick="selectTrueFalse(${q.id}, '${opt}')">
+            <div class="option-letter">${opt === 'True' ? 'T' : 'F'}</div>
+            <div class="option-text">${opt}</div>
+          </div>`;
+        });
+        html += '</div>';
+      }
+      
       html += '</div>';
       display.innerHTML = html;
     }
 
+    function flipFlashcard(qid) {
+      showingExplanations[qid] = !showingExplanations[qid];
+      displayCurrentQuestion();
+    }
+
     function selectOption(qid, idx) {
       userAnswers[qid] = idx;
+      displayCurrentQuestion();
+      updateProgress();
+    }
+
+    function selectTrueFalse(qid, value) {
+      userAnswers[qid] = value;
       displayCurrentQuestion();
       updateProgress();
     }
@@ -402,29 +458,121 @@
       finishQuiz();
     }
 
+    // FIXED ANSWER VALIDATION
     function finishQuiz() {
       let correct = 0, incorrect = 0, skipped = 0;
+      
       const results = questions.map((q, i) => {
         const ans = userAnswers[q.id];
-        const isAns = ans !== undefined;
-        const isCorr = isAns && ans === q.correctAnswer;
+        const isAns = ans !== undefined && ans !== null;
+        let isCorr = false;
+        
         if (isAns) {
+          if (q.type === 'Multiple Choice') {
+            // Handle multiple answer formats
+            if (typeof q.correctAnswer === 'number') {
+              isCorr = ans === q.correctAnswer;
+            } else if (q.correctLetter) {
+              const correctIndex = q.correctLetter.charCodeAt(0) - 65;
+              isCorr = ans === correctIndex;
+            } else if (typeof q.correctAnswer === 'string') {
+              const correctIndex = q.correctAnswer.charCodeAt(0) - 65;
+              isCorr = ans === correctIndex;
+            }
+          } else if (q.type === 'True/False') {
+            const correctAns = typeof q.correctAnswer === 'string' ? q.correctAnswer : (q.correctAnswer ? 'True' : 'False');
+            isCorr = ans === correctAns;
+          } else if (q.type === 'Flashcards') {
+            isCorr = true;
+          }
+          
           isCorr ? correct++ : incorrect++;
         } else {
           skipped++;
         }
+        
         return {...q, questionNumber: i + 1, userAnswer: ans, isAnswered: isAns, isCorrect: isCorr};
       });
+      
       const score = Math.round((correct / questions.length) * 100);
+      
       document.getElementById('questions-display').style.display = 'none';
       document.getElementById('submit-section').style.display = 'none';
       document.getElementById('quiz-nav-controls').style.display = 'none';
       document.getElementById('progress-container').style.display = 'none';
       document.getElementById('progress-text').style.display = 'none';
+      
       const header = document.querySelector('.questions-header');
       header.insertAdjacentHTML('afterend', generateResults(score, correct, incorrect, skipped, results));
+      
       document.getElementById('file-source').textContent = `Quiz Results - ${score}%`;
       document.querySelector('.questions-meta').style.display = 'none';
+    }
+
+    // PDF DOWNLOAD FUNCTION
+    function downloadQuestionsPDF() {
+      const metadata = JSON.parse(localStorage.getItem('examblox_questions'))?.metadata || {};
+      const fileName = metadata.fileName || 'Document';
+      const questionType = metadata.questionType || 'Multiple Choice';
+      const difficulty = metadata.difficulty || 'Medium';
+      const totalQuestions = questions.length;
+      
+      let pdfContent = `EXAM BLOX
+${totalQuestions} QUESTIONS
+${questionType}
+${difficulty.toUpperCase()} DIFFICULTY
+
+Generated from: ${fileName}
+Date: ${new Date().toLocaleDateString()}
+
+${'='.repeat(60)}
+
+`;
+
+      questions.forEach((q, index) => {
+        pdfContent += `\nQUESTION ${index + 1}:\n`;
+        pdfContent += `${cleanQuestionText(q.question)}\n\n`;
+        
+        if (q.type === 'Multiple Choice' && q.options) {
+          q.options.forEach((opt, i) => {
+            const letter = String.fromCharCode(65 + i);
+            const isCorrect = (typeof q.correctAnswer === 'number' && i === q.correctAnswer) ||
+                             (q.correctLetter && letter === q.correctLetter);
+            pdfContent += `${letter}) ${cleanQuestionText(opt)}${isCorrect ? ' ✓' : ''}\n`;
+          });
+          
+          const correctLetter = typeof q.correctAnswer === 'number' 
+            ? String.fromCharCode(65 + q.correctAnswer)
+            : q.correctLetter || 'A';
+          pdfContent += `\nCORRECT ANSWER: ${correctLetter}\n`;
+          
+        } else if (q.type === 'True/False') {
+          pdfContent += `A) True\n`;
+          pdfContent += `B) False\n`;
+          pdfContent += `\nCORRECT ANSWER: ${q.correctAnswer}\n`;
+          
+        } else if (q.type === 'Flashcards') {
+          pdfContent += `ANSWER: ${cleanQuestionText(q.answer || q.explanation || 'No answer provided')}\n`;
+        }
+        
+        if (q.explanation) {
+          pdfContent += `\nEXPLANATION: ${cleanQuestionText(q.explanation)}\n`;
+        }
+        
+        pdfContent += `\n${'-'.repeat(60)}\n`;
+      });
+      
+      const blob = new Blob([pdfContent], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `ExamBlox_Questions_${new Date().getTime()}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      showNotification('Questions downloaded successfully!', 'success');
     }
 
     function generateResults(score, correct, incorrect, skipped, results) {
@@ -432,6 +580,7 @@
       const incorrQ = results.filter(q => q.isAnswered && !q.isCorrect);
       const skipQ = results.filter(q => !q.isAnswered);
       let feedback = score >= 90 ? '🌟 Outstanding!' : score >= 75 ? '🎯 Great job!' : score >= 60 ? '📚 Good effort!' : '💪 Keep studying!';
+      
       return `<div class="results-container active">
         <div style="text-align:center;margin-bottom:40px">
           <h1 style="font-size:2.5rem;margin-bottom:10px;background:linear-gradient(90deg,#6a4bff,#4dfff3);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Quiz Complete!</h1>
@@ -445,14 +594,35 @@
           </div>
         </div>
         <h2 style="color:#6a4bff;margin:40px 0 20px;font-size:1.8rem">📋 Review</h2>
-        ${corrQ.length>0?`<div style="margin-bottom:30px"><h3 style="color:#4CAF50;margin-bottom:15px">✓ Correct (${corrQ.length})</h3>${corrQ.map(q=>`<div class="question-review-item" style="border-left:4px solid #4CAF50"><strong>Q${q.questionNumber}:</strong> ${cleanQuestionText(q.question)}<br><span style="color:#4CAF50">Your answer: ${String.fromCharCode(65+q.userAnswer)}</span></div>`).join('')}</div>`:''}
-        ${incorrQ.length>0?`<div style="margin-bottom:30px"><h3 style="color:#f44336;margin-bottom:15px">✗ Incorrect (${incorrQ.length})</h3>${incorrQ.map(q=>`<div class="question-review-item" style="border-left:4px solid #f44336"><strong>Q${q.questionNumber}:</strong> ${cleanQuestionText(q.question)}<br><span style="color:#f44336">Your answer: ${String.fromCharCode(65+q.userAnswer)}</span><br><span style="color:#4CAF50">Correct: ${String.fromCharCode(65+q.correctAnswer)} - ${cleanQuestionText(q.options[q.correctAnswer])}</span></div>`).join('')}</div>`:''}
-        ${skipQ.length>0?`<div><h3 style="color:#ff9800;margin-bottom:15px">○ Skipped (${skipQ.length})</h3>${skipQ.map(q=>`<div class="question-review-item" style="border-left:4px solid #ff9800"><strong>Q${q.questionNumber}:</strong> ${cleanQuestionText(q.question)}<br><span style="color:#4CAF50">Answer: ${String.fromCharCode(65+q.correctAnswer)} - ${cleanQuestionText(q.options[q.correctAnswer])}</span></div>`).join('')}</div>`:''}
+        ${corrQ.length>0?`<div style="margin-bottom:30px"><h3 style="color:#4CAF50;margin-bottom:15px">✓ Correct (${corrQ.length})</h3>${corrQ.map(q=>`<div class="question-review-item" style="border-left:4px solid #4CAF50"><strong>Q${q.questionNumber}:</strong> ${cleanQuestionText(q.question)}<br><span style="color:#4CAF50">Your answer: ${formatUserAnswer(q)}</span></div>`).join('')}</div>`:''}
+        ${incorrQ.length>0?`<div style="margin-bottom:30px"><h3 style="color:#f44336;margin-bottom:15px">✗ Incorrect (${incorrQ.length})</h3>${incorrQ.map(q=>`<div class="question-review-item" style="border-left:4px solid #f44336"><strong>Q${q.questionNumber}:</strong> ${cleanQuestionText(q.question)}<br><span style="color:#f44336">Your answer: ${formatUserAnswer(q)}</span><br><span style="color:#4CAF50">Correct: ${formatCorrectAnswer(q)}</span></div>`).join('')}</div>`:''}
+        ${skipQ.length>0?`<div><h3 style="color:#ff9800;margin-bottom:15px">○ Skipped (${skipQ.length})</h3>${skipQ.map(q=>`<div class="question-review-item" style="border-left:4px solid #ff9800"><strong>Q${q.questionNumber}:</strong> ${cleanQuestionText(q.question)}<br><span style="color:#4CAF50">Answer: ${formatCorrectAnswer(q)}</span></div>`).join('')}</div>`:''}
         <div style="display:flex;gap:15px;justify-content:center;margin-top:50px;flex-wrap:wrap;padding-top:30px;border-top:1px solid rgba(255,255,255,0.1)">
+          <button onclick="downloadQuestionsPDF()" style="background:linear-gradient(90deg,#4CAF50,#45a049);color:white;border:none;padding:15px 30px;border-radius:25px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px"><i class="fas fa-download"></i> Download PDF</button>
           <button onclick="window.location.href='index.html'" style="background:linear-gradient(90deg,#6a4bff,#9b6aff);color:white;border:none;padding:15px 30px;border-radius:25px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px"><i class="fas fa-home"></i> Home</button>
           <button onclick="location.reload()" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);padding:15px 30px;border-radius:25px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px"><i class="fas fa-redo"></i> Try Again</button>
         </div>
       </div>`;
+    }
+
+    function formatUserAnswer(q) {
+      if (q.type === 'Multiple Choice') {
+        return typeof q.userAnswer === 'number' ? String.fromCharCode(65 + q.userAnswer) : q.userAnswer;
+      }
+      return q.userAnswer;
+    }
+
+    function formatCorrectAnswer(q) {
+      if (q.type === 'Multiple Choice') {
+        const correctIndex = typeof q.correctAnswer === 'number' ? q.correctAnswer : (q.correctLetter ? q.correctLetter.charCodeAt(0) - 65 : 0);
+        const letter = String.fromCharCode(65 + correctIndex);
+        return `${letter} - ${cleanQuestionText(q.options[correctIndex])}`;
+      } else if (q.type === 'True/False') {
+        return q.correctAnswer;
+      } else if (q.type === 'Flashcards') {
+        return cleanQuestionText(q.answer || q.explanation || 'See flashcard');
+      }
+      return 'N/A';
     }
 
     function goToHomepage() {
