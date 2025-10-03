@@ -680,6 +680,8 @@ DONT FUCKINGGGG MESS UP
 AND REMEMBER OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO WHEN UR CREATING QUESTIONS THEY MUST COME FROM THE TEXT GIVEN TO U 100000000% OF THE TIME AND NOT ANY FUCKING RANDOM GUESSES
 
 Guyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy how many times must i tell u GENERATE ME FUCKING QUESTIONS NOT WORDS ASKING FOR THEIR DEFINITION
+
+Also take note that the option that u theme as "correct" aint correct, so u must double check that so that the correct answer is the one themed as "correct"
   `;
 
   let specificPrompt = '';
