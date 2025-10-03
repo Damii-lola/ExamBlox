@@ -1,4 +1,4 @@
-<!-- questions.html - COMPLETE FIXED VERSION -->
+<!-- questions.html - FULLY FIXED VERSION -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,6 +9,8 @@
   <link rel="stylesheet" href="Frontend/style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- jsPDF Library for PDF Generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     .questions-container {
       background: var(--darker);
@@ -53,7 +55,6 @@
       color: var(--text);
       line-height: 1.6;
       margin: 40px 0 20px 0;
-      padding-right: 0;
       word-wrap: break-word;
     }
     .option-item {
@@ -150,11 +151,6 @@
       margin-bottom: 12px;
       transition: all 0.3s;
     }
-    .question-review-item:hover {
-      background: rgba(255,255,255,0.08);
-      transform: translateX(5px);
-    }
-    /* Flashcard Styles */
     .flashcard-container {
       min-height: 200px;
       cursor: pointer;
@@ -184,13 +180,6 @@
         justify-content: center;
         flex-wrap: wrap;
       }
-      .question-card {
-        padding: 35px 20px 20px;
-      }
-      .question-text {
-        font-size: 1.05rem;
-        margin-top: 35px;
-      }
     }
   </style>
 </head>
@@ -215,7 +204,7 @@
       </div>
     </div>
   </nav>
-  <div class="questions-container" id="questions-main">
+  <div class="questions-container">
     <div class="container">
       <div class="questions-header">
         <h1>Practice Questions</h1>
@@ -245,7 +234,7 @@
       </div>
       <div id="questions-display"></div>
       <div style="text-align: center; margin: 40px 0;" id="submit-section">
-        <button class="control-btn" id="submit-quiz-btn" onclick="submitQuiz()" style="background: var(--success); font-size: 16px; padding: 15px 30px;">
+        <button class="control-btn" onclick="submitQuiz()" style="background: var(--success); font-size: 16px; padding: 15px 30px;">
           <i class="fas fa-check-circle"></i>
           Submit Quiz
         </button>
@@ -290,6 +279,13 @@
         try {
           const data = JSON.parse(stored);
           questions = data.questions || [];
+          
+          // DEBUG: Log question structure
+          console.log('Loaded questions:', questions);
+          if (questions.length > 0) {
+            console.log('Sample question structure:', questions[0]);
+          }
+          
           if (data.metadata) {
             document.getElementById('file-source').textContent = `Generated from ${data.metadata.fileName || 'your document'}`;
             document.getElementById('question-type').textContent = data.metadata.questionType || 'Multiple Choice';
@@ -297,6 +293,7 @@
             document.getElementById('total-questions').textContent = `${questions.length} Questions`;
           }
         } catch (e) {
+          console.error('Error loading questions:', e);
           questions = [];
         }
       }
@@ -306,13 +303,11 @@
       questions = [{
         id: 1,
         type: 'Multiple Choice',
-        question: 'What is the primary function of mitochondria in cells?',
-        options: ['Protein synthesis', 'Energy production through cellular respiration', 'DNA replication', 'Waste removal'],
+        question: 'What is 2 + 2?',
+        options: ['3', '4', '5', '6'],
         correctAnswer: 1,
-        explanation: 'Mitochondria generate ATP through cellular respiration.'
+        explanation: 'Basic arithmetic: 2 + 2 = 4'
       }];
-      document.getElementById('file-source').textContent = 'Demo Questions';
-      document.getElementById('total-questions').textContent = '1 Question';
     }
 
     function checkQuestionType() {
@@ -331,10 +326,9 @@
     function displayCurrentQuestion() {
       if (!questions.length) {
         document.getElementById('questions-display').innerHTML = `
-          <div style="text-align:center;padding:40px;color:var(--text-secondary)">
+          <div style="text-align:center;padding:40px">
             <i class="fas fa-exclamation-triangle" style="font-size:3rem;margin-bottom:20px;color:var(--warning)"></i>
             <h3>No Questions Available</h3>
-            <p>Please generate questions from your documents.</p>
             <button onclick="window.location.href='index.html'" style="margin-top:20px;background:var(--primary);color:white;border:none;padding:12px 24px;border-radius:8px;cursor:pointer">Go Home</button>
           </div>`;
         return;
@@ -346,11 +340,10 @@
         <div class="question-number">Question ${currentQuestionIndex + 1}</div>
         <div class="question-text">${cleanQuestionText(q.question)}</div>`;
       
-      // FLASHCARD FIX - Display answer properly
       if (q.type === 'Flashcards' || isFlashcardMode) {
         const isFlipped = showingExplanations[q.id] || false;
         html += `
-          <div class="flashcard-container ${isFlipped ? 'flipped' : ''}" onclick="flipFlashcard(${q.id})" style="min-height: 200px; cursor: pointer; position: relative;">
+          <div class="flashcard-container ${isFlipped ? 'flipped' : ''}" onclick="flipFlashcard(${q.id})">
             <div class="flashcard-front" style="position: absolute; width: 100%; backface-visibility: hidden;">
               <p style="font-size: 1.2rem; color: var(--text); margin: 20px 0;">Click to reveal answer</p>
               <i class="fas fa-sync-alt" style="font-size: 2rem; color: var(--primary); margin-top: 20px;"></i>
@@ -360,9 +353,7 @@
               <p style="font-size: 1.1rem; color: var(--text); line-height: 1.6;">${cleanQuestionText(q.answer || q.explanation || 'No answer provided')}</p>
             </div>
           </div>`;
-      }
-      // MULTIPLE CHOICE
-      else if (q.type === 'Multiple Choice' && q.options) {
+      } else if (q.type === 'Multiple Choice' && q.options) {
         html += '<div class="question-options">';
         q.options.forEach((opt, i) => {
           const letter = String.fromCharCode(65 + i);
@@ -373,10 +364,8 @@
           </div>`;
         });
         html += '</div>';
-      }
-      // TRUE/FALSE
-      else if (q.type === 'True/False') {
-        html += '<div class="question-options true-false-options">';
+      } else if (q.type === 'True/False') {
+        html += '<div class="question-options">';
         ['True', 'False'].forEach((opt) => {
           const selected = userAnswers[q.id] === opt ? 'selected' : '';
           html += `<div class="option-item ${selected}" onclick="selectTrueFalse(${q.id}, '${opt}')">
@@ -433,7 +422,6 @@
       document.getElementById('progress-bar').style.width = `${percent}%`;
       document.getElementById('progress-text').textContent = `Question ${currentQuestionIndex + 1} of ${total}`;
       document.getElementById('answered-count').textContent = `${answered} Answered`;
-      document.getElementById('total-questions').textContent = `${total} Questions`;
     }
 
     function updateNavigationButtons() {
@@ -458,7 +446,7 @@
       finishQuiz();
     }
 
-    // FIXED ANSWER VALIDATION
+    // FIXED ANSWER VALIDATION - NO INVERSION
     function finishQuiz() {
       let correct = 0, incorrect = 0, skipped = 0;
       
@@ -469,19 +457,26 @@
         
         if (isAns) {
           if (q.type === 'Multiple Choice') {
-            // Handle multiple answer formats
+            // Get correct answer index
+            let correctIndex;
             if (typeof q.correctAnswer === 'number') {
-              isCorr = ans === q.correctAnswer;
+              correctIndex = q.correctAnswer;
             } else if (q.correctLetter) {
-              const correctIndex = q.correctLetter.charCodeAt(0) - 65;
-              isCorr = ans === correctIndex;
-            } else if (typeof q.correctAnswer === 'string') {
-              const correctIndex = q.correctAnswer.charCodeAt(0) - 65;
-              isCorr = ans === correctIndex;
+              correctIndex = q.correctLetter.charCodeAt(0) - 65;
+            } else if (typeof q.correctAnswer === 'string' && q.correctAnswer.length === 1) {
+              correctIndex = q.correctAnswer.charCodeAt(0) - 65;
+            } else {
+              correctIndex = 0;
             }
+            
+            // Compare user answer with correct index
+            isCorr = (ans === correctIndex);
+            
+            console.log(`Q${i+1}: User=${ans}, Correct=${correctIndex}, Match=${isCorr}`);
+            
           } else if (q.type === 'True/False') {
             const correctAns = typeof q.correctAnswer === 'string' ? q.correctAnswer : (q.correctAnswer ? 'True' : 'False');
-            isCorr = ans === correctAns;
+            isCorr = (ans === correctAns);
           } else if (q.type === 'Flashcards') {
             isCorr = true;
           }
@@ -509,97 +504,147 @@
       document.querySelector('.questions-meta').style.display = 'none';
     }
 
-    // PDF DOWNLOAD FUNCTION
-    function downloadQuestionsPDF() {
-      const metadata = JSON.parse(localStorage.getItem('examblox_questions'))?.metadata || {};
-      const fileName = metadata.fileName || 'Document';
-      const questionType = metadata.questionType || 'Multiple Choice';
-      const difficulty = metadata.difficulty || 'Medium';
-      const totalQuestions = questions.length;
-      
-      let pdfContent = `EXAM BLOX
-${totalQuestions} QUESTIONS
-${questionType}
-${difficulty.toUpperCase()} DIFFICULTY
-
-Generated from: ${fileName}
-Date: ${new Date().toLocaleDateString()}
-
-${'='.repeat(60)}
-
-`;
-
-      questions.forEach((q, index) => {
-        pdfContent += `\nQUESTION ${index + 1}:\n`;
-        pdfContent += `${cleanQuestionText(q.question)}\n\n`;
+    // PROPER PDF GENERATION
+    async function downloadQuestionsPDF() {
+      try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
         
-        if (q.type === 'Multiple Choice' && q.options) {
-          q.options.forEach((opt, i) => {
-            const letter = String.fromCharCode(65 + i);
-            const isCorrect = (typeof q.correctAnswer === 'number' && i === q.correctAnswer) ||
-                             (q.correctLetter && letter === q.correctLetter);
-            pdfContent += `${letter}) ${cleanQuestionText(opt)}${isCorrect ? ' ✓' : ''}\n`;
-          });
-          
-          const correctLetter = typeof q.correctAnswer === 'number' 
-            ? String.fromCharCode(65 + q.correctAnswer)
-            : q.correctLetter || 'A';
-          pdfContent += `\nCORRECT ANSWER: ${correctLetter}\n`;
-          
-        } else if (q.type === 'True/False') {
-          pdfContent += `A) True\n`;
-          pdfContent += `B) False\n`;
-          pdfContent += `\nCORRECT ANSWER: ${q.correctAnswer}\n`;
-          
-        } else if (q.type === 'Flashcards') {
-          pdfContent += `ANSWER: ${cleanQuestionText(q.answer || q.explanation || 'No answer provided')}\n`;
-        }
+        const metadata = JSON.parse(localStorage.getItem('examblox_questions'))?.metadata || {};
+        const fileName = metadata.fileName || 'Document';
+        const questionType = metadata.questionType || 'Multiple Choice';
+        const difficulty = metadata.difficulty || 'Medium';
         
-        if (q.explanation) {
-          pdfContent += `\nEXPLANATION: ${cleanQuestionText(q.explanation)}\n`;
-        }
+        // Page 1: Title Page
+        doc.setFontSize(24);
+        doc.setFont('helvetica', 'bold');
+        doc.text('EXAM BLOX', 105, 40, { align: 'center' });
         
-        pdfContent += `\n${'-'.repeat(60)}\n`;
-      });
-      
-      const blob = new Blob([pdfContent], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `ExamBlox_Questions_${new Date().getTime()}.txt`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
-      showNotification('Questions downloaded successfully!', 'success');
+        doc.setFontSize(18);
+        doc.text(`${questions.length} QUESTIONS`, 105, 60, { align: 'center' });
+        
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'normal');
+        doc.text(questionType, 105, 80, { align: 'center' });
+        doc.text(`${difficulty.toUpperCase()} DIFFICULTY`, 105, 95, { align: 'center' });
+        
+        doc.setFontSize(10);
+        doc.text(`Generated from: ${fileName}`, 105, 120, { align: 'center' });
+        doc.text(`Date: ${new Date().toLocaleDateString()}`, 105, 130, { align: 'center' });
+        
+        // Page 2+: Questions
+        doc.addPage();
+        let yPosition = 20;
+        
+        questions.forEach((q, index) => {
+          if (yPosition > 250) {
+            doc.addPage();
+            yPosition = 20;
+          }
+          
+          // Question number and text
+          doc.setFontSize(12);
+          doc.setFont('helvetica', 'bold');
+          doc.text(`QUESTION ${index + 1}:`, 20, yPosition);
+          yPosition += 7;
+          
+          doc.setFont('helvetica', 'normal');
+          const questionLines = doc.splitTextToSize(cleanQuestionText(q.question), 170);
+          doc.text(questionLines, 20, yPosition);
+          yPosition += questionLines.length * 7 + 5;
+          
+          // Options
+          if (q.type === 'Multiple Choice' && q.options) {
+            q.options.forEach((opt, i) => {
+              const letter = String.fromCharCode(65 + i);
+              let correctIndex;
+              if (typeof q.correctAnswer === 'number') {
+                correctIndex = q.correctAnswer;
+              } else if (q.correctLetter) {
+                correctIndex = q.correctLetter.charCodeAt(0) - 65;
+              } else {
+                correctIndex = 0;
+              }
+              
+              const isCorrect = (i === correctIndex);
+              const optionText = `${letter}) ${cleanQuestionText(opt)}${isCorrect ? ' ✓' : ''}`;
+              const optionLines = doc.splitTextToSize(optionText, 165);
+              doc.text(optionLines, 25, yPosition);
+              yPosition += optionLines.length * 6;
+            });
+            
+            yPosition += 3;
+            doc.setFont('helvetica', 'bold');
+            const correctLetter = typeof q.correctAnswer === 'number' 
+              ? String.fromCharCode(65 + q.correctAnswer)
+              : (q.correctLetter || 'A');
+            doc.text(`CORRECT ANSWER: ${correctLetter}`, 20, yPosition);
+            yPosition += 7;
+            
+          } else if (q.type === 'True/False') {
+            doc.text('A) True', 25, yPosition);
+            yPosition += 6;
+            doc.text('B) False', 25, yPosition);
+            yPosition += 8;
+            doc.setFont('helvetica', 'bold');
+            doc.text(`CORRECT ANSWER: ${q.correctAnswer}`, 20, yPosition);
+            yPosition += 7;
+            
+          } else if (q.type === 'Flashcards') {
+            doc.setFont('helvetica', 'bold');
+            doc.text('ANSWER:', 20, yPosition);
+            yPosition += 6;
+            doc.setFont('helvetica', 'normal');
+            const answerLines = doc.splitTextToSize(cleanQuestionText(q.answer || q.explanation || 'No answer'), 170);
+            doc.text(answerLines, 20, yPosition);
+            yPosition += answerLines.length * 6 + 3;
+          }
+          
+          if (q.explanation) {
+            doc.setFont('helvetica', 'italic');
+            doc.setFontSize(10);
+            const explLines = doc.splitTextToSize(`Explanation: ${cleanQuestionText(q.explanation)}`, 170);
+            doc.text(explLines, 20, yPosition);
+            yPosition += explLines.length * 5 + 3;
+          }
+          
+          yPosition += 8;
+          doc.setDrawColor(200);
+          doc.line(20, yPosition - 5, 190, yPosition - 5);
+          yPosition += 5;
+        });
+        
+        doc.save(`ExamBlox_Questions_${new Date().getTime()}.pdf`);
+        showNotification('PDF downloaded successfully!', 'success');
+        
+      } catch (error) {
+        console.error('PDF generation error:', error);
+        showNotification('Failed to generate PDF', 'error');
+      }
     }
 
     function generateResults(score, correct, incorrect, skipped, results) {
       const corrQ = results.filter(q => q.isAnswered && q.isCorrect);
       const incorrQ = results.filter(q => q.isAnswered && !q.isCorrect);
       const skipQ = results.filter(q => !q.isAnswered);
-      let feedback = score >= 90 ? '🌟 Outstanding!' : score >= 75 ? '🎯 Great job!' : score >= 60 ? '📚 Good effort!' : '💪 Keep studying!';
       
       return `<div class="results-container active">
         <div style="text-align:center;margin-bottom:40px">
           <h1 style="font-size:2.5rem;margin-bottom:10px;background:linear-gradient(90deg,#6a4bff,#4dfff3);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Quiz Complete!</h1>
           <div style="font-size:5rem;font-weight:800;color:${score>=75?'#4CAF50':score>=60?'#ff9800':'#f44336'};margin:20px 0">${score}%</div>
-          <p style="font-size:1.2rem;color:var(--text-secondary);margin:20px auto;max-width:600px">${feedback}</p>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:15px;margin-top:30px;max-width:800px;margin-left:auto;margin-right:auto">
-            <div class="stat-card"><div style="color:#4CAF50;font-size:2rem;margin-bottom:10px">✓</div><div style="font-size:2rem;font-weight:700;color:#4CAF50">${correct}</div><div style="color:#ccc;font-size:0.9rem">Correct</div></div>
-            <div class="stat-card"><div style="color:#f44336;font-size:2rem;margin-bottom:10px">✗</div><div style="font-size:2rem;font-weight:700;color:#f44336">${incorrect}</div><div style="color:#ccc;font-size:0.9rem">Incorrect</div></div>
-            <div class="stat-card"><div style="color:#ff9800;font-size:2rem;margin-bottom:10px">○</div><div style="font-size:2rem;font-weight:700;color:#ff9800">${skipped}</div><div style="color:#ccc;font-size:0.9rem">Skipped</div></div>
-            <div class="stat-card"><div style="color:#6a4bff;font-size:2rem;margin-bottom:10px">📝</div><div style="font-size:2rem;font-weight:700;color:#6a4bff">${questions.length}</div><div style="color:#ccc;font-size:0.9rem">Total</div></div>
+            <div class="stat-card"><div style="color:#4CAF50;font-size:2rem">✓</div><div style="font-size:2rem;font-weight:700;color:#4CAF50">${correct}</div><div style="color:#ccc">Correct</div></div>
+            <div class="stat-card"><div style="color:#f44336;font-size:2rem">✗</div><div style="font-size:2rem;font-weight:700;color:#f44336">${incorrect}</div><div style="color:#ccc">Incorrect</div></div>
+            <div class="stat-card"><div style="color:#ff9800;font-size:2rem">○</div><div style="font-size:2rem;font-weight:700;color:#ff9800">${skipped}</div><div style="color:#ccc">Skipped</div></div>
           </div>
         </div>
-        <h2 style="color:#6a4bff;margin:40px 0 20px;font-size:1.8rem">📋 Review</h2>
-        ${corrQ.length>0?`<div style="margin-bottom:30px"><h3 style="color:#4CAF50;margin-bottom:15px">✓ Correct (${corrQ.length})</h3>${corrQ.map(q=>`<div class="question-review-item" style="border-left:4px solid #4CAF50"><strong>Q${q.questionNumber}:</strong> ${cleanQuestionText(q.question)}<br><span style="color:#4CAF50">Your answer: ${formatUserAnswer(q)}</span></div>`).join('')}</div>`:''}
-        ${incorrQ.length>0?`<div style="margin-bottom:30px"><h3 style="color:#f44336;margin-bottom:15px">✗ Incorrect (${incorrQ.length})</h3>${incorrQ.map(q=>`<div class="question-review-item" style="border-left:4px solid #f44336"><strong>Q${q.questionNumber}:</strong> ${cleanQuestionText(q.question)}<br><span style="color:#f44336">Your answer: ${formatUserAnswer(q)}</span><br><span style="color:#4CAF50">Correct: ${formatCorrectAnswer(q)}</span></div>`).join('')}</div>`:''}
-        ${skipQ.length>0?`<div><h3 style="color:#ff9800;margin-bottom:15px">○ Skipped (${skipQ.length})</h3>${skipQ.map(q=>`<div class="question-review-item" style="border-left:4px solid #ff9800"><strong>Q${q.questionNumber}:</strong> ${cleanQuestionText(q.question)}<br><span style="color:#4CAF50">Answer: ${formatCorrectAnswer(q)}</span></div>`).join('')}</div>`:''}
-        <div style="display:flex;gap:15px;justify-content:center;margin-top:50px;flex-wrap:wrap;padding-top:30px;border-top:1px solid rgba(255,255,255,0.1)">
-          <button onclick="downloadQuestionsPDF()" style="background:linear-gradient(90deg,#4CAF50,#45a049);color:white;border:none;padding:15px 30px;border-radius:25px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px"><i class="fas fa-download"></i> Download PDF</button>
-          <button onclick="window.location.href='index.html'" style="background:linear-gradient(90deg,#6a4bff,#9b6aff);color:white;border:none;padding:15px 30px;border-radius:25px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px"><i class="fas fa-home"></i> Home</button>
+        <h2 style="color:#6a4bff;margin:40px 0 20px">Review</h2>
+        ${corrQ.length>0?`<div style="margin-bottom:30px"><h3 style="color:#4CAF50">Correct (${corrQ.length})</h3>${corrQ.map(q=>`<div class="question-review-item" style="border-left:4px solid #4CAF50"><strong>Q${q.questionNumber}:</strong> ${cleanQuestionText(q.question)}<br><span style="color:#4CAF50">Your answer: ${formatUserAnswer(q)}</span></div>`).join('')}</div>`:''}
+        ${incorrQ.length>0?`<div style="margin-bottom:30px"><h3 style="color:#f44336">Incorrect (${incorrQ.length})</h3>${incorrQ.map(q=>`<div class="question-review-item" style="border-left:4px solid #f44336"><strong>Q${q.questionNumber}:</strong> ${cleanQuestionText(q.question)}<br><span style="color:#f44336">Your answer: ${formatUserAnswer(q)}</span><br><span style="color:#4CAF50">Correct: ${formatCorrectAnswer(q)}</span></div>`).join('')}</div>`:''}
+        ${skipQ.length>0?`<div><h3 style="color:#ff9800">Skipped (${skipQ.length})</h3>${skipQ.map(q=>`<div class="question-review-item" style="border-left:4px solid #ff9800"><strong>Q${q.questionNumber}:</strong> ${cleanQuestionText(q.question)}<br><span style="color:#4CAF50">Answer: ${formatCorrectAnswer(q)}</span></div>`).join('')}</div>`:''}
+        <div style="display:flex;gap:15px;justify-content:center;margin-top:50px;flex-wrap:wrap">
+          <button onclick="downloadQuestionsPDF()" style="background:#4CAF50;color:white;border:none;padding:15px 30px;border-radius:25px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px"><i class="fas fa-download"></i> Download PDF</button>
+          <button onclick="window.location.href='index.html'" style="background:#6a4bff;color:white;border:none;padding:15px 30px;border-radius:25px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px"><i class="fas fa-home"></i> Home</button>
           <button onclick="location.reload()" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);padding:15px 30px;border-radius:25px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px"><i class="fas fa-redo"></i> Try Again</button>
         </div>
       </div>`;
