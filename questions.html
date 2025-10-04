@@ -1,4 +1,4 @@
-<!-- questions.html - COMPLETE FINAL FIX -->
+<!-- questions.html - FINAL WORKING VERSION -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,116 +10,6 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <style>
-    .questions-container {
-      background: var(--darker);
-      min-height: 100vh;
-      padding-top: 120px;
-      padding-bottom: 80px;
-    }
-    .question-card {
-      background: var(--card-bg);
-      backdrop-filter: blur(10px);
-      border-radius: 15px;
-      padding: 40px 30px 30px;
-      margin-bottom: 25px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      position: relative;
-    }
-    .question-number {
-      position: absolute;
-      top: 15px;
-      left: 20px;
-      background: var(--primary);
-      color: white;
-      padding: 8px 16px;
-      border-radius: 20px;
-      font-weight: 600;
-      font-size: 0.9rem;
-    }
-    .question-text {
-      font-size: 1.2rem;
-      font-weight: 500;
-      color: var(--text);
-      line-height: 1.6;
-      margin: 40px 0 20px 0;
-      word-wrap: break-word;
-    }
-    .option-item {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 10px;
-      padding: 15px 20px;
-      cursor: pointer;
-      transition: all 0.3s;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 10px;
-    }
-    .option-item:hover {
-      background: rgba(106, 75, 255, 0.1);
-      border-color: var(--primary-light);
-    }
-    .option-item.selected {
-      background: rgba(106, 75, 255, 0.2);
-      border-color: var(--primary);
-    }
-    .option-letter {
-      background: var(--primary);
-      color: white;
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 600;
-      font-size: 0.9rem;
-      flex-shrink: 0;
-    }
-    /* FLASHCARD STYLES */
-    .flashcard-container {
-      min-height: 250px;
-      cursor: pointer;
-      position: relative;
-      perspective: 1000px;
-      padding: 40px 30px;
-      margin: 20px 0;
-    }
-    .flashcard-inner {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      text-align: center;
-      transition: transform 0.6s;
-      transform-style: preserve-3d;
-    }
-    .flashcard-container.flipped .flashcard-inner {
-      transform: rotateY(180deg);
-    }
-    .flashcard-front, .flashcard-back {
-      position: absolute;
-      width: 100%;
-      min-height: 200px;
-      backface-visibility: hidden;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      padding: 30px;
-      border-radius: 12px;
-    }
-    .flashcard-front {
-      background: rgba(106, 75, 255, 0.1);
-      border: 2px dashed var(--primary);
-    }
-    .flashcard-back {
-      background: rgba(77, 255, 243, 0.1);
-      border: 2px solid var(--accent);
-      transform: rotateY(180deg);
-    }
-  </style>
 </head>
 <body>
   <div class="stars"></div>
@@ -135,48 +25,48 @@
       </ul>
     </div>
   </nav>
-  <div class="questions-container">
+  <div class="questions-container" style="background: var(--darker); min-height: 100vh; padding-top: 120px; padding-bottom: 80px;">
     <div class="container">
       <div class="questions-header" style="background: var(--card-bg); backdrop-filter: blur(10px); border-radius: 15px; padding: 30px; margin-bottom: 30px; border: 1px solid rgba(255, 255, 255, 0.1); text-align: center;">
-        <h1>Practice Questions</h1>
-        <p id="file-source">Generated from your uploaded document</p>
+        <h1 style="color: var(--primary-light); margin-bottom: 10px;">Practice Questions</h1>
+        <p id="file-source" style="color: var(--text-secondary);">Generated from your uploaded document</p>
         <div class="questions-meta" style="display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; margin-top: 20px;">
-          <div class="meta-item" style="display: flex; align-items: center; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px; color: var(--text);">
             <i class="fas fa-list-ol" style="color: var(--accent);"></i>
             <span id="total-questions">10 Questions</span>
           </div>
-          <div class="meta-item" style="display: flex; align-items: center; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px; color: var(--text);">
             <i class="fas fa-clock" style="color: var(--accent);"></i>
             <span id="question-type">Multiple Choice</span>
           </div>
-          <div class="meta-item" style="display: flex; align-items: center; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px; color: var(--text);">
             <i class="fas fa-chart-line" style="color: var(--accent);"></i>
             <span id="difficulty-level">Medium</span>
           </div>
-          <div class="meta-item" id="answered-count-meta" style="display: flex; align-items: center; gap: 8px;">
+          <div id="answered-count-meta" style="display: flex; align-items: center; gap: 8px; color: var(--text);">
             <i class="fas fa-check-circle" style="color: var(--accent);"></i>
             <span id="answered-count">0 Answered</span>
           </div>
         </div>
-        <div class="progress-bar-container" id="progress-container" style="background: rgba(255,255,255,0.1); border-radius: 10px; height: 8px; margin: 20px 0; overflow: hidden;">
-          <div class="progress-bar" id="progress-bar" style="background: linear-gradient(90deg, var(--primary), var(--accent)); height: 100%; width: 0%; transition: width 0.3s;"></div>
+        <div id="progress-container" style="background: rgba(255,255,255,0.1); border-radius: 10px; height: 8px; margin: 20px 0; overflow: hidden;">
+          <div id="progress-bar" style="background: linear-gradient(90deg, var(--primary), var(--accent)); height: 100%; width: 0%; transition: width 0.3s;"></div>
         </div>
-        <div class="progress-text" id="progress-text" style="text-align: center; color: var(--text-secondary); font-size: 0.9rem;">Question 1 of 10</div>
+        <div id="progress-text" style="text-align: center; color: var(--text-secondary); font-size: 0.9rem;">Question 1 of 10</div>
       </div>
       <div id="questions-display"></div>
       <div style="text-align: center; margin: 40px 0;" id="submit-section">
-        <button class="control-btn" onclick="submitQuiz()" style="background: var(--success); font-size: 16px; padding: 15px 30px; border-radius: 25px; cursor: pointer; border: none; color: white; font-weight: 600;">
+        <button onclick="submitQuiz()" style="background: var(--success); color: white; border: none; padding: 15px 30px; border-radius: 25px; cursor: pointer; font-weight: 600; font-size: 16px; display: inline-flex; align-items: center; gap: 10px; transition: all 0.3s;">
           <i class="fas fa-check-circle"></i> Submit Quiz
         </button>
       </div>
-      <div class="quiz-controls" style="position: fixed; bottom: 20px; right: 20px; display: flex; gap: 15px; z-index: 100;" id="quiz-nav-controls">
-        <button class="control-btn" id="prev-btn" onclick="previousQuestion()" disabled style="background: var(--card-bg); color: var(--text); padding: 12px 20px; border-radius: 25px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); font-weight: 500;">
+      <div id="quiz-nav-controls" style="position: fixed; bottom: 20px; right: 20px; display: flex; gap: 15px; z-index: 100;">
+        <button id="prev-btn" onclick="previousQuestion()" disabled style="background: var(--card-bg); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); color: var(--text); padding: 12px 20px; border-radius: 25px; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 8px; transition: all 0.3s;">
           <i class="fas fa-chevron-left"></i> Previous
         </button>
-        <button class="control-btn" id="next-btn" onclick="nextQuestion()" style="background: var(--card-bg); color: var(--text); padding: 12px 20px; border-radius: 25px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); font-weight: 500;">
+        <button id="next-btn" onclick="nextQuestion()" style="background: var(--card-bg); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); color: var(--text); padding: 12px 20px; border-radius: 25px; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 8px; transition: all 0.3s;">
           Next <i class="fas fa-chevron-right"></i>
         </button>
-        <button class="control-btn" id="finish-btn" onclick="finishQuiz()" style="display: none; background: var(--card-bg); color: var(--text); padding: 12px 20px; border-radius: 25px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); font-weight: 500;">
+        <button id="finish-btn" onclick="finishQuiz()" style="display: none; background: var(--card-bg); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); color: var(--text); padding: 12px 20px; border-radius: 25px; cursor: pointer; font-weight: 500; gap: 8px; transition: all 0.3s;">
           <i class="fas fa-flag-checkered"></i> Finish
         </button>
       </div>
@@ -206,7 +96,7 @@
         try {
           const data = JSON.parse(stored);
           questions = data.questions || [];
-          console.log('📚 Loaded questions:', questions.length);
+          console.log('Loaded questions:', questions.length);
           
           if (data.metadata) {
             document.getElementById('file-source').textContent = `Generated from ${data.metadata.fileName || 'your document'}`;
@@ -215,7 +105,7 @@
             document.getElementById('total-questions').textContent = `${questions.length} Questions`;
           }
         } catch (e) {
-          console.error('Error loading questions:', e);
+          console.error('Load error:', e);
           questions = [];
         }
       }
@@ -229,7 +119,7 @@
         options: ['3', '4', '5', '6'],
         correctAnswer: 1,
         correctLetter: 'B',
-        explanation: '2 + 2 = 4'
+        explanation: '2 + 2 equals 4'
       }];
     }
 
@@ -248,66 +138,52 @@
 
     function displayCurrentQuestion() {
       if (!questions.length) {
-        document.getElementById('questions-display').innerHTML = `
-          <div style="text-align:center;padding:40px">
-            <i class="fas fa-exclamation-triangle" style="font-size:3rem;color:var(--warning)"></i>
-            <h3>No Questions Available</h3>
-            <button onclick="window.location.href='index.html'" style="margin-top:20px;background:var(--primary);color:white;border:none;padding:12px 24px;border-radius:8px;cursor:pointer">Go Home</button>
-          </div>`;
+        document.getElementById('questions-display').innerHTML = '<div style="text-align:center;padding:40px"><i class="fas fa-exclamation-triangle" style="font-size:3rem;color:var(--warning)"></i><h3>No Questions</h3><button onclick="window.location.href=\'index.html\'" style="margin-top:20px;background:var(--primary);color:white;border:none;padding:12px 24px;border-radius:8px;cursor:pointer">Go Home</button></div>';
         return;
       }
       
       const q = questions[currentQuestionIndex];
       const display = document.getElementById('questions-display');
-      let html = `<div class="question-card">
-        <div class="question-number">Question ${currentQuestionIndex + 1}</div>
-        <div class="question-text">${cleanQuestionText(q.question)}</div>`;
+      let html = '<div style="background: var(--card-bg); backdrop-filter: blur(10px); border-radius: 15px; padding: 40px 30px 30px; margin-bottom: 25px; border: 1px solid rgba(255, 255, 255, 0.1); position: relative;">';
+      html += `<div style="position: absolute; top: 15px; left: 20px; background: var(--primary); color: white; padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 0.9rem;">Question ${currentQuestionIndex + 1}</div>`;
+      html += `<div style="font-size: 1.2rem; font-weight: 500; color: var(--text); line-height: 1.6; margin: 40px 0 20px 0; word-wrap: break-word;">${cleanQuestionText(q.question)}</div>`;
       
-      // FLASHCARD DISPLAY FIX
       if (q.type === 'Flashcards' || isFlashcardMode) {
         const isFlipped = showingExplanations[q.id] || false;
         const answer = q.answer || q.explanation || 'No answer provided';
+        console.log('Flashcard answer:', answer);
         
-        html += `
-          <div class="flashcard-container ${isFlipped ? 'flipped' : ''}" onclick="flipFlashcard(${q.id})">
-            <div class="flashcard-inner">
-              <div class="flashcard-front">
-                <p style="font-size: 1.3rem; color: var(--primary-light); margin-bottom: 15px; font-weight: 600;">
-                  <i class="fas fa-question-circle"></i> Click to reveal answer
-                </p>
-                <i class="fas fa-sync-alt" style="font-size: 2.5rem; color: var(--primary); opacity: 0.6;"></i>
-              </div>
-              <div class="flashcard-back">
-                <h4 style="color: var(--accent); margin-bottom: 20px; font-size: 1.2rem;">
-                  <i class="fas fa-lightbulb"></i> Answer:
-                </h4>
-                <p style="font-size: 1.1rem; color: var(--text); line-height: 1.8; max-width: 600px;">
-                  ${cleanQuestionText(answer)}
-                </p>
-              </div>
+        html += `<div onclick="flipFlashcard(${q.id})" style="min-height: 250px; cursor: pointer; position: relative; perspective: 1000px; padding: 40px 30px; margin: 20px 0;">
+          <div style="position: relative; width: 100%; height: 100%; text-align: center; transition: transform 0.6s; transform-style: preserve-3d;${isFlipped ? ' transform: rotateY(180deg);' : ''}">
+            <div style="position: absolute; width: 100%; min-height: 200px; backface-visibility: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 30px; border-radius: 12px; background: rgba(106, 75, 255, 0.1); border: 2px dashed var(--primary);">
+              <p style="font-size: 1.3rem; color: var(--primary-light); margin-bottom: 15px; font-weight: 600;"><i class="fas fa-question-circle"></i> Click to reveal answer</p>
+              <i class="fas fa-sync-alt" style="font-size: 2.5rem; color: var(--primary); opacity: 0.6;"></i>
             </div>
-          </div>`;
+            <div style="position: absolute; width: 100%; min-height: 200px; backface-visibility: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 30px; border-radius: 12px; background: rgba(77, 255, 243, 0.1); border: 2px solid var(--accent); transform: rotateY(180deg);">
+              <h4 style="color: var(--accent); margin-bottom: 20px; font-size: 1.2rem;"><i class="fas fa-lightbulb"></i> Answer:</h4>
+              <p style="font-size: 1.1rem; color: var(--text); line-height: 1.8; max-width: 600px;">${cleanQuestionText(answer)}</p>
+            </div>
+          </div>
+        </div>`;
       } else if (q.type === 'Multiple Choice' && q.options) {
-        html += '<div class="question-options">';
+        html += '<div>';
         q.options.forEach((opt, i) => {
           const letter = String.fromCharCode(65 + i);
           const selected = userAnswers[q.id] === i ? 'selected' : '';
-          html += `<div class="option-item ${selected}" onclick="selectOption(${q.id}, ${i})">
-            <div class="option-letter">${letter}</div>
-            <div class="option-text">${cleanQuestionText(opt)}</div>
+          html += `<div onclick="selectOption(${q.id}, ${i})" class="option-item ${selected}" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 15px 20px; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; gap: 12px; margin-bottom: 10px;${selected ? ' background: rgba(106, 75, 255, 0.2); border-color: var(--primary);' : ''}">
+            <div style="background: var(--primary); color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.9rem; flex-shrink: 0;">${letter}</div>
+            <div style="flex: 1;">${cleanQuestionText(opt)}</div>
           </div>`;
         });
         html += '</div>';
       } else if (q.type === 'True/False') {
-        html += '<div class="question-options">';
         ['True', 'False'].forEach((opt) => {
           const selected = userAnswers[q.id] === opt ? 'selected' : '';
-          html += `<div class="option-item ${selected}" onclick="selectTrueFalse(${q.id}, '${opt}')">
-            <div class="option-letter">${opt === 'True' ? 'T' : 'F'}</div>
-            <div class="option-text">${opt}</div>
+          html += `<div onclick="selectTrueFalse(${q.id}, '${opt}')" style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 15px 20px; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; gap: 12px; margin-bottom: 10px;${selected ? ' background: rgba(106, 75, 255, 0.2); border-color: var(--primary);' : ''}">
+            <div style="background: var(--primary); color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.9rem;">${opt === 'True' ? 'T' : 'F'}</div>
+            <div>${opt}</div>
           </div>`;
         });
-        html += '</div>';
       }
       
       html += '</div>';
@@ -390,25 +266,14 @@
         
         if (isAns) {
           if (q.type === 'Multiple Choice') {
-            let correctIndex;
-            if (typeof q.correctAnswer === 'number') {
-              correctIndex = q.correctAnswer;
-            } else if (q.correctLetter) {
-              correctIndex = q.correctLetter.charCodeAt(0) - 65;
-            } else {
-              correctIndex = 0;
-            }
-            
+            const correctIndex = typeof q.correctAnswer === 'number' ? q.correctAnswer : (q.correctLetter ? q.correctLetter.charCodeAt(0) - 65 : 0);
             isCorr = (ans === correctIndex);
-            console.log(`Q${i+1}: User=${ans} (${String.fromCharCode(65+ans)}), Correct=${correctIndex} (${String.fromCharCode(65+correctIndex)}), Match=${isCorr}`);
-            
+            console.log(`Q${i+1}: User=${ans}, Correct=${correctIndex}, Match=${isCorr}`);
           } else if (q.type === 'True/False') {
-            const correctAns = typeof q.correctAnswer === 'string' ? q.correctAnswer : (q.correctAnswer ? 'True' : 'False');
-            isCorr = (ans === correctAns);
-          } else if (q.type === 'Flashcards') {
+            isCorr = (ans === q.correctAnswer);
+          } else {
             isCorr = true;
           }
-          
           isCorr ? correct++ : incorrect++;
         } else {
           skipped++;
@@ -428,22 +293,17 @@
       const header = document.querySelector('.questions-header');
       header.insertAdjacentHTML('afterend', generateResults(score, correct, incorrect, skipped, results));
       
-      document.getElementById('file-source').textContent = `Quiz Results - ${score}%`;
+      document.getElementById('file-source').textContent = `Results - ${score}%`;
       document.querySelector('.questions-meta').style.display = 'none';
     }
 
-    // FIXED PDF GENERATION - Option A formatting
     async function downloadQuestionsPDF() {
       try {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         
         const metadata = JSON.parse(localStorage.getItem('examblox_questions'))?.metadata || {};
-        const fileName = metadata.fileName || 'Document';
-        const questionType = metadata.questionType || 'Multiple Choice';
-        const difficulty = metadata.difficulty || 'Medium';
         
-        // Title Page
         doc.setFontSize(24);
         doc.setFont('helvetica', 'bold');
         doc.text('EXAM BLOX', 105, 40, { align: 'center' });
@@ -451,103 +311,77 @@
         doc.text(`${questions.length} QUESTIONS`, 105, 60, { align: 'center' });
         doc.setFontSize(16);
         doc.setFont('helvetica', 'normal');
-        doc.text(questionType, 105, 80, { align: 'center' });
-        doc.text(`${difficulty.toUpperCase()} DIFFICULTY`, 105, 95, { align: 'center' });
-        doc.setFontSize(10);
-        doc.text(`Generated from: ${fileName}`, 105, 120, { align: 'center' });
-        doc.text(`Date: ${new Date().toLocaleDateString()}`, 105, 130, { align: 'center' });
+        doc.text(metadata.questionType || 'Multiple Choice', 105, 80, { align: 'center' });
+        doc.text(`${(metadata.difficulty || 'Medium').toUpperCase()} DIFFICULTY`, 105, 95, { align: 'center' });
         
-        // Questions
         doc.addPage();
-        let yPosition = 20;
+        let y = 20;
         
-        questions.forEach((q, index) => {
-          if (yPosition > 250) {
+        questions.forEach((q, idx) => {
+          if (y > 250) {
             doc.addPage();
-            yPosition = 20;
+            y = 20;
           }
           
           doc.setFontSize(12);
           doc.setFont('helvetica', 'bold');
-          doc.text(`QUESTION ${index + 1}:`, 20, yPosition);
-          yPosition += 7;
+          doc.text(`QUESTION ${idx + 1}:`, 20, y);
+          y += 7;
           
           doc.setFont('helvetica', 'normal');
-          const questionLines = doc.splitTextToSize(cleanQuestionText(q.question), 170);
-          doc.text(questionLines, 20, yPosition);
-          yPosition += questionLines.length * 7 + 5;
+          const qLines = doc.splitTextToSize(cleanQuestionText(q.question), 170);
+          doc.text(qLines, 20, y);
+          y += qLines.length * 7 + 5;
           
           if (q.type === 'Multiple Choice' && q.options) {
             q.options.forEach((opt, i) => {
               const letter = String.fromCharCode(65 + i);
-              let correctIndex;
-              if (typeof q.correctAnswer === 'number') {
-                correctIndex = q.correctAnswer;
-              } else if (q.correctLetter) {
-                correctIndex = q.correctLetter.charCodeAt(0) - 65;
-              } else {
-                correctIndex = 0;
-              }
-              
+              const correctIndex = typeof q.correctAnswer === 'number' ? q.correctAnswer : (q.correctLetter ? q.correctLetter.charCodeAt(0) - 65 : 0);
               const isCorrect = (i === correctIndex);
               
-              // FIX: Proper text wrapping for all options including A
               doc.setFontSize(11);
-              doc.text(`${letter})`, 25, yPosition);
-              const optionText = `${cleanQuestionText(opt)}${isCorrect ? ' ✓' : ''}`;
-              const optionLines = doc.splitTextToSize(optionText, 160);
-              doc.text(optionLines, 33, yPosition); // Consistent indent for all options
-              yPosition += optionLines.length * 6 + 2;
+              doc.text(`${letter})`, 25, y);
+              const optText = cleanQuestionText(opt) + (isCorrect ? ' ✓' : '');
+              const optLines = doc.splitTextToSize(optText, 160);
+              doc.text(optLines, 35, y);
+              y += Math.max(optLines.length * 6, 6);
             });
             
-            yPosition += 3;
+            y += 3;
             doc.setFont('helvetica', 'bold');
-            const correctLetter = typeof q.correctAnswer === 'number' 
-              ? String.fromCharCode(65 + q.correctAnswer)
-              : (q.correctLetter || 'A');
-            doc.text(`CORRECT ANSWER: ${correctLetter}`, 20, yPosition);
-            yPosition += 7;
-            
+            const correctLetter = typeof q.correctAnswer === 'number' ? String.fromCharCode(65 + q.correctAnswer) : (q.correctLetter || 'A');
+            doc.text(`CORRECT ANSWER: ${correctLetter}`, 20, y);
+            y += 10;
           } else if (q.type === 'True/False') {
-            doc.text('A) True', 25, yPosition);
-            yPosition += 6;
-            doc.text('B) False', 25, yPosition);
-            yPosition += 8;
+            doc.text('A) True', 25, y);
+            y += 6;
+            doc.text('B) False', 25, y);
+            y += 8;
             doc.setFont('helvetica', 'bold');
-            doc.text(`CORRECT ANSWER: ${q.correctAnswer}`, 20, yPosition);
-            yPosition += 7;
-            
+            doc.text(`CORRECT ANSWER: ${q.correctAnswer}`, 20, y);
+            y += 10;
           } else if (q.type === 'Flashcards') {
             doc.setFont('helvetica', 'bold');
-            doc.text('ANSWER:', 20, yPosition);
-            yPosition += 6;
+            doc.text('ANSWER:', 20, y);
+            y += 6;
             doc.setFont('helvetica', 'normal');
             const answer = cleanQuestionText(q.answer || q.explanation || 'No answer');
-            const answerLines = doc.splitTextToSize(answer, 170);
-            doc.text(answerLines, 20, yPosition);
-            yPosition += answerLines.length * 6 + 3;
+            const ansLines = doc.splitTextToSize(answer, 170);
+            doc.text(ansLines, 20, y);
+            y += ansLines.length * 6 + 10;
           }
           
-          if (q.explanation) {
-            doc.setFont('helvetica', 'italic');
-            doc.setFontSize(10);
-            const explLines = doc.splitTextToSize(`Explanation: ${cleanQuestionText(q.explanation)}`, 170);
-            doc.text(explLines, 20, yPosition);
-            yPosition += explLines.length * 5 + 3;
-          }
-          
-          yPosition += 8;
+          y += 5;
           doc.setDrawColor(200);
-          doc.line(20, yPosition - 5, 190, yPosition - 5);
-          yPosition += 5;
+          doc.line(20, y - 3, 190, y - 3);
+          y += 5;
         });
         
-        doc.save(`ExamBlox_Questions_${new Date().getTime()}.pdf`);
-        showNotification('PDF downloaded successfully!', 'success');
-        
-      } catch (error) {
-        console.error('PDF generation error:', error);
-        showNotification('Failed to generate PDF', 'error');
+        doc.save(`ExamBlox_${Date.now()}.pdf`);
+        showNotification('PDF downloaded!', 'success');
+      } catch (e) {
+        console.error('PDF error:', e);
+        showNotification('PDF failed', 'error');
       }
     }
 
@@ -556,24 +390,21 @@
       const incorrQ = results.filter(q => q.isAnswered && !q.isCorrect);
       const skipQ = results.filter(q => !q.isAnswered);
       
-      return `<div class="results-container active" style="display: block; background: rgba(30,28,44,0.9); border-radius: 20px; padding: 40px; margin-bottom: 30px; border: 1px solid rgba(255, 255, 255, 0.1);">
+      return `<div style="display: block; background: rgba(30,28,44,0.9); border-radius: 20px; padding: 40px; margin-bottom: 30px; border: 1px solid rgba(255, 255, 255, 0.1);">
         <div style="text-align:center;margin-bottom:40px">
-          <h1 style="font-size:2.5rem;margin-bottom:10px;background:linear-gradient(90deg,#6a4bff,#4dfff3);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Quiz Complete!</h1>
+          <h1 style="font-size:2.5rem;margin-bottom:10px;background:linear-gradient(90deg,#6a4bff,#4dfff3);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Complete!</h1>
           <div style="font-size:5rem;font-weight:800;color:${score>=75?'#4CAF50':score>=60?'#ff9800':'#f44336'};margin:20px 0">${score}%</div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:15px;margin-top:30px;max-width:800px;margin-left:auto;margin-right:auto">
-            <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1);"><div style="color:#4CAF50;font-size:2rem">✓</div><div style="font-size:2rem;font-weight:700;color:#4CAF50">${correct}</div><div style="color:#ccc">Correct</div></div>
-            <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1);"><div style="color:#f44336;font-size:2rem">✗</div><div style="font-size:2rem;font-weight:700;color:#f44336">${incorrect}</div><div style="color:#ccc">Incorrect</div></div>
-            <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1);"><div style="color:#ff9800;font-size:2rem">○</div><div style="font-size:2rem;font-weight:700;color:#ff9800">${skipped}</div><div style="color:#ccc">Skipped</div></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:15px;margin-top:30px;max-width:800px;margin:0 auto">
+            <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:20px;text-align:center;border:1px solid rgba(255,255,255,0.1)"><div style="color:#4CAF50;font-size:2rem">✓</div><div style="font-size:2rem;font-weight:700;color:#4CAF50">${correct}</div><div style="color:#ccc">Correct</div></div>
+            <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:20px;text-align:center;border:1px solid rgba(255,255,255,0.1)"><div style="color:#f44336;font-size:2rem">✗</div><div style="font-size:2rem;font-weight:700;color:#f44336">${incorrect}</div><div style="color:#ccc">Incorrect</div></div>
+            <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:20px;text-align:center;border:1px solid rgba(255,255,255,0.1)"><div style="color:#ff9800;font-size:2rem">○</div><div style="font-size:2rem;font-weight:700;color:#ff9800">${skipped}</div><div style="color:#ccc">Skipped</div></div>
           </div>
         </div>
-        <h2 style="color:#6a4bff;margin:40px 0 20px">Review</h2>
-        ${corrQ.length>0?`<div style="margin-bottom:30px"><h3 style="color:#4CAF50">Correct (${corrQ.length})</h3>${corrQ.map(q=>`<div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 15px; margin-bottom: 12px; border-left:4px solid #4CAF50"><strong>Q${q.questionNumber}:</strong> ${cleanQuestionText(q.question)}<br><span style="color:#4CAF50">Your answer: ${formatUserAnswer(q)}</span></div>`).join('')}</div>`:''}
-        ${incorrQ.length>0?`<div style="margin-bottom:30px"><h3 style="color:#f44336">Incorrect (${incorrQ.length})</h3>${incorrQ.map(q=>`<div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 15px; margin-bottom: 12px; border-left:4px solid #f44336"><strong>Q${q.questionNumber}:</strong> ${cleanQuestionText(q.question)}<br><span style="color:#f44336">Your answer: ${formatUserAnswer(q)}</span><br><span style="color:#4CAF50">Correct: ${formatCorrectAnswer(q)}</span></div>`).join('')}</div>`:''}
-        ${skipQ.length>0?`<div><h3 style="color:#ff9800">Skipped (${skipQ.length})</h3>${skipQ.map(q=>`<div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 15px; margin-bottom: 12px; border-left:4px solid #ff9800"><strong>Q${q.questionNumber}:</strong> ${cleanQuestionText(q.question)}<br><span style="color:#4CAF50">Answer: ${formatCorrectAnswer(q)}</span></div>`).join('')}</div>`:''}
+        ${corrQ.length>0?`<div style="margin-bottom:30px"><h3 style="color:#4CAF50">Correct (${corrQ.length})</h3>${corrQ.map(q=>`<div style="background:rgba(255,255,255,0.05);border-radius:8px;padding:15px;margin-bottom:12px;border-left:4px solid #4CAF50"><strong>Q${q.questionNumber}:</strong> ${cleanQuestionText(q.question)}</div>`).join('')}</div>`:''}
+        ${incorrQ.length>0?`<div style="margin-bottom:30px"><h3 style="color:#f44336">Incorrect (${incorrQ.length})</h3>${incorrQ.map(q=>`<div style="background:rgba(255,255,255,0.05);border-radius:8px;padding:15px;margin-bottom:12px;border-left:4px solid #f44336"><strong>Q${q.questionNumber}:</strong> ${cleanQuestionText(q.question)}<br><span style="color:#f44336">Your: ${formatUserAnswer(q)}</span><br><span style="color:#4CAF50">Correct: ${formatCorrectAnswer(q)}</span></div>`).join('')}</div>`:''}
         <div style="display:flex;gap:15px;justify-content:center;margin-top:50px;flex-wrap:wrap">
-          <button onclick="downloadQuestionsPDF()" style="background:#4CAF50;color:white;border:none;padding:15px 30px;border-radius:25px;font-weight:600;cursor:pointer"><i class="fas fa-download"></i> Download PDF</button>
-          <button onclick="window.location.href='index.html'" style="background:#6a4bff;color:white;border:none;padding:15px 30px;border-radius:25px;font-weight:600;cursor:pointer"><i class="fas fa-home"></i> Home</button>
-          <button onclick="location.reload()" style="background:rgba(255,255,255,0.1);color:white;border:1px solid rgba(255,255,255,0.2);padding:15px 30px;border-radius:25px;font-weight:600;cursor:pointer"><i class="fas fa-redo"></i> Try Again</button>
+          <button onclick="downloadQuestionsPDF()" style="background:#4CAF50;color:white;border:none;padding:15px 30px;border-radius:25px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px"><i class="fas fa-download"></i> Download PDF</button>
+          <button onclick="window.location.href='index.html'" style="background:#6a4bff;color:white;border:none;padding:15px 30px;border-radius:25px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px"><i class="fas fa-home"></i> Home</button>
         </div>
       </div>`;
     }
@@ -588,14 +419,9 @@
     function formatCorrectAnswer(q) {
       if (q.type === 'Multiple Choice') {
         const correctIndex = typeof q.correctAnswer === 'number' ? q.correctAnswer : (q.correctLetter ? q.correctLetter.charCodeAt(0) - 65 : 0);
-        const letter = String.fromCharCode(65 + correctIndex);
-        return `${letter} - ${cleanQuestionText(q.options[correctIndex])}`;
-      } else if (q.type === 'True/False') {
-        return q.correctAnswer;
-      } else if (q.type === 'Flashcards') {
-        return cleanQuestionText(q.answer || q.explanation || 'See flashcard');
+        return String.fromCharCode(65 + correctIndex);
       }
-      return 'N/A';
+      return q.correctAnswer;
     }
 
     function initializeStarsBackground() {
