@@ -733,7 +733,7 @@ ANSWER: [Detailed explanation]`;
   return specificPrompt;
 }
 
-// REPLACE parseQuestionsResponse function in index.js
+// REPLACE parseQuestionsResponse function in index.js - COMPLETE FIX
 
 function parseQuestionsResponse(response, questionType) {
   const questions = [];
@@ -764,36 +764,20 @@ function parseQuestionsResponse(response, questionType) {
         });
 
         if (options.length >= 4 && answerLine) {
-          // CRITICAL FIX: Extract correct answer letter
           const correctLetter = answerLine.toUpperCase().match(/ANSWER:\s*([A-D])/)?.[1] || 'A';
           const correctIndex = correctLetter.charCodeAt(0) - 65;
-          
-          // VALIDATION: Check if explanation mentions a different answer
-          if (explanation) {
-            const explLower = explanation.toLowerCase();
-            // If explanation mentions a specific option, use that as correct answer
-            for (let i = 0; i < options.length; i++) {
-              const optText = options[i].toLowerCase();
-              // Check if explanation strongly references this option
-              if (explLower.includes(optText.substring(0, 20)) || 
-                  explLower.includes(options[i].split(' ')[0].toLowerCase())) {
-                // Found mention in explanation - this might be the real answer
-                console.log(`⚠️ Q${index+1}: Answer=${correctLetter} but explanation suggests option ${String.fromCharCode(65+i)}`);
-              }
-            }
-          }
           
           questions.push({
             id: questions.length + 1,
             type: questionType,
             question: questionText,
             options: options.slice(0, 4),
-            correctAnswer: correctIndex, // Store as index (0-3)
-            correctLetter: correctLetter, // Store letter for reference
+            correctAnswer: correctIndex,
+            correctLetter: correctLetter,
             explanation: explanation || 'Correct answer based on text'
           });
           
-          console.log(`✓ Q${questions.length}: "${questionText}" - Correct: ${correctLetter} (index ${correctIndex})`);
+          console.log(`✓ MC Q${questions.length}: Correct=${correctLetter} (idx ${correctIndex})`);
         }
       } else if (questionType === 'True/False') {
         const answerLine = lines.find(l => l.toUpperCase().includes('ANSWER:'));
@@ -805,40 +789,52 @@ function parseQuestionsResponse(response, questionType) {
             type: questionType,
             question: questionText,
             correctAnswer: answerLine.toUpperCase().includes('TRUE') ? 'True' : 'False',
-            explanation: explanationLine ? explanationLine.substring(explanationLine.toUpperCase().indexOf('EXPLANATION:') + 12).trim() : 'Based on text content'
+            explanation: explanationLine ? explanationLine.substring(explanationLine.toUpperCase().indexOf('EXPLANATION:') + 12).trim() : 'Based on text'
           });
+          console.log(`✓ T/F Q${questions.length}`);
         }
       } else if (questionType === 'Flashcards') {
-        // FLASHCARD FIX: Extract both ANSWER and EXPLANATION
-        let answer = '';
-        let explanation = '';
+        // CRITICAL FLASHCARD FIX
+        let answerText = '';
+        let explanationText = '';
+        let foundAnswer = false;
         
-        lines.slice(1).forEach(line => {
-          if (line.toUpperCase().includes('ANSWER:')) {
-            answer = line.substring(line.toUpperCase().indexOf('ANSWER:') + 7).trim();
-          } else if (line.toUpperCase().includes('EXPLANATION:')) {
-            explanation = line.substring(line.toUpperCase().indexOf('EXPLANATION:') + 12).trim();
+        // Look through all lines after question
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i];
+          const upperLine = line.toUpperCase();
+          
+          if (upperLine.includes('ANSWER:')) {
+            answerText = line.substring(upperLine.indexOf('ANSWER:') + 7).trim();
+            foundAnswer = true;
+          } else if (upperLine.includes('EXPLANATION:')) {
+            explanationText = line.substring(upperLine.indexOf('EXPLANATION:') + 12).trim();
+          } else if (foundAnswer && answerText && !upperLine.includes('Q')) {
+            // Continue multi-line answer
+            answerText += ' ' + line.trim();
           }
-        });
+        }
         
-        // Use ANSWER field primarily, fallback to EXPLANATION
-        const finalAnswer = answer || explanation || 'No answer provided';
+        const finalAnswer = answerText || explanationText || 'No answer provided';
         
-        questions.push({
-          id: questions.length + 1,
-          type: questionType,
-          question: questionText,
-          answer: finalAnswer, // Primary answer field
-          explanation: explanation || answer, // Keep both for compatibility
-        });
-        
-        console.log(`✓ Flashcard ${questions.length}: "${questionText.substring(0, 50)}..." - Answer: ${finalAnswer.substring(0, 50)}`);
+        if (finalAnswer !== 'No answer provided') {
+          questions.push({
+            id: questions.length + 1,
+            type: questionType,
+            question: questionText,
+            answer: finalAnswer,
+            explanation: explanationText || answerText
+          });
+          
+          console.log(`✓ Flashcard Q${questions.length}: ${finalAnswer.substring(0, 50)}...`);
+        }
       }
     } catch (e) {
-      console.log(`❌ Parse error question ${index + 1}:`, e.message);
+      console.log(`❌ Parse error Q${index + 1}:`, e.message);
     }
   });
 
+  console.log(`📊 Total parsed: ${questions.length} questions`);
   return questions;
 }
 
