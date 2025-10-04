@@ -685,52 +685,61 @@ GUYYYYYYYYYYY WHAT THE FUCKING HELL IS WRONG WITH U, I SAID THAT U SHOULDNT GIVE
 U BOMBASTIC IDIOT, U GO FOR NOTHING FOOL, U PIECE OF SHIT TRASH, I FUCKING SAID I WANT SENTENCE QUESTIONS (EG "When did the queen of england die?" and not FUCKING "Queen of england") See the difference, the former is the correct way i want to see questions while the latter is the garbage and rubbish way WHICH UR FUCKING USING that questions are like. CORRECT UR SELF NOW. I can tell that ur trying to write questions but u dont complete them, pls coplete the questions and fix the issue
   `;
 
-  let specificPrompt = '';
-
   if (questionType === 'Multiple Choice') {
-    specificPrompt = `${baseInstructions}
+    return `${baseInstructions}
 
 TEXT:
 """
 ${text}
 """
 
-FORMAT:
-Q1: [Question]
+FORMAT (STRICT):
+Q1: [Question text]
 A) [Option]
 B) [Option]
 C) [Option]
 D) [Option]
 ANSWER: B
-EXPLANATION: [Brief explanation]`;
+EXPLANATION: [Why B is correct]
+
+Generate ${numQuestions} questions EXACTLY in this format.`;
 
   } else if (questionType === 'True/False') {
-    specificPrompt = `${baseInstructions}
+    return `${baseInstructions}
 
 TEXT:
 """
 ${text}
 """
 
-FORMAT:
-Q1: [Statement]
+FORMAT (STRICT):
+Q1: [Statement that is either true or false]
 ANSWER: True
-EXPLANATION: [Why]`;
+EXPLANATION: [Why this is true/false]
+
+Q2: [Another statement]
+ANSWER: False
+EXPLANATION: [Why this is false]
+
+Generate ${numQuestions} TRUE/FALSE questions. Answer must be ONLY "True" or "False".`;
 
   } else if (questionType === 'Flashcards') {
-    specificPrompt = `${baseInstructions}
+    return `${baseInstructions}
 
 TEXT:
 """
 ${text}
 """
 
-FORMAT:
-Q1: [Term/Concept]
-ANSWER: [Detailed explanation]`;
-  }
+FORMAT (STRICT):
+Q1: [Key term or concept]
+ANSWER: [Detailed explanation of the term/concept]
 
-  return specificPrompt;
+Q2: [Another term]
+ANSWER: [Detailed explanation]
+
+Generate ${numQuestions} flashcards. Each must have a term/concept and a detailed answer.`;
+  }
 }
 
 // REPLACE parseQuestionsResponse function in index.js - COMPLETE FIX
