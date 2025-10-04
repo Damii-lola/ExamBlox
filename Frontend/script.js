@@ -934,6 +934,7 @@ async function callBackendAPI(text, questionType, numQuestions, difficulty) {
       };
       
       localStorage.setItem('examblox_questions', JSON.stringify(questionData));
+      saveActivityToDashboard(questionData, selectedFiles, questionType, numQuestions, difficulty);
       showNotification('Questions generated! Redirecting...', 'success');
       setTimeout(() => window.location.href = 'questions.html', 1500);
     } else {
@@ -945,6 +946,47 @@ async function callBackendAPI(text, questionType, numQuestions, difficulty) {
     const progressModal = document.getElementById('progress-modal');
     if (progressModal) document.body.removeChild(progressModal);
   }
+}
+
+// ADD THIS FUNCTION to your script.js (after the callBackendAPI function)
+
+function saveActivityToDashboard(questionData, selectedFiles, questionType, numQuestions, difficulty) {
+  if (!isUserLoggedIn) return;
+  
+  const activities = JSON.parse(localStorage.getItem('examblox_activities') || '[]');
+  
+  const activity = {
+    id: Date.now(),
+    title: `Generated ${numQuestions} ${questionType} Questions`,
+    date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+    icon: 'fas fa-file-alt',
+    questions: questionData.questions,
+    details: {
+      files: selectedFiles.map(f => f.name),
+      questionType: questionType,
+      difficulty: difficulty,
+      totalQuestions: questionData.questions.length
+    }
+  };
+  
+  activities.unshift(activity);
+  
+  if (activities.length > 50) {
+    activities.splice(50);
+  }
+  
+  localStorage.setItem('examblox_activities', JSON.stringify(activities));
+  
+  const userStats = JSON.parse(localStorage.getItem('examblox_user_stats') || '{}');
+  userStats.totalQuestions = (userStats.totalQuestions || 0) + questionData.questions.length;
+  userStats.filesProcessed = (userStats.filesProcessed || 0) + selectedFiles.length;
+  userStats.studySessions = (userStats.studySessions || 0) + 1;
+  userStats.monthlyQuestions = (userStats.monthlyQuestions || 0) + questionData.questions.length;
+  userStats.monthlyFiles = (userStats.monthlyFiles || 0) + selectedFiles.length;
+  
+  localStorage.setItem('examblox_user_stats', JSON.stringify(userStats));
+  
+  console.log('Activity saved to dashboard');
 }
 
 function showProcessingProgress() {
