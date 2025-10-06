@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const sgMail = require('@sendgrid/mail');
 const { createClient } = require('@supabase/supabase-js');
+const paypal = require('@paypal/checkout-server-sdk');
 require('dotenv').config();
 
 const app = express();
@@ -507,6 +508,241 @@ function filterRelevantContent(text) {
   sectionsToRemove.forEach(pattern => cleaned = cleaned.replace(pattern, ''));
   return cleaned.replace(/\n{3,}/g, '\n\n').trim();
 }
+
+// PayPal Environment Setup
+function paypalEnvironment() {
+  const clientId = process.env.PAYPAL_CLIENT_ID;
+  const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+  const mode = process.env.PAYPAL_MODE || 'sandbox';
+  
+  if (!clientId || !clientSecret) {
+    console.error('PayPal credentials missing');
+    return null;
+  }
+  
+  return mode === 'live'
+    ? new paypal.core.LiveEnvironment(clientId, clientSecret)
+    : new paypal.core.SandboxEnvironment(clientId, clientSecret);
+}
+
+function paypalClient() {
+  const environment = paypalEnvironment();
+  return environment ? new paypal.core.PayPalHttpClient(environment) : null;
+}
+
+// CREATE SUBSCRIPTION - User clicks "Subscribe to Premium"
+app.post('/api/create-subscription', async (req, res) => {
+  try {
+    const { userEmail } = req.body;
+    
+    if (!userEmail) {
+      return res.status(400).json({ success: false, error: 'Email required' });
+    }
+    
+    const client = paypalClient();
+    if (!client) {
+      return res.status(500).json({ success: false, error: 'PayPal not configured' });
+    }
+    
+    // Create subscription plan ID (you'll create this in PayPal dashboard)
+    // For now, return the plan ID you'll need to create
+    const planId = process.env.PAYPAL_PLAN_ID; // You'll set this after creating plan
+    
+    if (!planId) {
+      return res.json({
+        success: true,
+        message: 'Setup required',
+        setupInstructions: 'Create a subscription plan in PayPal dashboard for $5/month'
+      });
+    }
+    
+    const request = new paypal.subscriptions.SubscriptionsCreateRequest();
+    request.requestBody({
+      plan_id: planId,
+      subscriber: {
+        email_address: userEmail
+      },
+      application_context: {
+        brand_name: 'ExamBlox',
+        shipping_preference: 'NO_SHIPPING',
+        user_action: 'SUBSCRIBE_NOW',
+        return_url: `${process.env.FRONTEND_URL || 'https://damii-lola.github.io/ExamBlox'}/payment-success.html`,
+        cancel_url: `${process.env.FRONTEND_URL || 'https://damii-lola.github.io/ExamBlox'}/payment-cancel.html`
+      }
+    });
+    
+    const response = await client.execute(request);
+    
+    console.log('Subscription created:', response.result.id);
+    
+    res.json({
+      success: true,
+      subscriptionId: response.result.id,
+      approvalUrl: response.result.links.find(link => link.rel === 'approve').href
+    });
+    
+  } catch (error) {
+    console.error('Subscription creation error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// VERIFY SUBSCRIPTION - After user approves
+app.post('/api/verify-subscription', async (req, res) => {
+  try {
+    const { subscriptionId, userEmail } = req.body;
+    
+    if (!subscriptionId || !userEmail) {
+      return res.status(400).json({ success: false, error: 'Missing data' });
+    }
+    
+    const client = paypalClient();
+    if (!client) {
+      return res.status(500).json({ success: false, error: 'PayPal not configured' });
+    }
+    
+    const request = new paypal.subscriptions.SubscriptionsGetRequest(subscriptionId);
+    const response = await client.execute(request);
+    
+    const subscription = response.result;
+    
+    if (subscription.status === 'ACTIVE') {
+      // Update user to premium in Supabase
+      const { error } = await supabase
+        .from('users')
+        .update({ 
+          plan: 'premium',
+          subscription_id: subscriptionId,
+          subscription_status: 'active',
+          upgraded_at: new Date().toISOString()
+        })
+        .eq('email', userEmail);
+      
+      if (error) throw error;
+      
+      console.log(`User ${userEmail} upgraded to premium`);
+      
+      res.json({
+        success: true,
+        message: 'Subscription activated',
+        plan: 'premium'
+      });
+    } else {
+      res.json({
+        success: false,
+        error: 'Subscription not active',
+        status: subscription.status
+      });
+    }
+    
+  } catch (error) {
+    console.error('Verification error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// CANCEL SUBSCRIPTION
+app.post('/api/cancel-subscription', async (req, res) => {
+  try {
+    const { userEmail } = req.body;
+    
+    if (!userEmail) {
+      return res.status(400).json({ success: false, error: 'Email required' });
+    }
+    
+    // Get user's subscription ID from database
+    const { data: user, error: getUserError } = await supabase
+      .from('users')
+      .select('subscription_id')
+      .eq('email', userEmail)
+      .single();
+    
+    if (getUserError || !user || !user.subscription_id) {
+      return res.status(404).json({ success: false, error: 'No active subscription' });
+    }
+    
+    const client = paypalClient();
+    if (!client) {
+      return res.status(500).json({ success: false, error: 'PayPal not configured' });
+    }
+    
+    const request = new paypal.subscriptions.SubscriptionsCancelRequest(user.subscription_id);
+    request.requestBody({ reason: 'User requested cancellation' });
+    
+    await client.execute(request);
+    
+    // Update user back to free
+    await supabase
+      .from('users')
+      .update({ 
+        plan: 'free',
+        subscription_status: 'cancelled',
+        cancelled_at: new Date().toISOString()
+      })
+      .eq('email', userEmail);
+    
+    console.log(`Subscription cancelled for ${userEmail}`);
+    
+    res.json({
+      success: true,
+      message: 'Subscription cancelled'
+    });
+    
+  } catch (error) {
+    console.error('Cancel error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// WEBHOOK - PayPal sends notifications here
+app.post('/api/paypal-webhook', async (req, res) => {
+  try {
+    const event = req.body;
+    
+    console.log('PayPal webhook:', event.event_type);
+    
+    // Handle different subscription events
+    switch (event.event_type) {
+      case 'BILLING.SUBSCRIPTION.ACTIVATED':
+        // Subscription started
+        console.log('Subscription activated:', event.resource.id);
+        break;
+        
+      case 'BILLING.SUBSCRIPTION.CANCELLED':
+        // User cancelled
+        const cancelledSubId = event.resource.id;
+        await supabase
+          .from('users')
+          .update({ plan: 'free', subscription_status: 'cancelled' })
+          .eq('subscription_id', cancelledSubId);
+        break;
+        
+      case 'BILLING.SUBSCRIPTION.SUSPENDED':
+        // Payment failed
+        const suspendedSubId = event.resource.id;
+        await supabase
+          .from('users')
+          .update({ subscription_status: 'suspended' })
+          .eq('subscription_id', suspendedSubId);
+        break;
+        
+      case 'BILLING.SUBSCRIPTION.EXPIRED':
+        // Subscription ended
+        const expiredSubId = event.resource.id;
+        await supabase
+          .from('users')
+          .update({ plan: 'free', subscription_status: 'expired' })
+          .eq('subscription_id', expiredSubId);
+        break;
+    }
+    
+    res.json({ received: true });
+    
+  } catch (error) {
+    console.error('Webhook error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 async function generateQuestionsWithLlama(text, questionType, numQuestions, difficulty) {
   const API_KEY = process.env.GROQ_API_KEY;
