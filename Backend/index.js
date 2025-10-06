@@ -587,7 +587,7 @@ async function generateSingleBatchLlama(text, questionType, numQuestions, diffic
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "deepseek-r1-distill-llama-70b",
+        model: "openai/gpt-oss-120",
         messages: [
           {
             role: "system",
