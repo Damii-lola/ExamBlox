@@ -483,7 +483,7 @@ app.post('/api/generate-questions', async (req, res) => {
         userSelectedDifficulty: difficulty,
         actualDifficulty: actualDifficulty,
         timestamp: new Date().toISOString(),
-        aiModel: 'llama-3.3-70b-versatile'
+        aiModel: 'openai/gpt-oss-120'
       }
     });
 
@@ -567,7 +567,7 @@ async function generateQuestionsWithLlama(text, questionType, numQuestions, diff
     message: `Generated ${finalQuestions.length} questions`,
     questions: finalQuestions,
     provider: 'groq',
-    model: 'llama-3.3-70b-versatile',
+    model: 'openai/gpt-oss-120',
     actualDifficulty: difficulty
   };
 }
@@ -588,7 +588,7 @@ async function generateSingleBatchLlama(text, questionType, numQuestions, diffic
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "openai/gpt-oss-120",
         messages: [
           {
             role: "system",
