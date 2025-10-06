@@ -3,7 +3,6 @@ const express = require('express');
 const cors = require('cors');
 const sgMail = require('@sendgrid/mail');
 const { createClient } = require('@supabase/supabase-js');
-const paypal = require('@paypal/checkout-server-sdk');
 require('dotenv').config();
 
 const app = express();
