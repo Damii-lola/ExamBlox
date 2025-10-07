@@ -552,75 +552,52 @@ U BOMBASTIC IDIOT, U GO FOR NOTHING FOOL, U PIECE OF SHIT TRASH, I FUCKING SAID 
 
 // ===== PROMPT CREATOR =====
 function createPrompt(text, questionType, numQuestions, difficulty) {
-  // ✅ CRITICAL: Ensure text is always used
-  const cleanText = text.trim().substring(0, 18000);
-  
-  if (cleanText.length < 50) {
-    throw new Error('Insufficient text provided for question generation');
-  }
+  const base = `Read this text COMPLETELY and generate ${numQuestions} ${difficulty} difficulty ${questionType} questions.
 
-  const base = `You MUST read this ENTIRE text carefully and generate ${numQuestions} ${difficulty} difficulty ${questionType} questions STRICTLY BASED ON THE TEXT BELOW.
-
-DO NOT use sample data. DO NOT invent information. ONLY use the text provided.
-
-TEXT TO ANALYZE:
+TEXT:
 """
-${cleanText}
+${text}
 """
 
-CRITICAL RULES:
-- Every question MUST come from the text above
-- Read EVERY sentence before generating questions
-- Make questions challenging but based on actual content
-- Use full sentences for questions (not single words)
-- Questions must require reading the text to answer`;
+RULES:
+- Questions MUST come from the text above
+- Make questions challenging but fair
+- Avoid single-word definitions
+- Use full sentences for questions`;
 
   if (questionType === 'Multiple Choice') {
     return `${base}
 
 FORMAT (EXACT):
-Q1: [Full question sentence from the text]
-A) [Option based on text]
-B) [Option based on text]
-C) [Option based on text]
-D) [Option based on text]
+Q1: [Full question sentence]
+A) [Option]
+B) [Option]
+C) [Option]
+D) [Option]
 ANSWER: B
-EXPLANATION: [Why B is correct, referencing the text]
+EXPLANATION: [Why B is correct]
 
 Generate ${numQuestions} questions in this exact format.`;
-
   } else if (questionType === 'True/False') {
     return `${base}
 
 FORMAT (EXACT):
-Q1: [Statement based on information from the text]
+Q1: [Statement]
 ANSWER: True
-EXPLANATION: [Why this is true/false, referencing the text]
+EXPLANATION: [Why true/false]
 
-IMPORTANT: Create statements that directly relate to facts, concepts, or claims made in the text.
-Make statements that require understanding the text to evaluate as true or false.
-
-Generate ${numQuestions} True/False questions.`;
-
-  } else if (questionType === 'Flashcards') {
+Generate ${numQuestions} questions.`;
+  } else {
     return `${base}
 
 FORMAT (EXACT):
-Q1: [Important concept, term, or question from the text]
-ANSWER: [Detailed explanation or answer based on the text]
+Q1: [Concept/term]
+ANSWER: [Detailed explanation]
 
-IMPORTANT: 
-- Extract key concepts, definitions, and important facts from the text
-- Questions should be in complete sentence form
-- Answers should be comprehensive explanations from the text
-- Do NOT just pick single words asking for definitions
-- Create questions that test understanding of the material
-
-Generate ${numQuestions} flashcard-style questions.`;
+Generate ${numQuestions} flashcards.`;
   }
-  
-  return base;
 }
+
 // ===== PARSER (FIXED TYPO) =====
 function parseQuestionsResponse(response, questionType) {
   const questions = [];
