@@ -132,10 +132,6 @@
       }
     }
 
-    function cleanQuestionText(text) {
-      return text ? text.replace(/\*\*/g, '').trim() : '';
-    }
-
     function displayCurrentQuestion() {
       if (!questions.length) {
         document.getElementById('questions-display').innerHTML = '<div style="text-align:center;padding:40px"><i class="fas fa-exclamation-triangle" style="font-size:3rem;color:var(--warning)"></i><h3>No Questions</h3><button onclick="window.location.href=\'index.html\'" style="margin-top:20px;background:var(--primary);color:white;border:none;padding:12px 24px;border-radius:8px;cursor:pointer">Go Home</button></div>';
@@ -297,6 +293,8 @@
       document.querySelector('.questions-meta').style.display = 'none';
     }
 
+    // Replace the downloadQuestionsPDF function in questions.html with this:
+    
     async function downloadQuestionsPDF() {
       try {
         const { jsPDF } = window.jspdf;
@@ -304,6 +302,7 @@
         
         const metadata = JSON.parse(localStorage.getItem('examblox_questions'))?.metadata || {};
         
+        // Title Page
         doc.setFontSize(24);
         doc.setFont('helvetica', 'bold');
         doc.text('EXAM BLOX', 105, 40, { align: 'center' });
@@ -318,11 +317,13 @@
         let y = 20;
         
         questions.forEach((q, idx) => {
+          // Check if we need a new page
           if (y > 250) {
             doc.addPage();
             y = 20;
           }
           
+          // Question number and text
           doc.setFontSize(12);
           doc.setFont('helvetica', 'bold');
           doc.text(`QUESTION ${idx + 1}:`, 20, y);
@@ -334,24 +335,44 @@
           y += qLines.length * 7 + 5;
           
           if (q.type === 'Multiple Choice' && q.options) {
+            // Get correct answer index
+            const correctIndex = typeof q.correctAnswer === 'number' 
+              ? q.correctAnswer 
+              : (q.correctLetter ? q.correctLetter.charCodeAt(0) - 65 : 0);
+            
+            // Display ALL options in A, B, C, D order (NO special formatting)
             q.options.forEach((opt, i) => {
               const letter = String.fromCharCode(65 + i);
-              const correctIndex = typeof q.correctAnswer === 'number' ? q.correctAnswer : (q.correctLetter ? q.correctLetter.charCodeAt(0) - 65 : 0);
               const isCorrect = (i === correctIndex);
               
               doc.setFontSize(11);
+              doc.setFont('helvetica', 'normal'); // Same format for all options
+              
+              // Display option in standard format
               doc.text(`${letter})`, 25, y);
-              const optText = cleanQuestionText(opt) + (isCorrect ? ' ✓' : '');
+              const optText = cleanQuestionText(opt);
               const optLines = doc.splitTextToSize(optText, 160);
               doc.text(optLines, 35, y);
               y += Math.max(optLines.length * 6, 6);
             });
             
+            // Show correct answer AFTER all options
             y += 3;
             doc.setFont('helvetica', 'bold');
-            const correctLetter = typeof q.correctAnswer === 'number' ? String.fromCharCode(65 + q.correctAnswer) : (q.correctLetter || 'A');
+            doc.setFontSize(11);
+            const correctLetter = String.fromCharCode(65 + correctIndex);
             doc.text(`CORRECT ANSWER: ${correctLetter}`, 20, y);
-            y += 10;
+            y += 7;
+            
+            // Add explanation if available
+            if (q.explanation) {
+              doc.setFont('helvetica', 'italic');
+              doc.setFontSize(10);
+              const expLines = doc.splitTextToSize(`Explanation: ${cleanQuestionText(q.explanation)}`, 170);
+              doc.text(expLines, 20, y);
+              y += expLines.length * 5 + 3;
+            }
+            
           } else if (q.type === 'True/False') {
             doc.text('A) True', 25, y);
             y += 6;
@@ -360,6 +381,7 @@
             doc.setFont('helvetica', 'bold');
             doc.text(`CORRECT ANSWER: ${q.correctAnswer}`, 20, y);
             y += 10;
+            
           } else if (q.type === 'Flashcards') {
             doc.setFont('helvetica', 'bold');
             doc.text('ANSWER:', 20, y);
@@ -371,20 +393,29 @@
             y += ansLines.length * 6 + 10;
           }
           
+          // Separator line
           y += 5;
           doc.setDrawColor(200);
           doc.line(20, y - 3, 190, y - 3);
           y += 5;
         });
         
-        doc.save(`ExamBlox_${Date.now()}.pdf`);
-        showNotification('PDF downloaded!', 'success');
+        // Download
+        const timestamp = new Date().toISOString().split('T')[0];
+        doc.save(`ExamBlox_Questions_${timestamp}.pdf`);
+        showNotification('PDF downloaded successfully!', 'success');
+        
       } catch (e) {
         console.error('PDF error:', e);
-        showNotification('PDF failed', 'error');
+        showNotification('Failed to download PDF', 'error');
       }
     }
-
+    
+    // Helper function (should already exist in questions.html)
+    function cleanQuestionText(text) {
+      return text ? text.replace(/\*\*/g, '').trim() : '';
+    }
+    
     function generateResults(score, correct, incorrect, skipped, results) {
       const corrQ = results.filter(q => q.isAnswered && q.isCorrect);
       const incorrQ = results.filter(q => q.isAnswered && !q.isCorrect);
