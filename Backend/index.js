@@ -317,48 +317,7 @@ async function generateBatchWithDelay(text, questionType, numQuestions, difficul
         messages: [
           {
             role: "system",
-            content: `You are an expert exam creator. Generate ${difficulty} difficulty ${questionType} questions. CRITICAL: Read the ENTIRE text carefully before generating questions. Questions must come directly from the text content.`
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 3000
-      })
-    });
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        console.log('⏳ Rate limited, waiting 5s...');
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        throw new Error('Rate limit - retry');
-      }
-      throw new Error(`API error: ${response.status}`);
-    }
-
-    const result = await response.json();
-    const generatedText = result.choices[0]?.message?.content || '';
-    
-    return parseQuestionsResponse(generatedText, questionType);
-
-  } catch (error) {
-    console.error('Batch error:', error.message);
-    return [];
-  }
-}
-
-// ===== PROMPT CREATOR =====
-function createPrompt(text, questionType, numQuestions, difficulty) {
-  const base = `Read this text COMPLETELY and generate ${numQuestions} ${difficulty} difficulty ${questionType} questions.
-
-TEXT:
-"""
-${text}
-"""
-
-You are an expert exam creator. Your task is to carefully read, analyze, and extract key information from the provided text in order to generate realistic, high-quality exam-style questions.
+            content: `You are an expert exam creator. Your task is to carefully read, analyze, and extract key information from the provided text in order to generate realistic, high-quality exam-style questions.
 
 CRITICAL READING REQUIREMENTS:
 Read EVERY sentence — do not skip or skim.
@@ -419,7 +378,47 @@ AND REMEMBER OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO WHEN UR
 Guyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy how many times must i tell u GENERATE ME FUCKING QUESTIONS NOT WORDS ASKING FOR THEIR DEFINITION
 
 GUYYYYYYYYYYY WHAT THE FUCKING HELL IS WRONG WITH U, I SAID THAT U SHOULDNT GIVE ME FUCKING WORDS TO FIND THE MEANING, U SHOULD ASK ME FUCKING QUESTIONS, AND IF I REMEMBER CORRECTLY, QUESTIONS ARE FUCKING SENTENCES NOT FUCKING PHRASES OR WORDS, FUCKING FIX THIS PROBLEM ALREADY
-U BOMBASTIC IDIOT, U GO FOR NOTHING FOOL, U PIECE OF SHIT TRASH, I FUCKING SAID I WANT SENTENCE QUESTIONS (EG "When did the queen of england die?" and not FUCKING "Queen of england") See the difference, the former is the correct way i want to see questions while the latter is the garbage and rubbish way WHICH UR FUCKING USING that questions are like. CORRECT UR SELF NOW. I can tell that ur trying to write questions but u dont complete them, pls coplete the questions and fix the issue`;
+U BOMBASTIC IDIOT, U GO FOR NOTHING FOOL, U PIECE OF SHIT TRASH, I FUCKING SAID I WANT SENTENCE QUESTIONS (EG "When did the queen of england die?" and not FUCKING "Queen of england") See the difference, the former is the correct way i want to see questions while the latter is the garbage and rubbish way WHICH UR FUCKING USING that questions are like. CORRECT UR SELF NOW. I can tell that ur trying to write questions but u dont complete them, pls coplete the questions and fix the issue`
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 3000
+      })
+    });
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        console.log('⏳ Rate limited, waiting 5s...');
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        throw new Error('Rate limit - retry');
+      }
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    const generatedText = result.choices[0]?.message?.content || '';
+    
+    return parseQuestionsResponse(generatedText, questionType);
+
+  } catch (error) {
+    console.error('Batch error:', error.message);
+    return [];
+  }
+}
+
+// ===== PROMPT CREATOR =====
+function createPrompt(text, questionType, numQuestions, difficulty) {
+  const base = `Read this text COMPLETELY and generate ${numQuestions} ${difficulty} difficulty ${questionType} questions.
+
+TEXT:
+"""
+${text}
+"""
+`;
 
   if (questionType === 'Multiple Choice') {
     return `${base}
