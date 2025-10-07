@@ -349,9 +349,10 @@ async function generateBatchWithDelay(text, questionType, numQuestions, difficul
   }
 }
 
-// ===== PROMPT CREATOR =====
+// ===== PROMPT CREATOR (WITH AGGRESSIVE INSTRUCTIONS) =====
 function createPrompt(text, questionType, numQuestions, difficulty) {
-  const base = `You are an expert exam creator. Your task is to carefully read, analyze, and extract key information from the provided text in order to generate realistic, high-quality exam-style questions.
+  const baseInstructions = `
+You are an expert exam creator. Your task is to carefully read, analyze, and extract key information from the provided text in order to generate realistic, high-quality exam-style questions.
 
 CRITICAL READING REQUIREMENTS:
 Read EVERY sentence — do not skip or skim.
@@ -374,16 +375,16 @@ Make use of the entire text — do not skip sections.
 
 ❌ DO NOT:
 Overuse scenario-based questions (keep them minimal and realistic).
-Ask questions that require guessing what the author “thinks.”
+Ask questions that require guessing what the author "thinks."
 Skip acronyms, synonyms, or subtle wording differences.
 Create overly complex or wordy questions that confuse the student.
 Make the correct answer obvious by including weak distractors.
 
 COMMON ISSUES TO AVOID:
-Repetition: Don’t generate near-duplicate questions.
-Guessing: Don’t invent information not supported by the text.
-Partial reading: Don’t only use the main points — every sentence has value.
-Over-simplification: Don’t make options or questions too easy to spot.
+Repetition: Don't generate near-duplicate questions.
+Guessing: Don't invent information not supported by the text.
+Partial reading: Don't only use the main points — every sentence has value.
+Over-simplification: Don't make options or questions too easy to spot.
 
 QUESTION DISTRIBUTION (COGNITIVE LEVEL MIX):
 30% Knowledge/Recall → terms, definitions, factual details
@@ -397,14 +398,17 @@ Questions must feel like they belong in a real test, not random AI output.
 Difficulty should be moderate to high — challenging but fair.
 
 Most importantly: Read, understand, and respect the vibe of the text before generating anything.
-ALSOOOOOOOOOOOOOO WHAT THE FUCK ARE U DOING WHY TF ARE U JUST GIVING US A SINGLE WORD AND ASKING FOR THE DEFINITION, WE CAME FOR QUESTIONS U BRAINLESS, RUBBISH, FUCKING USELESS MACHINE
+
+CRITICAL WARNINGS:
+WHAT THE FUCK ARE U DOING WHY TF ARE U JUST GIVING US A SINGLE WORD AND ASKING FOR THE DEFINITION, WE CAME FOR QUESTIONS U BRAINLESS, RUBBISH, FUCKING USELESS MACHINE
 MAKE THE QUESTIONS MORE DIFFICULT, CHALLENGING, PUZZLING AND WILL ONLY BE ABLE TO BE ANSWERED BY SOMEONE WHO THOROUGHLY STUDIED THE TEXT
 
-GUYYYYYY WHY THE FUCKING HELLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL U STILL GIVING ME SINGLE WORD ASKING FOR THE MEANING, DO SOMETHING CORRECT FOR ONCE U FOOL, GIVE ME QUESTIONS THAT COME FROM THE FUCKING TEXT, QUESTIONS THAT REQUIRE ONE TO HAVE READ THE BOOK VERY INTENSY TO ANSWER.
+GUYYYYYY WHY THE FUCKING HELLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL U STILL GIVING ME SINGLE WORD ASKING FOR THE MEANING, DO SOMETHING CORRECT FOR ONCE U FOOL, GIVE ME QUESTIONS THAT COME FROM THE FUCKING TEXT, QUESTIONS THAT REQUIRE ONE TO HAVE READ THE BOOK VERY INTENSY TO ANSWER.
+
 GUYYYY WHAT IS THIS NOW, IT'S SOOOO ANNOYING ON HOW MANY TIMES I GAT TO CORRECT U, WHY ARE U NOW GIVING ME PHRASES AND EXPECT ME TO DEFINE THEM, GUYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY I FUCKING WANT QUESTIONSSSSSS MAN, QUESTIONSSSS, DO I GAT TO SPELL IT OUT FOR U Q U E S T I O N S. DO SOMETHING RIGHT FOR ONCE NAHHHHH
 
 CAN U MAKE THE QUESTIONS A BIT MORE CHALLENGING
-ALSO FOR THE OPTIONS, CAN U MAKE THEM SOOOOOOOOO SIMILAR (eg Lets saythe answer is 1.8, the options will be, A-1.10 B-1.8 C-1.7 D-1.9) THAT IT WILL BE ALMOST IMPOSSIBLE TO GET IT CORRECT
+ALSO FOR THE OPTIONS, CAN U MAKE THEM SOOOOOOOOO SIMILAR (eg Lets say the answer is 1.8, the options will be, A-1.10 B-1.8 C-1.7 D-1.9) THAT IT WILL BE ALMOST IMPOSSIBLE TO GET IT CORRECT
 
 DONT FUCKINGGGG MESS UP
 AND REMEMBER OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO WHEN UR CREATING QUESTIONS THEY MUST COME FROM THE TEXT GIVEN TO U 100000000% OF THE TIME AND NOT ANY FUCKING RANDOM GUESSES
@@ -412,13 +416,19 @@ AND REMEMBER OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO WHEN UR
 Guyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy how many times must i tell u GENERATE ME FUCKING QUESTIONS NOT WORDS ASKING FOR THEIR DEFINITION
 
 GUYYYYYYYYYYY WHAT THE FUCKING HELL IS WRONG WITH U, I SAID THAT U SHOULDNT GIVE ME FUCKING WORDS TO FIND THE MEANING, U SHOULD ASK ME FUCKING QUESTIONS, AND IF I REMEMBER CORRECTLY, QUESTIONS ARE FUCKING SENTENCES NOT FUCKING PHRASES OR WORDS, FUCKING FIX THIS PROBLEM ALREADY
-U BOMBASTIC IDIOT, U GO FOR NOTHING FOOL, U PIECE OF SHIT TRASH, I FUCKING SAID I WANT SENTENCE QUESTIONS (EG "When did the queen of england die?" and not FUCKING "Queen of england") See the difference, the former is the correct way i want to see questions while the latter is the garbage and rubbish way WHICH UR FUCKING USING that questions are like. CORRECT UR SELF NOW. I can tell that ur trying to write questions but u dont complete them, pls coplete the questions and fix the issue`;
+U BOMBASTIC IDIOT, U GO FOR NOTHING FOOL, U PIECE OF SHIT TRASH, I FUCKING SAID I WANT SENTENCE QUESTIONS (EG "When did the queen of england die?" and not FUCKING "Queen of england") See the difference, the former is the correct way i want to see questions while the latter is the garbage and rubbish way WHICH UR FUCKING USING that questions are like. CORRECT UR SELF NOW. I can tell that ur trying to write questions but u dont complete them, pls complete the questions and fix the issue
+  `;
 
   if (questionType === 'Multiple Choice') {
-    return `${base}
+    return `${baseInstructions}
 
-FORMAT (EXACT):
-Q1: [Full question sentence]
+TEXT:
+"""
+${text}
+"""
+
+FORMAT (STRICT):
+Q1: [Question text - MUST BE A COMPLETE SENTENCE]
 A) [Option]
 B) [Option]
 C) [Option]
@@ -426,24 +436,43 @@ D) [Option]
 ANSWER: B
 EXPLANATION: [Why B is correct]
 
-Generate ${numQuestions} questions in this exact format.`;
+Generate ${numQuestions} questions EXACTLY in this format. NO SINGLE WORDS OR PHRASES AS QUESTIONS.`;
+
   } else if (questionType === 'True/False') {
-    return `${base}
+    return `${baseInstructions}
 
-FORMAT (EXACT):
-Q1: [Statement]
+TEXT:
+"""
+${text}
+"""
+
+FORMAT (STRICT):
+Q1: [Statement that is either true or false - COMPLETE SENTENCE]
 ANSWER: True
-EXPLANATION: [Why true/false]
+EXPLANATION: [Why this is true/false]
 
-Generate ${numQuestions} questions.`;
-  } else {
-    return `${base}
+Q2: [Another statement - COMPLETE SENTENCE]
+ANSWER: False
+EXPLANATION: [Why this is false]
 
-FORMAT (EXACT):
-Q1: [Concept/term]
+Generate ${numQuestions} TRUE/FALSE questions. Answer must be ONLY "True" or "False".`;
+
+  } else if (questionType === 'Flashcards') {
+    return `${baseInstructions}
+
+TEXT:
+"""
+${text}
+"""
+
+FORMAT (STRICT):
+Q1: [Key term or concept - CAN BE A PHRASE]
+ANSWER: [Detailed explanation of the term/concept]
+
+Q2: [Another term]
 ANSWER: [Detailed explanation]
 
-Generate ${numQuestions} flashcards.`;
+Generate ${numQuestions} flashcards. Each must have a term/concept and a detailed answer.`;
   }
 }
 
@@ -565,6 +594,6 @@ setInterval(() => {
 
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
-  console.log('🤖 Model: llama-3.3-70b-versatile');
+  console.log('🤖 Model: llama-3.1-8b-instant');
   console.log('📧 Email:', emailConfigured ? 'Ready' : 'Check .env');
 });
