@@ -552,94 +552,49 @@ U BOMBASTIC IDIOT, U GO FOR NOTHING FOOL, U PIECE OF SHIT TRASH, I FUCKING SAID 
 
 // ===== PROMPT CREATOR =====
 function createPrompt(text, questionType, numQuestions, difficulty) {
-  const textLength = text.length;
-  
+  const base = `Read this text COMPLETELY and generate ${numQuestions} ${difficulty} difficulty ${questionType} questions.
+
+TEXT:
+"""
+${text}
+"""
+
+RULES:
+- Questions MUST come from the text above
+- Make questions challenging but fair
+- Avoid single-word definitions
+- Use full sentences for questions`;
+
   if (questionType === 'Multiple Choice') {
-    return `You are an expert exam creator. Read the ENTIRE text below (${textLength} characters) and generate ${numQuestions} ${difficulty} difficulty multiple choice questions.
+    return `${base}
 
-CRITICAL INSTRUCTIONS:
-1. READ THE FULL TEXT - Don't skip any part
-2. Extract questions from ACTUAL content in the text
-3. DO NOT use generic/sample questions
-4. Questions MUST be answerable ONLY by reading this specific text
-5. Make questions challenging and thought-provoking
-6. Avoid asking for simple definitions - ask application/analysis questions
-
-TEXT TO ANALYZE:
-"""
-${text}
-"""
-
-FORMAT (STRICT):
-Q1: [Full question sentence based on the text above]
-A) [Option 1]
-B) [Option 2]
-C) [Option 3]
-D) [Option 4]
+FORMAT (EXACT):
+Q1: [Full question sentence]
+A) [Option]
+B) [Option]
+C) [Option]
+D) [Option]
 ANSWER: B
-EXPLANATION: [Why B is correct, referencing the text]
+EXPLANATION: [Why B is correct]
 
-Q2: [Another question from the text]
-A) [Option 1]
-B) [Option 2]
-C) [Option 3]
-D) [Option 4]
-ANSWER: C
-EXPLANATION: [Why C is correct]
-
-Generate exactly ${numQuestions} questions. Each question MUST come from the provided text.`;
-
+Generate ${numQuestions} questions in this exact format.`;
   } else if (questionType === 'True/False') {
-    return `You are an expert exam creator. Read the ENTIRE text below (${textLength} characters) and generate ${numQuestions} ${difficulty} difficulty True/False questions.
+    return `${base}
 
-CRITICAL INSTRUCTIONS:
-1. READ THE FULL TEXT - Don't skip any part
-2. Create statements based on ACTUAL facts/claims in the text
-3. DO NOT use generic/sample statements
-4. Mix true and false statements (roughly 50/50)
-5. Make false statements subtly wrong (not obviously false)
-6. Base every statement on specific content from the text
-
-TEXT TO ANALYZE:
-"""
-${text}
-"""
-
-FORMAT (STRICT):
-Q1: [Statement based on the text - make it specific to this text]
+FORMAT (EXACT):
+Q1: [Statement]
 ANSWER: True
-EXPLANATION: [Why this is true/false, cite the text]
+EXPLANATION: [Why true/false]
 
-Q2: [Another statement from the text]
-ANSWER: False
-EXPLANATION: [Why this is false, what the text actually says]
+Generate ${numQuestions} questions.`;
+  } else {
+    return `${base}
 
-Generate exactly ${numQuestions} True/False questions. Each statement MUST come from the provided text.`;
+FORMAT (EXACT):
+Q1: [Concept/term]
+ANSWER: [Detailed explanation]
 
-  } else if (questionType === 'Flashcards') {
-    return `You are an expert exam creator. Read the ENTIRE text below (${textLength} characters) and create ${numQuestions} ${difficulty} difficulty flashcards.
-
-CRITICAL INSTRUCTIONS:
-1. READ THE FULL TEXT - Don't skip any part
-2. Extract KEY concepts/terms that appear in the text
-3. DO NOT use generic terms - use terms from THIS specific text
-4. Provide detailed explanations based on what the text says
-5. Each flashcard must teach something from the text
-6. Focus on important concepts, not trivial details
-
-TEXT TO ANALYZE:
-"""
-${text}
-"""
-
-FORMAT (STRICT):
-Q1: [Important concept/term that appears in the text above]
-ANSWER: [Detailed explanation of this concept as described in the text - 2-3 sentences minimum]
-
-Q2: [Another key concept from the text]
-ANSWER: [Detailed explanation based on the text content - 2-3 sentences minimum]
-
-Generate exactly ${numQuestions} flashcards. Each flashcard MUST be based on the provided text content.`;
+Generate ${numQuestions} flashcards.`;
   }
 }
 
