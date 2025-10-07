@@ -43,7 +43,7 @@ app.get('/', (req, res) => {
   res.json({ 
     message: 'ExamBlox Backend API',
     status: 'active',
-    model: 'llama-3.3-70b-versatile'
+    model: 'llama-3.1-8b-instant'
   });
 });
 
@@ -225,7 +225,7 @@ app.post('/api/generate-questions', async (req, res) => {
         questionType,
         numQuestions,
         actualDifficulty,
-        model: 'llama-3.3-70b-versatile'
+        model: 'llama-3.1-8b-instant'
       }
     });
 
@@ -313,7 +313,7 @@ async function generateBatchWithDelay(text, questionType, numQuestions, difficul
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: "llama-3.1-8b-instant",
         messages: [
           {
             role: "system",
