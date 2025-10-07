@@ -850,23 +850,58 @@ function extractTextFromMultipleFiles(files) {
   
   files.forEach(file => {
     const processFile = (text) => {
-      extractedTexts.push({fileName: file.name, text: text, label: file.name});
+      // ✅ FIXED: Store actual extracted text, not placeholder
+      extractedTexts.push({
+        fileName: file.name, 
+        text: text || `[Unable to extract text from ${file.name}]`, 
+        label: file.name
+      });
       processedCount++;
       if (processedCount >= files.length) combineAllExtractedTexts();
     };
     
     const ext = '.' + file.name.split('.').pop().toLowerCase();
+    
     if (ext === '.txt') {
       const reader = new FileReader();
-      reader.onload = (e) => processFile(e.target.result);
-      reader.onerror = () => processFile(`Error reading ${file.name}`);
+      reader.onload = (e) => {
+        const extractedText = e.target.result;
+        console.log(`✅ Extracted ${extractedText.length} chars from ${file.name}`);
+        processFile(extractedText);
+      };
+      reader.onerror = () => {
+        console.error(`❌ Error reading ${file.name}`);
+        processFile(`Error reading ${file.name}`);
+      };
       reader.readAsText(file);
+    } else if (ext === '.pdf') {
+      // For PDF files (requires PDF.js or backend processing)
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const arrayBuffer = e.target.result;
+          const uint8Array = new Uint8Array(arrayBuffer);
+          const text = await extractPDFText(uint8Array);
+          console.log(`✅ Extracted ${text.length} chars from PDF: ${file.name}`);
+          processFile(text);
+        } catch (error) {
+          console.error(`❌ PDF extraction error for ${file.name}:`, error);
+          processFile(`[PDF extraction not available - please use .txt files for best results]`);
+        }
+      };
+      reader.onerror = () => processFile(`Error reading PDF ${file.name}`);
+      reader.readAsArrayBuffer(file);
+    } else if (['.jpg', '.jpeg', '.png'].includes(ext)) {
+      // For images (would need OCR - fallback message)
+      processFile(`[Image file ${file.name} - OCR not available. Please convert to text first]`);
+    } else if (['.doc', '.docx'].includes(ext)) {
+      // For Word docs (would need mammoth.js or backend)
+      processFile(`[Word document ${file.name} - please save as .txt for best results]`);
     } else {
-      processFile(`Content extracted from ${file.name}`);
+      processFile(`[Unsupported file type: ${file.name}]`);
     }
   });
 }
-
 function combineAllExtractedTexts() {
   totalExtractedText = '';
   extractedTexts.forEach(item => {
