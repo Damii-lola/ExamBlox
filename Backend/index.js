@@ -140,33 +140,172 @@ app.post('/api/send-otp', async (req, res) => {
     if (!emailConfigured) {
       return res.status(503).json({ success: false, error: 'Email service not configured' });
     }
-    const { email, name } = req.body;
+
+    const { email, name, type = 'signup' } = req.body;
+    
     if (!email || !name) {
       return res.status(400).json({ success: false, error: 'Email and name required' });
     }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ success: false, error: 'Invalid email format' });
+    }
+    
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    otpStorage.set(email.toLowerCase(), {
-      otp, email, name,
+    const otpData = {
+      otp: otp,
+      email: email,
+      name: name,
+      type: type,
       createdAt: new Date(),
       expiresAt: new Date(Date.now() + 10 * 60 * 1000)
-    });
+    };
+    
+    otpStorage.set(email.toLowerCase(), otpData);
+    console.log(`Generated OTP for ${email}: ${otp}`);
+    
+    const emailTemplates = {
+      signup: {
+        subject: 'Your ExamBlox Verification Code',
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+              <tr>
+                <td align="center">
+                  <table width="600" cellpadding="0" cellspacing="0" style="background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    <tr>
+                      <td style="padding: 40px 30px; text-align: center;">
+                        <h1 style="color: #6a4bff; margin: 0 0 20px 0; font-size: 28px;">ExamBlox</h1>
+                        <p style="font-size: 16px; color: #333; margin: 0 0 10px 0;">Hello <strong>${name}</strong>,</p>
+                        <p style="color: #666; margin: 0 0 30px 0; font-size: 14px;">Your verification code is:</p>
+                        <div style="background: #6a4bff; color: white; padding: 20px 40px; border-radius: 8px; display: inline-block; font-size: 36px; font-weight: bold; letter-spacing: 10px; margin: 20px 0;">
+                          ${otp}
+                        </div>
+                        <p style="margin: 30px 0 20px 0; padding: 15px; background: #fff3cd; border-radius: 8px; color: #856404; font-size: 14px;">
+                          ⏰ This code expires in 10 minutes
+                        </p>
+                        <p style="color: #666; font-size: 14px; margin: 20px 0 0 0;">If you didn't request this code, please ignore this email.</p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="background: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #e9ecef;">
+                        <p style="margin: 0; color: #999; font-size: 12px;">
+                          © 2025 ExamBlox. All rights reserved.<br>
+                          This is an automated message, please do not reply.
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+          </html>
+        `,
+        text: `Hello ${name},\n\nYour ExamBlox verification code is: ${otp}\n\nThis code expires in 10 minutes.\n\nIf you didn't request this code, please ignore this email.\n\nBest regards,\nThe ExamBlox Team`
+      },
+      forgot_password: {
+        subject: 'ExamBlox Password Reset Code',
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+              <tr>
+                <td align="center">
+                  <table width="600" cellpadding="0" cellspacing="0" style="background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    <tr>
+                      <td style="padding: 40px 30px; text-align: center;">
+                        <h1 style="color: #ff6b35; margin: 0 0 20px 0; font-size: 28px;">Password Reset</h1>
+                        <p style="font-size: 16px; color: #333;">Hello <strong>${name}</strong>,</p>
+                        <p style="color: #666; margin: 0 0 30px 0; font-size: 14px;">Your password reset code is:</p>
+                        <div style="background: #ff6b35; color: white; padding: 20px 40px; border-radius: 8px; display: inline-block; font-size: 36px; font-weight: bold; letter-spacing: 10px; margin: 20px 0;">
+                          ${otp}
+                        </div>
+                        <p style="margin: 30px 0 20px 0; padding: 15px; background: #fff3cd; border-radius: 8px; color: #856404; font-size: 14px;">
+                          ⏰ This code expires in 10 minutes
+                        </p>
+                        <p style="color: #666; font-size: 14px;">If you didn't request this reset, please ignore this email.</p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="background: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #e9ecef;">
+                        <p style="margin: 0; color: #999; font-size: 12px;">
+                          © 2025 ExamBlox. All rights reserved.<br>
+                          This is an automated message, please do not reply.
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+          </html>
+        `,
+        text: `Hello ${name},\n\nYour ExamBlox password reset code is: ${otp}\n\nThis code expires in 10 minutes.\n\nIf you didn't request this reset, please ignore this email.\n\nBest regards,\nThe ExamBlox Team`
+      }
+    };
+    
+    const template = emailTemplates[type] || emailTemplates.signup;
     
     const msg = {
       to: email,
-      from: { email: verifiedSender, name: 'ExamBlox' },
-      subject: 'Your ExamBlox Verification Code',
-      html: `<div style="font-family: Arial, sans-serif; padding: 20px;">
-        <h2>Hello ${name}!</h2>
-        <p>Your verification code is:</p>
-        <h1 style="background: #6a4bff; color: white; padding: 20px; text-align: center; font-size: 36px; letter-spacing: 10px;">${otp}</h1>
-        <p>This code expires in 10 minutes.</p>
-      </div>`
+      from: {
+        email: verifiedSender,
+        name: 'ExamBlox'
+      },
+      replyTo: verifiedSender,
+      subject: template.subject,
+      html: template.html,
+      text: template.text,
+      trackingSettings: {
+        clickTracking: { enable: false },
+        openTracking: { enable: false }
+      }
     };
     
-    await sgMail.send(msg);
-    res.json({ success: true, message: 'OTP sent' });
+    try {
+      await sgMail.send(msg);
+      console.log(`✅ OTP email sent to ${email}`);
+      
+      res.json({
+        success: true,
+        message: 'OTP sent successfully to your email',
+        expiresIn: '10 minutes',
+        email: email
+      });
+      
+    } catch (emailError) {
+      console.error('❌ SendGrid error:', emailError.response?.body || emailError);
+      otpStorage.delete(email.toLowerCase());
+      
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to send OTP email',
+        message: 'Please try again or contact support.',
+        details: emailError.message
+      });
+    }
+    
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    console.error('❌ Error in send-otp:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      message: error.message
+    });
   }
 });
 
@@ -317,7 +456,8 @@ async function generateBatchWithDelay(text, questionType, numQuestions, difficul
         messages: [
           {
             role: "system",
-            content: `You are an expert exam creator. Your task is to carefully read, analyze, and extract key information from the provided text in order to generate realistic, high-quality exam-style questions.
+            content: `
+You are an expert exam creator. Your task is to carefully read, analyze, and extract key information from the provided text in order to generate realistic, high-quality exam-style questions.
 
 CRITICAL READING REQUIREMENTS:
 Read EVERY sentence — do not skip or skim.
@@ -418,7 +558,12 @@ TEXT:
 """
 ${text}
 """
-`;
+
+RULES:
+- Questions MUST come from the text above
+- Make questions challenging but fair
+- Avoid single-word definitions
+- Use full sentences for questions`;
 
   if (questionType === 'Multiple Choice') {
     return `${base}
