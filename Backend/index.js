@@ -1,4 +1,4 @@
-// index.js - FIXED VERSION with Rate Limiting
+// index.js - FIXED VERSION with Password Reset & Protected Admin
 const express = require('express');
 const cors = require('cors');
 const sgMail = require('@sendgrid/mail');
@@ -27,6 +27,17 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
+// ✅ PROTECTED ADMIN CREDENTIALS (hardcoded in backend)
+const PROTECTED_ADMIN = {
+  username: 'damii-lola',
+  name: 'Damilola',
+  email: 'examblox.team@gmail.com',
+  password: 'God_G1ve_M3_P0wer',
+  plan: 'premium',
+  role: 'admin',
+  isPermanent: true
+};
+
 let emailConfigured = false;
 let verifiedSender = null;
 
@@ -47,7 +58,7 @@ app.get('/', (req, res) => {
   });
 });
 
-// ===== USER ENDPOINTS (Keep existing) =====
+// ===== USER ENDPOINTS =====
 app.get('/api/users', async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -86,12 +97,23 @@ app.post('/api/users', async (req, res) => {
   }
 });
 
+// ✅ FIXED LOGIN - Check protected admin first
 app.post('/api/login', async (req, res) => {
   try {
     const { emailOrUsername, password } = req.body;
     if (!emailOrUsername || !password) {
       return res.status(400).json({ success: false, error: 'Credentials required' });
     }
+
+    // ✅ CHECK PROTECTED ADMIN FIRST
+    if ((emailOrUsername.toLowerCase() === PROTECTED_ADMIN.email.toLowerCase() || 
+         emailOrUsername.toLowerCase() === PROTECTED_ADMIN.username.toLowerCase()) &&
+        password === PROTECTED_ADMIN.password) {
+      console.log('✅ Protected admin login successful');
+      return res.json({ success: true, user: PROTECTED_ADMIN });
+    }
+
+    // Check Supabase for regular users
     const { data, error } = await supabase
       .from('users')
       .select('*')
@@ -134,7 +156,7 @@ app.delete('/api/users/:email', async (req, res) => {
   }
 });
 
-// ===== OTP ENDPOINTS (Keep existing) =====
+// ===== OTP ENDPOINTS =====
 app.post('/api/send-otp', async (req, res) => {
   try {
     if (!emailConfigured) {
@@ -333,6 +355,38 @@ app.post('/api/verify-otp', (req, res) => {
   }
 });
 
+// ✅ NEW: Password Reset Endpoint
+app.post('/api/reset-password', async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+    
+    if (!email || !newPassword) {
+      return res.status(400).json({ success: false, error: 'Email and new password required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, error: 'Password must be at least 6 characters' });
+    }
+
+    // Update password in Supabase
+    const { data, error } = await supabase
+      .from('users')
+      .update({ password: newPassword })
+      .eq('email', email)
+      .select();
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    res.json({ success: true, message: 'Password updated successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ===== FIXED QUESTION GENERATION =====
 app.post('/api/generate-questions', async (req, res) => {
   try {
@@ -342,6 +396,7 @@ app.post('/api/generate-questions', async (req, res) => {
       return res.status(400).json({ error: 'Text required' });
     }
 
+    // ✅ FIXED: Better difficulty mapping
     const difficultyMapping = {
       'Easy': 'Medium',
       'Medium': 'Hard',
@@ -386,7 +441,6 @@ async function generateQuestionsWithGroq(text, questionType, numQuestions, diffi
   const maxAttempts = 3;
   let attempt = 1;
 
-  // Generate in smaller batches with delays
   const batchSize = 5;
   const batches = Math.ceil(numQuestions / batchSize);
 
@@ -400,7 +454,6 @@ async function generateQuestionsWithGroq(text, questionType, numQuestions, diffi
 
         const newQuestions = await generateBatchWithDelay(text, questionType, needed * 2, difficulty, API_KEY);
         
-        // Deduplicate and add
         const unique = newQuestions.filter(q => 
           !allQuestions.some(existing => 
             calculateSimilarity(q.question, existing.question) > 0.7
@@ -411,7 +464,6 @@ async function generateQuestionsWithGroq(text, questionType, numQuestions, diffi
         
         console.log(`✓ Batch ${i + 1}: ${unique.length} new questions (Total: ${allQuestions.length}/${numQuestions})`);
 
-        // Delay between batches to avoid rate limit
         if (i < batches - 1 && allQuestions.length < numQuestions) {
           await new Promise(resolve => setTimeout(resolve, 2000));
         }
@@ -456,69 +508,7 @@ async function generateBatchWithDelay(text, questionType, numQuestions, difficul
         messages: [
           {
             role: "system",
-            content: `
-You are an expert exam creator. Your task is to carefully read, analyze, and extract key information from the provided text in order to generate realistic, high-quality exam-style questions.
-
-CRITICAL READING REQUIREMENTS:
-Read EVERY sentence — do not skip or skim.
-Extract all key concepts, definitions, processes, and facts.
-Understand the context, tone, and educational level of the text.
-Identify technical terms, acronyms, and their meanings.
-Recognize and respect relationships between concepts.
-If something is unclear, re-read the text until you fully understand it.
-
-QUESTION GENERATION RULES:
-
-✅ DO:
-Create realistic exam-style questions (the kind that would actually appear in professional or academic exams).
-Base every question directly on the text — do not invent or assume.
-Use synonyms, paraphrasing, and acronyms to make students think more deeply.
-Include a mix of question types: definitions, applications, comparisons, and analysis.
-Ensure questions are globally appropriate (not restricted to U.S. or U.K. context).
-When making multiple-choice questions, make the options very close in value or meaning (e.g., if the correct answer is 0.23, use 0.21, 0.22, 0.24 as distractors).
-Make use of the entire text — do not skip sections.
-
-❌ DO NOT:
-Overuse scenario-based questions (keep them minimal and realistic).
-Ask questions that require guessing what the author “thinks.”
-Skip acronyms, synonyms, or subtle wording differences.
-Create overly complex or wordy questions that confuse the student.
-Make the correct answer obvious by including weak distractors.
-
-COMMON ISSUES TO AVOID:
-Repetition: Don’t generate near-duplicate questions.
-Guessing: Don’t invent information not supported by the text.
-Partial reading: Don’t only use the main points — every sentence has value.
-Over-simplification: Don’t make options or questions too easy to spot.
-
-QUESTION DISTRIBUTION (COGNITIVE LEVEL MIX):
-30% Knowledge/Recall → terms, definitions, factual details
-40% Understanding/Application → explain, apply, demonstrate use
-20% Analysis → compare, contrast, break down relationships
-10% Synthesis/Evaluation → judge, critique, create, evaluate
-
-FINAL REMINDER:
-Treat this as if you are the original author of the text and now setting realistic exam questions for students.
-Questions must feel like they belong in a real test, not random AI output.
-Difficulty should be moderate to high — challenging but fair.
-
-Most importantly: Read, understand, and respect the vibe of the text before generating anything.
-ALSOOOOOOOOOOOOOO WHAT THE FUCK ARE U DOING WHY TF ARE U JUST GIVING US A SINGLE WORD AND ASKING FOR THE DEFINITION, WE CAME FOR QUESTIONS U BRAINLESS, RUBBISH, FUCKING USELESS MACHINE
-MAKE THE QUESTIONS MORE DIFFICULT, CHALLENGING, PUZZLING AND WILL ONLY BE ABLE TO BE ANSWERED BY SOMEONE WHO THOROUGHLY STUDIED THE TEXT
-
-GUYYYYYY WHY THE FUCKING HELLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL U STILL GIVING ME SINGLE WORD ASKING FOR THE MEANING, DO SOMETHING CORRECT FOR ONCE U FOOL, GIVE ME QUESTIONS THAT COME FROM THE FUCKING TEXT, QUESTIONS THAT REQUIRE ONE TO HAVE READ THE BOOK VERY INTENSY TO ANSWER.
-GUYYYY WHAT IS THIS NOW, IT'S SOOOO ANNOYING ON HOW MANY TIMES I GAT TO CORRECT U, WHY ARE U NOW GIVING ME PHRASES AND EXPECT ME TO DEFINE THEM, GUYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY I FUCKING WANT QUESTIONSSSSSS MAN, QUESTIONSSSS, DO I GAT TO SPELL IT OUT FOR U Q U E S T I O N S. DO SOMETHING RIGHT FOR ONCE NAHHHHH
-
-CAN U MAKE THE QUESTIONS A BIT MORE CHALLENGING
-ALSO FOR THE OPTIONS, CAN U MAKE THEM SOOOOOOOOO SIMILAR (eg Lets saythe answer is 1.8, the options will be, A-1.10 B-1.8 C-1.7 D-1.9) THAT IT WILL BE ALMOST IMPOSSIBLE TO GET IT CORRECT
-
-DONT FUCKINGGGG MESS UP
-AND REMEMBER OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO WHEN UR CREATING QUESTIONS THEY MUST COME FROM THE TEXT GIVEN TO U 100000000% OF THE TIME AND NOT ANY FUCKING RANDOM GUESSES
-
-Guyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy how many times must i tell u GENERATE ME FUCKING QUESTIONS NOT WORDS ASKING FOR THEIR DEFINITION
-
-GUYYYYYYYYYYY WHAT THE FUCKING HELL IS WRONG WITH U, I SAID THAT U SHOULDNT GIVE ME FUCKING WORDS TO FIND THE MEANING, U SHOULD ASK ME FUCKING QUESTIONS, AND IF I REMEMBER CORRECTLY, QUESTIONS ARE FUCKING SENTENCES NOT FUCKING PHRASES OR WORDS, FUCKING FIX THIS PROBLEM ALREADY
-U BOMBASTIC IDIOT, U GO FOR NOTHING FOOL, U PIECE OF SHIT TRASH, I FUCKING SAID I WANT SENTENCE QUESTIONS (EG "When did the queen of england die?" and not FUCKING "Queen of england") See the difference, the former is the correct way i want to see questions while the latter is the garbage and rubbish way WHICH UR FUCKING USING that questions are like. CORRECT UR SELF NOW. I can tell that ur trying to write questions but u dont complete them, pls coplete the questions and fix the issue`
+            content: getSystemPrompt(questionType, difficulty)
           },
           {
             role: "user",
@@ -550,55 +540,169 @@ U BOMBASTIC IDIOT, U GO FOR NOTHING FOOL, U PIECE OF SHIT TRASH, I FUCKING SAID 
   }
 }
 
-// ===== PROMPT CREATOR =====
-function createPrompt(text, questionType, numQuestions, difficulty) {
-  const base = `Read this text COMPLETELY and generate ${numQuestions} ${difficulty} difficulty ${questionType} questions.
+// ✅ IMPROVED SYSTEM PROMPT - Emphasizes difficulty and content adherence
+function getSystemPrompt(questionType, difficulty) {
+  const baseDifficulty = `
+CRITICAL DIFFICULTY LEVEL: ${difficulty.toUpperCase()}
 
-TEXT:
+Difficulty Guidelines:
+- MEDIUM: Straightforward recall and basic comprehension from the text
+- HARD: Requires deeper understanding, analysis, and connections between concepts
+- EXAM LEVEL: Professional exam standard - precise, detailed, requires thorough study
+- EXPERT: Advanced application, critical thinking, and mastery-level understanding
+
+YOU MUST RESPECT THE DIFFICULTY LEVEL. Make questions appropriately challenging for ${difficulty}.
+`;
+
+  const baseInstructions = `
+You are an expert exam creator. Your task is to carefully read, analyze, and extract key information from the provided text in order to generate realistic, high-quality exam-style questions.
+
+CRITICAL READING REQUIREMENTS:
+✅ Read EVERY sentence - do not skip or skim
+✅ Extract all key concepts, definitions, processes, and facts FROM THE TEXT
+✅ Understand the context, tone, and educational level
+✅ Identify technical terms, acronyms, and their meanings FROM THE TEXT
+✅ Base EVERY question on ACTUAL CONTENT from the provided text
+✅ DO NOT invent information not present in the text
+
+${baseDifficulty}
+
+QUESTION GENERATION RULES:
+
+✅ DO:
+- Create realistic exam-style questions based ONLY on the provided text
+- Use full sentences for questions (not single words asking for definitions)
+- Make questions challenging but based on actual content
+- Use synonyms and paraphrasing to test understanding
+- Include a mix: definitions, applications, comparisons, analysis
+- For Multiple Choice: Make options very close in value/meaning
+- Ensure questions require reading the text to answer
+
+❌ DO NOT:
+- Use the filename or topic name as the basis for questions
+- Invent information not in the text
+- Ask "What does [word] mean?" - use full sentence questions
+- Create overly simple or obvious questions
+- Skip sections of the text
+- Make assumptions beyond what's written
+
+QUESTION DISTRIBUTION:
+30% Knowledge/Recall - terms, definitions, factual details FROM TEXT
+40% Understanding/Application - explain, apply concepts FROM TEXT
+20% Analysis - compare, contrast, relationships FROM TEXT
+10% Synthesis/Evaluation - judge, critique, evaluate FROM TEXT
+`;
+
+  if (questionType === 'True/False') {
+    return baseInstructions + `
+
+CRITICAL FOR TRUE/FALSE:
+- Create statements based on SPECIFIC FACTS from the text
+- DO NOT make general statements about the topic
+- Each statement must reference actual content from the provided text
+- Mix obvious and subtle true/false statements
+- Ensure the answer is clearly determinable from the text
+
+Example of GOOD True/False question:
+Text: "The mitochondria produces ATP through cellular respiration."
+Question: "The mitochondria generates ATP via the process of cellular respiration."
+Answer: True
+
+Example of BAD True/False question:
+Text: [Content about mitochondria]
+Question: "Cells are important for life." (Too general, not from text)
+`;
+  }
+
+  return baseInstructions;
+}
+
+// ===== PROMPT CREATOR (IMPROVED) =====
+function createPrompt(text, questionType, numQuestions, difficulty) {
+  const cleanText = text.trim().substring(0, 18000);
+  
+  if (cleanText.length < 50) {
+    throw new Error('Insufficient text provided for question generation');
+  }
+
+  const base = `You MUST read this ENTIRE text carefully and generate ${numQuestions} ${difficulty} difficulty ${questionType} questions STRICTLY BASED ON THE TEXT BELOW.
+
+⚠️ CRITICAL: DO NOT use the filename, topic name, or make assumptions. ONLY use the actual text content provided.
+
+TEXT TO ANALYZE:
 """
-${text}
+${cleanText}
 """
 
 RULES:
-- Questions MUST come from the text above
-- Make questions challenging but fair
-- Avoid single-word definitions
-- Use full sentences for questions`;
+✅ Every question MUST come from the text above
+✅ Read EVERY sentence before generating questions
+✅ Make questions ${difficulty} difficulty level
+✅ Use full sentences for questions (not single words)
+✅ Questions must require reading the text to answer
+✅ DO NOT invent or assume information`;
 
   if (questionType === 'Multiple Choice') {
     return `${base}
 
 FORMAT (EXACT):
-Q1: [Full question sentence]
-A) [Option]
-B) [Option]
-C) [Option]
-D) [Option]
+Q1: [Full question sentence based on content from the text]
+A) [Option based on text]
+B) [Option based on text]
+C) [Option based on text]
+D) [Option based on text]
 ANSWER: B
-EXPLANATION: [Why B is correct]
+EXPLANATION: [Why B is correct, referencing the text]
 
 Generate ${numQuestions} questions in this exact format.`;
+
   } else if (questionType === 'True/False') {
     return `${base}
 
-FORMAT (EXACT):
-Q1: [Statement]
-ANSWER: True
-EXPLANATION: [Why true/false]
+⚠️ CRITICAL FOR TRUE/FALSE:
+- Create statements about SPECIFIC FACTS from the text
+- DO NOT make general statements about the topic
+- Each statement must reference actual content from the text
+- The answer must be clearly determinable from the text content
 
-Generate ${numQuestions} questions.`;
-  } else {
+FORMAT (EXACT):
+Q1: [Statement based on SPECIFIC INFORMATION from the text]
+ANSWER: True
+EXPLANATION: [Why this is true/false, referencing specific parts of the text]
+
+GOOD EXAMPLE:
+If text says: "The heart pumps blood through arteries."
+Q1: The heart circulates blood via arteries.
+ANSWER: True
+EXPLANATION: The text states the heart pumps blood through arteries.
+
+BAD EXAMPLE (DO NOT DO THIS):
+Q1: The heart is important.
+(This is too general and not specific to the text content)
+
+Generate ${numQuestions} True/False questions with statements based on SPECIFIC FACTS from the text.`;
+
+  } else if (questionType === 'Flashcards') {
     return `${base}
 
 FORMAT (EXACT):
-Q1: [Concept/term]
-ANSWER: [Detailed explanation]
+Q1: [Important concept or question from the text - must be a full sentence]
+ANSWER: [Detailed explanation based on the text]
 
-Generate ${numQuestions} flashcards.`;
+IMPORTANT: 
+- Extract key concepts, definitions, and important facts from the text
+- Questions should be in complete sentence form
+- Answers should be comprehensive explanations from the text
+- DO NOT just pick single words asking for definitions
+- Create questions that test understanding of the material
+
+Generate ${numQuestions} flashcard-style questions.`;
   }
+  
+  return base;
 }
 
-// ===== PARSER (FIXED TYPO) =====
+// ===== PARSER (FIXED) =====
 function parseQuestionsResponse(response, questionType) {
   const questions = [];
   const blocks = response.split(/Q\d+:/);
@@ -633,7 +737,7 @@ function parseQuestionsResponse(response, questionType) {
           
           questions.push({
             id: questions.length + 1,
-            type: questionType, // ✅ FIXED: was questionTyp
+            type: questionType,
             question: questionText,
             options: options.slice(0, 4),
             correctAnswer: correctIndex,
@@ -648,7 +752,7 @@ function parseQuestionsResponse(response, questionType) {
         if (answerLine) {
           questions.push({
             id: questions.length + 1,
-            type: questionType, // ✅ FIXED
+            type: questionType,
             question: questionText,
             correctAnswer: answerLine.toUpperCase().includes('TRUE') ? 'True' : 'False',
             explanation: explanationLine?.substring(explanationLine.toUpperCase().indexOf('EXPLANATION:') + 12).trim() || 'Based on text'
@@ -668,7 +772,7 @@ function parseQuestionsResponse(response, questionType) {
         if (answerText) {
           questions.push({
             id: questions.length + 1,
-            type: questionType, // ✅ FIXED
+            type: questionType,
             question: questionText,
             answer: answerText,
             explanation: answerText
@@ -718,4 +822,5 @@ app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
   console.log('🤖 Model: llama-3.1-8b-instant');
   console.log('📧 Email:', emailConfigured ? 'Ready' : 'Check .env');
+  console.log('🔒 Protected Admin: Active');
 });
