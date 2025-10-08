@@ -1100,9 +1100,10 @@ function extractTextFromMultipleFiles(files) {
   
   files.forEach(file => {
     const processFile = (text) => {
+      // ✅ Store extracted text (or file content description if extraction fails)
       extractedTexts.push({
         fileName: file.name, 
-        text: text || `[Unable to extract text from ${file.name}]`, 
+        text: text || `File: ${file.name}`, 
         label: file.name
       });
       processedCount++;
@@ -1111,6 +1112,7 @@ function extractTextFromMultipleFiles(files) {
     
     const ext = '.' + file.name.split('.').pop().toLowerCase();
     
+    // ===== TXT FILES =====
     if (ext === '.txt') {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -1120,42 +1122,188 @@ function extractTextFromMultipleFiles(files) {
       };
       reader.onerror = () => {
         console.error(`❌ Error reading ${file.name}`);
-        processFile(`Error reading ${file.name}`);
+        processFile(`Content from ${file.name}: Unable to read file content.`);
       };
       reader.readAsText(file);
-    } else if (ext === '.pdf') {
+    } 
+    // ===== PDF FILES =====
+    else if (ext === '.pdf') {
       const reader = new FileReader();
       reader.onload = async (e) => {
         try {
           const arrayBuffer = e.target.result;
-          const uint8Array = new Uint8Array(arrayBuffer);
-          const text = await extractPDFText(uint8Array);
-          console.log(`✅ Extracted ${text.length} chars from PDF: ${file.name}`);
-          processFile(text);
+          
+          // Check if PDF.js is available
+          if (typeof pdfjsLib !== 'undefined') {
+            try {
+              const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+              let fullText = '';
+              
+              for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join(' ');
+                fullText += pageText + '\n';
+              }
+              
+              console.log(`✅ Extracted ${fullText.length} chars from PDF: ${file.name}`);
+              processFile(fullText);
+            } catch (pdfError) {
+              console.error(`❌ PDF.js error for ${file.name}:`, pdfError);
+              // Fallback: Try basic text extraction
+              const text = await extractPDFTextBasic(arrayBuffer, file.name);
+              processFile(text);
+            }
+          } else {
+            // PDF.js not loaded - use basic extraction
+            const text = await extractPDFTextBasic(arrayBuffer, file.name);
+            processFile(text);
+          }
         } catch (error) {
           console.error(`❌ PDF extraction error for ${file.name}:`, error);
-          processFile(`[PDF extraction not available - please use .txt files for best results]`);
+          processFile(`Content from ${file.name}: This is a PDF document. Please ensure you've uploaded a valid PDF file with extractable text content.`);
         }
       };
-      reader.onerror = () => processFile(`Error reading PDF ${file.name}`);
+      reader.onerror = () => processFile(`Content from ${file.name}: Error reading PDF file.`);
       reader.readAsArrayBuffer(file);
-    } else if (['.jpg', '.jpeg', '.png'].includes(ext)) {
-      processFile(`[Image file ${file.name} - OCR not available. Please convert to text first]`);
-    } else if (['.doc', '.docx'].includes(ext)) {
-      processFile(`[Word document ${file.name} - please save as .txt for best results]`);
-    } else {
-      processFile(`[Unsupported file type: ${file.name}]`);
+    } 
+    // ===== WORD DOCUMENTS (DOCX) =====
+    else if (ext === '.docx') {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const arrayBuffer = e.target.result;
+          
+          // Check if mammoth is available
+          if (typeof mammoth !== 'undefined') {
+            try {
+              const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+              const text = result.value;
+              console.log(`✅ Extracted ${text.length} chars from DOCX: ${file.name}`);
+              processFile(text);
+            } catch (mammothError) {
+              console.error(`❌ Mammoth error for ${file.name}:`, mammothError);
+              processFile(`Content from ${file.name}: This is a Word document. Unable to extract text automatically.`);
+            }
+          } else {
+            // Mammoth not loaded - inform user
+            processFile(`Content from ${file.name}: This is a Word document. For best results, please save as .txt or copy the content directly.`);
+          }
+        } catch (error) {
+          console.error(`❌ DOCX extraction error for ${file.name}:`, error);
+          processFile(`Content from ${file.name}: Error reading Word document.`);
+        }
+      };
+      reader.onerror = () => processFile(`Content from ${file.name}: Error reading Word document.`);
+      reader.readAsArrayBuffer(file);
+    }
+    // ===== WORD DOCUMENTS (DOC) =====
+    else if (ext === '.doc') {
+      // .doc format is more complex - recommend conversion
+      processFile(`Content from ${file.name}: This is an older Word document format (.doc). For best results, please save as .docx or .txt format.`);
+    }
+    // ===== IMAGES (JPG, JPEG, PNG) =====
+    else if (['.jpg', '.jpeg', '.png'].includes(ext)) {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const imageData = e.target.result;
+          
+          // Check if Tesseract OCR is available
+          if (typeof Tesseract !== 'undefined') {
+            try {
+              showNotification(`Processing image with OCR: ${file.name}...`, 'info');
+              const { data: { text } } = await Tesseract.recognize(imageData, 'eng', {
+                logger: m => console.log(m)
+              });
+              console.log(`✅ OCR extracted ${text.length} chars from ${file.name}`);
+              processFile(text);
+            } catch (ocrError) {
+              console.error(`❌ OCR error for ${file.name}:`, ocrError);
+              processFile(`Content from ${file.name}: This is an image file. OCR processing encountered an error. Please convert the image to text manually.`);
+            }
+          } else {
+            // Tesseract not loaded
+            processFile(`Content from ${file.name}: This is an image file. For best results, please convert the image text to a .txt file or use an OCR tool.`);
+          }
+        } catch (error) {
+          console.error(`❌ Image processing error for ${file.name}:`, error);
+          processFile(`Content from ${file.name}: Error processing image file.`);
+        }
+      };
+      reader.onerror = () => processFile(`Content from ${file.name}: Error reading image file.`);
+      reader.readAsDataURL(file);
+    }
+    // ===== UNSUPPORTED FILES =====
+    else {
+      processFile(`Content from ${file.name}: Unsupported file type (${ext}). Please use .txt, .pdf, .docx, or image files.`);
     }
   });
 }
 
+// ===== BASIC PDF TEXT EXTRACTION (Fallback) =====
+async function extractPDFTextBasic(arrayBuffer, fileName) {
+  try {
+    // Convert ArrayBuffer to string
+    const uint8Array = new Uint8Array(arrayBuffer);
+    let pdfText = '';
+    
+    // Try to extract readable text from PDF binary
+    for (let i = 0; i < uint8Array.length; i++) {
+      const char = String.fromCharCode(uint8Array[i]);
+      // Only keep printable ASCII characters
+      if (char.charCodeAt(0) >= 32 && char.charCodeAt(0) <= 126) {
+        pdfText += char;
+      } else if (char === '\n' || char === '\r') {
+        pdfText += ' ';
+      }
+    }
+    
+    // Clean up extracted text
+    pdfText = pdfText
+      .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+      .replace(/[^\w\s.,!?;:()\-]/g, '') // Remove non-printable characters
+      .trim();
+    
+    if (pdfText.length > 100) {
+      console.log(`✅ Basic extraction: ${pdfText.length} chars from ${fileName}`);
+      return pdfText;
+    } else {
+      return `Content from ${fileName}: This PDF file contains text content. For better extraction, please save as .txt or copy the text directly.`;
+    }
+  } catch (error) {
+    console.error('Basic PDF extraction error:', error);
+    return `Content from ${fileName}: Unable to extract text from this PDF. Please try converting to .txt format.`;
+  }
+}
+
 function combineAllExtractedTexts() {
   totalExtractedText = '';
+  let hasValidContent = false;
+  
   extractedTexts.forEach(item => {
-    totalExtractedText += `\n\n=== ${item.label} ===\n${item.text}\n=== End of ${item.label} ===\n`;
+    // Check if we have real content (not just error messages)
+    const isErrorMessage = item.text.includes('Unable to') || 
+                          item.text.includes('Error reading') || 
+                          item.text.includes('Unsupported file') ||
+                          item.text.includes('Please convert') ||
+                          item.text.includes('For best results');
+    
+    if (!isErrorMessage && item.text.length > 50) {
+      hasValidContent = true;
+    }
+    
+    totalExtractedText += `\n\n=== Content from: ${item.label} ===\n${item.text}\n=== End of ${item.label} ===\n`;
   });
+  
   console.log(`✅ Combined text length: ${totalExtractedText.length} characters`);
-  showNotification(`All ${selectedFiles.length} files processed!`, 'success');
+  console.log(`✅ Has valid content: ${hasValidContent}`);
+  
+  if (!hasValidContent) {
+    showNotification('⚠️ Warning: No text content could be extracted. Please use .txt files for best results.', 'warning');
+  } else {
+    showNotification(`All ${selectedFiles.length} files processed successfully!`, 'success');
+  }
 }
 
 function handleGenerateQuestions() {
