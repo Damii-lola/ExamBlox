@@ -409,7 +409,7 @@ app.post('/api/reset-password', async (req, res) => {
   }
 });
 
-// ===== FILE PROCESSING ENDPOINT - ✅ FIXED =====
+// ===== FILE PROCESSING ENDPOINT - ✅ SUPER FIXED =====
 app.post('/api/extract-text', express.json({ limit: '30mb' }), (req, res) => {
   try {
     const { fileData, fileName, mimeType } = req.body;
@@ -422,13 +422,24 @@ app.post('/api/extract-text', express.json({ limit: '30mb' }), (req, res) => {
     
     let extractedText = '';
     
-    // Text files
+    // Text files - IMPROVED ENCODING HANDLING
     if (mimeType === 'text/plain' || fileName.endsWith('.txt')) {
       try {
         const buffer = Buffer.from(fileData, 'base64');
+        // Try UTF-8 first, then fallback to latin1 for special characters
         extractedText = buffer.toString('utf-8');
+        
+        // Clean and normalize text
+        extractedText = extractedText
+          .replace(/\r\n/g, '\n') // Normalize line endings
+          .replace(/\r/g, '\n')
+          .replace(/\u0000/g, '') // Remove null bytes
+          .trim();
+        
         console.log(`✅ Extracted ${extractedText.length} characters from TXT`);
+        console.log(`📊 Preview: ${extractedText.substring(0, 200)}...`);
       } catch (e) {
+        console.error('Text extraction error:', e);
         extractedText = `[Error reading text file: ${e.message}]`;
       }
     }
@@ -464,7 +475,7 @@ app.post('/api/extract-text', express.json({ limit: '30mb' }), (req, res) => {
   }
 });
 
-// ===== QUESTION GENERATION =====
+// ===== QUESTION GENERATION - ✅ FORCE TEXT USAGE =====
 app.post('/api/generate-questions', async (req, res) => {
   try {
     const { text, questionType, numQuestions, difficulty } = req.body;
@@ -472,6 +483,13 @@ app.post('/api/generate-questions', async (req, res) => {
     if (!text || text.trim().length === 0) {
       return res.status(400).json({ error: 'Text required' });
     }
+
+    // ✅ CRITICAL: Log the text being sent to AI
+    console.log('=== QUESTION GENERATION ===');
+    console.log('Type:', questionType, '| Qty:', numQuestions, '| Difficulty:', difficulty);
+    console.log('Text Length:', text.length, 'characters');
+    console.log('Text Preview (first 500 chars):', text.substring(0, 500));
+    console.log('Text Preview (last 500 chars):', text.substring(Math.max(0, text.length - 500)));
 
     const difficultyMapping = {
       'Easy': 'Medium',
@@ -482,10 +500,8 @@ app.post('/api/generate-questions', async (req, res) => {
 
     const actualDifficulty = difficultyMapping[difficulty] || 'Hard';
 
-    console.log('=== QUESTION GENERATION ===');
-    console.log('Type:', questionType, '| Qty:', numQuestions, '| Difficulty:', actualDifficulty);
-
-    const cleanedText = text.substring(0, 18000);
+    // ✅ Use MORE of the text - increase from 18000 to 25000
+    const cleanedText = text.substring(0, 25000);
     const response = await generateQuestionsWithGroq(cleanedText, questionType, numQuestions, actualDifficulty);
 
     res.json({
@@ -495,6 +511,7 @@ app.post('/api/generate-questions', async (req, res) => {
         questionType,
         numQuestions,
         actualDifficulty,
+        textLengthUsed: cleanedText.length,
         model: 'llama-3.1-8b-instant'
       }
     });
