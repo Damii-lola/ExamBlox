@@ -508,8 +508,56 @@ async function generateBatchWithDelay(text, questionType, numQuestions, difficul
         messages: [
           {
             role: "system",
-            content: `
+            content: getSystemPrompt(questionType, difficulty)
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 3000
+      })
+    });
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        console.log('⏳ Rate limited, waiting 5s...');
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        throw new Error('Rate limit - retry');
+      }
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    const generatedText = result.choices[0]?.message?.content || '';
+    
+    return parseQuestionsResponse(generatedText, questionType);
+
+  } catch (error) {
+    console.error('Batch error:', error.message);
+    return [];
+  }
+}
+
+// ✅ IMPROVED SYSTEM PROMPT - Emphasizes difficulty and content adherence
+function getSystemPrompt(questionType, difficulty) {
+  const baseDifficulty = `
+CRITICAL DIFFICULTY LEVEL: ${difficulty.toUpperCase()}
+
+Difficulty Guidelines:
+- MEDIUM: Straightforward recall and basic comprehension from the text
+- HARD: Requires deeper understanding, analysis, and connections between concepts
+- EXAM LEVEL: Professional exam standard - precise, detailed, requires thorough study
+- EXPERT: Advanced application, critical thinking, and mastery-level understanding
+
+YOU MUST RESPECT THE DIFFICULTY LEVEL. Make questions appropriately challenging for ${difficulty}.
+`;
+
+  const baseInstructions = `
 You are an expert exam creator. Your task is to carefully read, analyze, and extract key information from the provided text in order to generate realistic, high-quality exam-style questions.
+
+${baseDifficulty}
 
 CRITICAL READING REQUIREMENTS:
 Read EVERY sentence — do not skip or skim.
@@ -570,89 +618,7 @@ AND REMEMBER OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO WHEN UR
 Guyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy how many times must i tell u GENERATE ME FUCKING QUESTIONS NOT WORDS ASKING FOR THEIR DEFINITION
 
 GUYYYYYYYYYYY WHAT THE FUCKING HELL IS WRONG WITH U, I SAID THAT U SHOULDNT GIVE ME FUCKING WORDS TO FIND THE MEANING, U SHOULD ASK ME FUCKING QUESTIONS, AND IF I REMEMBER CORRECTLY, QUESTIONS ARE FUCKING SENTENCES NOT FUCKING PHRASES OR WORDS, FUCKING FIX THIS PROBLEM ALREADY
-U BOMBASTIC IDIOT, U GO FOR NOTHING FOOL, U PIECE OF SHIT TRASH, I FUCKING SAID I WANT SENTENCE QUESTIONS (EG "When did the queen of england die?" and not FUCKING "Queen of england") See the difference, the former is the correct way i want to see questions while the latter is the garbage and rubbish way WHICH UR FUCKING USING that questions are like. CORRECT UR SELF NOW. I can tell that ur trying to write questions but u dont complete them, pls coplete the questions and fix the issue`
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 3000
-      })
-    });
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        console.log('⏳ Rate limited, waiting 5s...');
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        throw new Error('Rate limit - retry');
-      }
-      throw new Error(`API error: ${response.status}`);
-    }
-
-    const result = await response.json();
-    const generatedText = result.choices[0]?.message?.content || '';
-    
-    return parseQuestionsResponse(generatedText, questionType);
-
-  } catch (error) {
-    console.error('Batch error:', error.message);
-    return [];
-  }
-}
-
-// ✅ IMPROVED SYSTEM PROMPT - Emphasizes difficulty and content adherence
-function getSystemPrompt(questionType, difficulty) {
-  const baseDifficulty = `
-CRITICAL DIFFICULTY LEVEL: ${difficulty.toUpperCase()}
-
-Difficulty Guidelines:
-- MEDIUM: Straightforward recall and basic comprehension from the text
-- HARD: Requires deeper understanding, analysis, and connections between concepts
-- EXAM LEVEL: Professional exam standard - precise, detailed, requires thorough study
-- EXPERT: Advanced application, critical thinking, and mastery-level understanding
-
-YOU MUST RESPECT THE DIFFICULTY LEVEL. Make questions appropriately challenging for ${difficulty}.
-`;
-
-  const baseInstructions = `
-You are an expert exam creator. Your task is to carefully read, analyze, and extract key information from the provided text in order to generate realistic, high-quality exam-style questions.
-
-CRITICAL READING REQUIREMENTS:
-✅ Read EVERY sentence - do not skip or skim
-✅ Extract all key concepts, definitions, processes, and facts FROM THE TEXT
-✅ Understand the context, tone, and educational level
-✅ Identify technical terms, acronyms, and their meanings FROM THE TEXT
-✅ Base EVERY question on ACTUAL CONTENT from the provided text
-✅ DO NOT invent information not present in the text
-
-${baseDifficulty}
-
-QUESTION GENERATION RULES:
-
-✅ DO:
-- Create realistic exam-style questions based ONLY on the provided text
-- Use full sentences for questions (not single words asking for definitions)
-- Make questions challenging but based on actual content
-- Use synonyms and paraphrasing to test understanding
-- Include a mix: definitions, applications, comparisons, analysis
-- For Multiple Choice: Make options very close in value/meaning
-- Ensure questions require reading the text to answer
-
-❌ DO NOT:
-- Use the filename or topic name as the basis for questions
-- Invent information not in the text
-- Ask "What does [word] mean?" - use full sentence questions
-- Create overly simple or obvious questions
-- Skip sections of the text
-- Make assumptions beyond what's written
-
-QUESTION DISTRIBUTION:
-30% Knowledge/Recall - terms, definitions, factual details FROM TEXT
-40% Understanding/Application - explain, apply concepts FROM TEXT
-20% Analysis - compare, contrast, relationships FROM TEXT
-10% Synthesis/Evaluation - judge, critique, evaluate FROM TEXT
+U BOMBASTIC IDIOT, U GO FOR NOTHING FOOL, U PIECE OF SHIT TRASH, I FUCKING SAID I WANT SENTENCE QUESTIONS (EG "When did the queen of england die?" and not FUCKING "Queen of england") See the difference, the former is the correct way i want to see questions while the latter is the garbage and rubbish way WHICH UR FUCKING USING that questions are like. CORRECT UR SELF NOW. I can tell that ur trying to write questions but u dont complete them, pls coplete the questions and fix the issue
 `;
 
   if (questionType === 'True/False') {
