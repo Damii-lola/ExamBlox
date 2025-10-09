@@ -865,101 +865,179 @@ function updateEnhancedUploadUI(files) {
   showNotification(`${fileCount} file(s) selected!`, 'success');
 }
 
-// ✅ FIXED FILE EXTRACTION
+// ✅ SUPER FAST FILE EXTRACTION - Process ALL files in parallel
 function extractTextFromMultipleFiles(files) {
   showNotification(`Processing ${files.length} files...`, 'info');
-  let processedCount = 0;
+  
+  // Show processing modal immediately
+  showFileProcessingModal(files.length);
+  
   extractedTexts = [];
   
-  files.forEach(file => {
-    const reader = new FileReader();
-    
-    reader.onload = async (e) => {
-      try {
-        let extractedText = '';
-        
-        // For text files - direct read
-        if (file.name.toLowerCase().endsWith('.txt')) {
-          extractedText = e.target.result;
-          console.log(`✅ Extracted ${extractedText.length} chars from ${file.name}`);
-        } 
-        // For other files - send to backend
-        else {
-          const fileData = e.target.result.split(',')[1]; // Get base64 data
-          const response = await fetch(`${BACKEND_URL}/api/extract-text`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-              fileData: fileData,
-              fileName: file.name,
-              mimeType: file.type
-            })
+  // ✅ Process ALL files in PARALLEL (much faster!)
+  const filePromises = files.map((file, index) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      
+      reader.onload = async (e) => {
+        try {
+          updateProcessingModal(index + 1, files.length, `Processing ${file.name}...`);
+          
+          let extractedText = '';
+          
+          // For text files - direct read (FASTEST)
+          if (file.name.toLowerCase().endsWith('.txt')) {
+            extractedText = e.target.result;
+            
+            // ✅ IMPROVED: Clean the text properly
+            extractedText = extractedText
+              .replace(/\r\n/g, '\n')
+              .replace(/\r/g, '\n')
+              .replace(/\u0000/g, '')
+              .trim();
+            
+            console.log(`✅ Extracted ${extractedText.length} chars from ${file.name}`);
+          } 
+          // For other files - send to backend
+          else {
+            const fileData = e.target.result.split(',')[1]; // Get base64 data
+            
+            try {
+              const response = await fetch(`${BACKEND_URL}/api/extract-text`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                  fileData: fileData,
+                  fileName: file.name,
+                  mimeType: file.type
+                })
+              });
+              
+              const result = await response.json();
+              if (result.success) {
+                extractedText = result.text;
+                console.log(`✅ Backend extracted ${extractedText.length} chars from ${file.name}`);
+              } else {
+                extractedText = `[Error processing ${file.name}]`;
+                console.error(`❌ Backend error for ${file.name}`);
+              }
+            } catch (error) {
+              extractedText = `[Network error processing ${file.name}]`;
+              console.error(`❌ Network error for ${file.name}:`, error);
+            }
+          }
+          
+          resolve({
+            fileName: file.name,
+            text: extractedText,
+            label: file.name,
+            index: index
           });
           
-          const result = await response.json();
-          if (result.success) {
-            extractedText = result.text;
-            console.log(`✅ Backend extracted ${extractedText.length} chars from ${file.name}`);
-          } else {
-            extractedText = `[Error processing ${file.name}]`;
-            console.error(`❌ Backend error for ${file.name}`);
-          }
+        } catch (error) {
+          console.error(`❌ Error processing ${file.name}:`, error);
+          resolve({
+            fileName: file.name,
+            text: `[Error reading ${file.name}]`,
+            label: file.name,
+            index: index
+          });
         }
-        
-        extractedTexts.push({
-          fileName: file.name,
-          text: extractedText,
-          label: file.name
-        });
-        
-        processedCount++;
-        if (processedCount >= files.length) {
-          combineAllExtractedTexts();
-        }
-        
-      } catch (error) {
-        console.error(`❌ Error processing ${file.name}:`, error);
-        extractedTexts.push({
+      };
+      
+      reader.onerror = () => {
+        console.error(`❌ FileReader error for ${file.name}`);
+        resolve({
           fileName: file.name,
           text: `[Error reading ${file.name}]`,
-          label: file.name
+          label: file.name,
+          index: index
         });
-        processedCount++;
-        if (processedCount >= files.length) {
-          combineAllExtractedTexts();
-        }
+      };
+      
+      // Read as text for .txt, as data URL for others
+      if (file.name.toLowerCase().endsWith('.txt')) {
+        reader.readAsText(file);
+      } else {
+        reader.readAsDataURL(file);
       }
-    };
-    
-    reader.onerror = () => {
-      console.error(`❌ FileReader error for ${file.name}`);
-      extractedTexts.push({
-        fileName: file.name,
-        text: `[Error reading ${file.name}]`,
-        label: file.name
-      });
-      processedCount++;
-      if (processedCount >= files.length) {
-        combineAllExtractedTexts();
-      }
-    };
-    
-    // Read as text for .txt, as data URL for others
-    if (file.name.toLowerCase().endsWith('.txt')) {
-      reader.readAsText(file);
-    } else {
-      reader.readAsDataURL(file);
-    }
+    });
   });
+  
+  // ✅ Wait for ALL files to finish (in parallel = MUCH FASTER!)
+  Promise.all(filePromises).then(results => {
+    // Sort by original index to maintain order
+    extractedTexts = results.sort((a, b) => a.index - b.index);
+    combineAllExtractedTexts();
+    closeFileProcessingModal();
+  });
+}
+
+// ✅ Show file processing modal with progress
+function showFileProcessingModal(totalFiles) {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'file-processing-modal';
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 500px;">
+      <h2>Processing Files</h2>
+      <p style="text-align: center; color: var(--primary-light); margin-bottom: 20px;">
+        Extracting text from your documents...
+      </p>
+      <div class="progress-container">
+        <div class="progress-bar">
+          <div class="progress-fill" id="file-progress-fill" style="width: 0%;"></div>
+        </div>
+        <div class="progress-text" id="file-progress-text">Processing file 0 of ${totalFiles}</div>
+      </div>
+      <div id="file-processing-status" style="text-align: center; color: var(--text-secondary); margin-top: 15px; font-size: 0.9rem;">
+        Initializing...
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+function updateProcessingModal(current, total, statusText) {
+  const fill = document.getElementById('file-progress-fill');
+  const text = document.getElementById('file-progress-text');
+  const status = document.getElementById('file-processing-status');
+  
+  const percent = (current / total) * 100;
+  
+  if (fill) fill.style.width = percent + '%';
+  if (text) text.textContent = `Processing file ${current} of ${total}`;
+  if (status) status.textContent = statusText;
+}
+
+function closeFileProcessingModal() {
+  const modal = document.getElementById('file-processing-modal');
+  if (modal) {
+    setTimeout(() => {
+      if (modal.parentNode) modal.parentNode.removeChild(modal);
+    }, 500);
+  }
 }
 
 function combineAllExtractedTexts() {
   totalExtractedText = '';
+  let totalChars = 0;
+  
   extractedTexts.forEach(item => {
-    totalExtractedText += `\n\n=== ${item.label} ===\n${item.text}\n=== End of ${item.label} ===\n`;
+    // ✅ IMPROVED: Add clear separators between files
+    totalExtractedText += `\n\n===== DOCUMENT: ${item.label} =====\n\n${item.text}\n\n===== END OF ${item.label} =====\n\n`;
+    totalChars += item.text.length;
   });
-  console.log(`✅ Combined text length: ${totalExtractedText.length} characters`);
-  showNotification(`All ${selectedFiles.length} files processed!`, 'success');
+  
+  console.log(`✅ Combined text from ${extractedTexts.length} files`);
+  console.log(`📊 Total characters: ${totalChars}`);
+  console.log(`📝 Preview (first 1000 chars):\n${totalExtractedText.substring(0, 1000)}`);
+  
+  // ✅ Show detailed success message
+  showNotification(
+    `✅ Processed ${selectedFiles.length} file(s) - ${totalChars.toLocaleString()} characters extracted!`, 
+    'success'
+  );
 }
 
 function handleGenerateQuestions() {
