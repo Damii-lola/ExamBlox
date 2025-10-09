@@ -1,6 +1,4 @@
-// script.js - COMPLETE FRONTEND with Backend API Calls
-// Replace your entire Frontend/script.js with this
-
+// script.js - FIXED with Forgot Password & File Processing
 let isUserLoggedIn = false;
 let currentUser = null;
 
@@ -16,7 +14,6 @@ const PROTECTED_ADMIN = {
   isPermanent: true
 };
 
-// Helper function to call backend
 async function apiCall(endpoint, method = 'GET', body = null) {
   const options = {
     method,
@@ -31,7 +28,7 @@ async function apiCall(endpoint, method = 'GET', body = null) {
 
 // INITIALIZATION
 document.addEventListener('DOMContentLoaded', function() {
-  console.log('ExamBlox initialized - Supabase Backend Active');
+  console.log('ExamBlox initialized - File Processing Fixed');
   checkAuthState();
   initializeAuth();
   initializeEnhancedFileUpload();
@@ -80,7 +77,6 @@ function initializeAuth() {
   }
 }
 
-// USER DROPDOWN - FIXED for Desktop & Mobile
 function updateAuthUI() {
   const loginBtn = document.querySelector('.btn-login');
   const signupBtn = document.querySelector('.btn-signup');
@@ -242,49 +238,918 @@ function logout() {
   showNotification('Logged out successfully', 'success');
 }
 
-// API FUNCTIONS
-async function checkUsernameExists(username) {
+// ===== AUTH MODALS WITH FORGOT PASSWORD =====
+function showAuthModal(type) {
+  const isLogin = type === 'login';
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'auth-modal';
+  
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 450px;">
+      <div class="close-modal" onclick="closeAuthModal()">&times;</div>
+      <h2>${isLogin ? 'Welcome Back' : 'Create Account'}</h2>
+      <p class="modal-subtitle">${isLogin ? 'Sign in to your ExamBlox account' : 'Join thousands of students using ExamBlox'}</p>
+      
+      <form id="auth-form" style="display: flex; flex-direction: column; gap: 20px;">
+        ${!isLogin ? '<input type="text" id="auth-username" placeholder="Username" required style="padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(21,19,32,0.8); color: var(--text);">' : ''}
+        ${!isLogin ? '<input type="text" id="auth-name" placeholder="Full Name" required style="padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(21,19,32,0.8); color: var(--text);">' : ''}
+        <input type="text" id="auth-email-username" placeholder="${isLogin ? 'Email or Username' : 'Email Address'}" required style="padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(21,19,32,0.8); color: var(--text);">
+        
+        <div style="position: relative;">
+          <input type="password" id="auth-password" placeholder="Password" required style="padding: 15px; padding-right: 50px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(21,19,32,0.8); color: var(--text); width: 100%;">
+          <button type="button" id="toggle-password" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--primary-light); cursor: pointer; font-size: 16px;">
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
+        
+        ${!isLogin ? `
+        <div style="position: relative;">
+          <input type="password" id="auth-confirm-password" placeholder="Confirm Password" required style="padding: 15px; padding-right: 50px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(21,19,32,0.8); color: var(--text); width: 100%;">
+          <button type="button" id="toggle-confirm-password" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--primary-light); cursor: pointer; font-size: 16px;">
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
+        ` : ''}
+        
+        ${isLogin ? '<div style="text-align: right;"><a href="#" id="forgot-password" style="color: var(--primary-light); text-decoration: none; font-size: 0.9rem;">Forgot Password?</a></div>' : ''}
+        
+        <button type="submit" style="background: linear-gradient(90deg, var(--primary-light), var(--primary)); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: 600; cursor: pointer;">
+          ${isLogin ? 'Sign In' : 'Create Account'}
+        </button>
+      </form>
+      
+      <div style="text-align: center; margin-top: 20px; color: var(--text-secondary);">
+        ${isLogin ? "Don't have an account?" : "Already have an account?"}
+        <a href="#" id="auth-switch" style="color: var(--primary-light); text-decoration: none; margin-left: 5px;">
+          ${isLogin ? 'Sign up' : 'Sign in'}
+        </a>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  setupPasswordToggle('auth-password', 'toggle-password');
+  if (!isLogin) {
+    setupPasswordToggle('auth-confirm-password', 'toggle-confirm-password');
+  }
+
+  // ✅ FORGOT PASSWORD LINK
+  if (isLogin) {
+    document.getElementById('forgot-password').addEventListener('click', function(e) {
+      e.preventDefault();
+      closeAuthModal();
+      showForgotPasswordModal();
+    });
+  }
+
+  document.getElementById('auth-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    handleAuth(isLogin);
+  });
+
+  document.getElementById('auth-switch').addEventListener('click', function(e) {
+    e.preventDefault();
+    closeAuthModal();
+    showAuthModal(isLogin ? 'signup' : 'login');
+  });
+}
+
+// ===== FORGOT PASSWORD MODAL =====
+function showForgotPasswordModal() {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'forgot-password-modal';
+  
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 450px;">
+      <div class="close-modal" onclick="closeForgotPasswordModal()">&times;</div>
+      <h2>Reset Password</h2>
+      <p class="modal-subtitle">Enter your email to receive a verification code</p>
+      
+      <form id="forgot-password-form" style="display: flex; flex-direction: column; gap: 20px;">
+        <input type="email" id="forgot-email" placeholder="Email Address" required style="padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(21,19,32,0.8); color: var(--text);">
+        
+        <button type="submit" style="background: linear-gradient(90deg, var(--primary-light), var(--primary)); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: 600; cursor: pointer;">
+          Send Reset Code
+        </button>
+      </form>
+      
+      <div style="text-align: center; margin-top: 20px; color: var(--text-secondary);">
+        <a href="#" id="back-to-login" style="color: var(--primary-light); text-decoration: none;">
+          Back to Login
+        </a>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  document.getElementById('forgot-password-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const email = document.getElementById('forgot-email').value.trim();
+    
+    if (!email) {
+      showNotification('Please enter your email', 'error');
+      return;
+    }
+    
+    // Check if user exists
+    try {
+      const result = await apiCall('/api/users');
+      const userExists = result.users && result.users.some(u => u.email.toLowerCase() === email.toLowerCase());
+      
+      if (!userExists) {
+        showNotification('No account found with this email', 'error');
+        return;
+      }
+      
+      const user = result.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+      closeForgotPasswordModal();
+      showPasswordResetOTPModal(email, user.name || 'User');
+      
+    } catch (error) {
+      showNotification('Error checking email. Please try again.', 'error');
+    }
+  });
+
+  document.getElementById('back-to-login').addEventListener('click', function(e) {
+    e.preventDefault();
+    closeForgotPasswordModal();
+    showAuthModal('login');
+  });
+}
+
+function closeForgotPasswordModal() {
+  const modal = document.getElementById('forgot-password-modal');
+  if (modal) document.body.removeChild(modal);
+}
+
+// ===== PASSWORD RESET OTP MODAL =====
+function showPasswordResetOTPModal(email, name) {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'password-reset-otp-modal';
+  
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 450px;">
+      <div class="close-modal" onclick="closePasswordResetOTPModal()">&times;</div>
+      <h2>Enter Reset Code</h2>
+      <p class="modal-subtitle">We've sent a 6-digit code to ${email}</p>
+      
+      <form id="password-reset-otp-form" style="display: flex; flex-direction: column; gap: 20px;">
+        <input type="text" id="reset-otp" placeholder="Enter 6-digit code" maxlength="6" required style="padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(21,19,32,0.8); color: var(--text); text-align: center; font-size: 18px; letter-spacing: 2px;">
+        
+        <div style="position: relative;">
+          <input type="password" id="new-password" placeholder="New Password" required style="padding: 15px; padding-right: 50px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(21,19,32,0.8); color: var(--text); width: 100%;">
+          <button type="button" id="toggle-new-password" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--primary-light); cursor: pointer; font-size: 16px;">
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
+        
+        <div style="position: relative;">
+          <input type="password" id="confirm-new-password" placeholder="Confirm New Password" required style="padding: 15px; padding-right: 50px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(21,19,32,0.8); color: var(--text); width: 100%;">
+          <button type="button" id="toggle-confirm-new-password" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--primary-light); cursor: pointer; font-size: 16px;">
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
+        
+        <button type="submit" style="background: linear-gradient(90deg, var(--primary-light), var(--primary)); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: 600; cursor: pointer;">
+          Reset Password
+        </button>
+      </form>
+      
+      <div style="text-align: center; margin-top: 20px; color: var(--text-secondary);">
+        <a href="#" id="resend-reset-code" style="color: var(--primary-light); text-decoration: none;">
+          Resend Code
+        </a>
+      </div>
+      
+      <div style="background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); border-radius: 8px; padding: 10px; margin-top: 15px; text-align: center;">
+        <small style="color: var(--warning);">Code expires in 10 minutes</small>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+  
+  setupPasswordToggle('new-password', 'toggle-new-password');
+  setupPasswordToggle('confirm-new-password', 'toggle-confirm-new-password');
+  
+  sendPasswordResetOTP(email, name);
+
+  document.getElementById('password-reset-otp-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    verifyPasswordResetOTP(email);
+  });
+
+  document.getElementById('resend-reset-code').addEventListener('click', function(e) {
+    e.preventDefault();
+    sendPasswordResetOTP(email, name);
+  });
+}
+
+async function sendPasswordResetOTP(email, name) {
   try {
-    const result = await apiCall('/api/users');
-    return result.users && result.users.some(u => u.username.toLowerCase() === username.toLowerCase());
+    showNotification('Sending reset code...', 'info');
+
+    const response = await fetch(`${BACKEND_URL}/api/send-otp`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        email: email,
+        name: name,
+        type: 'forgot_password'
+      })
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      showNotification('Reset code sent to your email!', 'success');
+    } else {
+      showNotification(result.message || 'Failed to send reset code', 'error');
+    }
   } catch (error) {
-    console.error('Check username error:', error);
-    return false;
+    console.error('Error sending reset code:', error);
+    showNotification('Network error. Please try again.', 'error');
   }
 }
 
-async function checkEmailExists(email) {
+async function verifyPasswordResetOTP(email) {
+  const otp = document.getElementById('reset-otp').value.trim();
+  const newPassword = document.getElementById('new-password').value;
+  const confirmPassword = document.getElementById('confirm-new-password').value;
+
+  if (!otp || otp.length !== 6) {
+    showNotification('Please enter a valid 6-digit code', 'error');
+    return;
+  }
+
+  if (!newPassword || newPassword.length < 6) {
+    showNotification('Password must be at least 6 characters', 'error');
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    showNotification('Passwords do not match', 'error');
+    return;
+  }
+
   try {
-    const result = await apiCall('/api/users');
-    return result.users && result.users.some(u => u.email.toLowerCase() === email.toLowerCase());
+    showNotification('Verifying code...', 'info');
+
+    const verifyResponse = await fetch(`${BACKEND_URL}/api/verify-otp`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({email: email, otp: otp})
+    });
+
+    const verifyResult = await verifyResponse.json();
+
+    if (verifyResult.success) {
+      const resetResponse = await fetch(`${BACKEND_URL}/api/reset-password`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email: email, newPassword: newPassword})
+      });
+
+      const resetResult = await resetResponse.json();
+
+      if (resetResult.success) {
+        closePasswordResetOTPModal();
+        showNotification('Password reset successfully! You can now log in.', 'success');
+        setTimeout(() => showAuthModal('login'), 1500);
+      } else {
+        showNotification(resetResult.error || 'Failed to reset password', 'error');
+      }
+    } else {
+      showNotification(verifyResult.error || 'Invalid or expired code', 'error');
+    }
   } catch (error) {
-    console.error('Check email error:', error);
-    return false;
+    console.error('Error resetting password:', error);
+    showNotification('Network error. Please try again.', 'error');
   }
 }
 
-async function getTotalUsers() {
+function closePasswordResetOTPModal() {
+  const modal = document.getElementById('password-reset-otp-modal');
+  if (modal) document.body.removeChild(modal);
+}
+
+function setupPasswordToggle(inputId, buttonId) {
+  const passwordInput = document.getElementById(inputId);
+  const toggleButton = document.getElementById(buttonId);
+  
+  if (passwordInput && toggleButton) {
+    toggleButton.addEventListener('click', function() {
+      const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+      passwordInput.setAttribute('type', type);
+      
+      const icon = toggleButton.querySelector('i');
+      icon.className = type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
+    });
+  }
+}
+
+async function handleAuth(isLogin) {
+  const emailUsername = document.getElementById('auth-email-username').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const name = isLogin ? null : document.getElementById('auth-name').value.trim();
+  const username = isLogin ? null : document.getElementById('auth-username').value.trim();
+  const confirmPassword = isLogin ? null : document.getElementById('auth-confirm-password').value;
+
+  if (!emailUsername || !password) {
+    showNotification('Please fill in all fields', 'error');
+    return;
+  }
+
+  if (!isLogin) {
+    if (!name || !username) {
+      showNotification('Please enter your name and username', 'error');
+      return;
+    }
+    if (password !== confirmPassword) {
+      showNotification('Passwords do not match', 'error');
+      return;
+    }
+    if (password.length < 6) {
+      showNotification('Password must be at least 6 characters', 'error');
+      return;
+    }
+    
+    try {
+      const result = await apiCall('/api/users');
+      const usernameExists = result.users && result.users.some(u => u.username.toLowerCase() === username.toLowerCase());
+      const emailExists = result.users && result.users.some(u => u.email.toLowerCase() === emailUsername.toLowerCase());
+      
+      if (usernameExists) {
+        showNotification('Username already exists', 'error');
+        return;
+      }
+      
+      if (emailExists) {
+        showNotification('Email already exists', 'error');
+        return;
+      }
+    } catch (error) {
+      console.error('Error checking existing users:', error);
+    }
+    
+    closeAuthModal();
+    showSignupOTPModal(username, name, emailUsername, password);
+  } else {
+    try {
+      const result = await apiCall('/api/login', 'POST', { 
+        emailOrUsername: emailUsername, 
+        password: password 
+      });
+      
+      if (result.success && result.user) {
+        loginUser(result.user);
+        closeAuthModal();
+        showNotification('Welcome back!', 'success');
+      } else {
+        showNotification(result.error || 'Invalid credentials', 'error');
+      }
+    } catch (error) {
+      showNotification('Login failed. Please try again.', 'error');
+    }
+  }
+}
+
+function closeAuthModal() {
+  const modal = document.getElementById('auth-modal');
+  if (modal) document.body.removeChild(modal);
+}
+
+// ===== SIGNUP OTP MODAL =====
+function showSignupOTPModal(username, name, email, password) {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'signup-otp-modal';
+  
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 450px;">
+      <div class="close-modal" onclick="closeSignupOTPModal()">&times;</div>
+      <h2>Verify Your Email</h2>
+      <p class="modal-subtitle">We've sent a 6-digit code to ${email}</p>
+      
+      <form id="signup-otp-form" style="display: flex; flex-direction: column; gap: 20px;">
+        <input type="text" id="signup-otp" placeholder="Enter 6-digit code" maxlength="6" required style="padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(21,19,32,0.8); color: var(--text); text-align: center; font-size: 18px; letter-spacing: 2px;">
+        
+        <button type="submit" style="background: linear-gradient(90deg, var(--primary-light), var(--primary)); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: 600; cursor: pointer;">
+          Verify & Create Account
+        </button>
+      </form>
+      
+      <div style="text-align: center; margin-top: 20px; color: var(--text-secondary);">
+        <a href="#" id="resend-signup-code" style="color: var(--primary-light); text-decoration: none; margin-right: 15px;">
+          Resend Code
+        </a>
+        <a href="#" id="back-to-signup" style="color: var(--primary-light); text-decoration: none;">
+          Back to Sign Up
+        </a>
+      </div>
+      
+      <div style="background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); border-radius: 8px; padding: 10px; margin-top: 15px; text-align: center;">
+        <small style="color: var(--warning);">Code expires in 10 minutes</small>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+  sendSignupOTP(email, name);
+
+  document.getElementById('signup-otp-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    verifySignupOTP(username, name, email, password);
+  });
+
+  document.getElementById('resend-signup-code').addEventListener('click', function(e) {
+    e.preventDefault();
+    sendSignupOTP(email, name);
+  });
+
+  document.getElementById('back-to-signup').addEventListener('click', function(e) {
+    e.preventDefault();
+    closeSignupOTPModal();
+    showAuthModal('signup');
+  });
+}
+
+async function sendSignupOTP(email, name) {
   try {
-    const result = await apiCall('/api/users');
-    return result.users ? result.users.length : 0;
+    showNotification('Sending verification code...', 'info');
+
+    const response = await fetch(`${BACKEND_URL}/api/send-otp`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        email: email,
+        name: name,
+        type: 'signup'
+      })
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      showNotification('Verification code sent to your email!', 'success');
+    } else {
+      showNotification(result.message || 'Failed to send verification code', 'error');
+    }
   } catch (error) {
-    return 0;
+    console.error('Error sending OTP:', error);
+    showNotification('Network error. Please check your connection.', 'error');
   }
 }
 
-async function getTotalActivities() {
-  return JSON.parse(localStorage.getItem('examblox_activities') || '[]').length;
-}
+async function verifySignupOTP(username, name, email, password) {
+  const otp = document.getElementById('signup-otp').value.trim();
 
-function getSystemStats() {
-  let totalSize = 0;
-  for (let key in localStorage) {
-    if (localStorage.hasOwnProperty(key)) totalSize += localStorage[key].length;
+  if (!otp || otp.length !== 6) {
+    showNotification('Please enter a valid 6-digit code', 'error');
+    return;
   }
-  return {storageUsed: Math.round(totalSize / 1024)};
+
+  try {
+    showNotification('Verifying code...', 'info');
+
+    const verifyResponse = await fetch(`${BACKEND_URL}/api/verify-otp`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({email: email, otp: otp})
+    });
+
+    const verifyResult = await verifyResponse.json();
+
+    if (verifyResult.success) {
+      const createResult = await apiCall('/api/users', 'POST', {
+        username, name, email, password, plan: 'free', role: 'user'
+      });
+      
+      if (createResult.success) {
+        closeSignupOTPModal();
+        loginUser(createResult.user);
+        showNotification('Account created successfully! Welcome to ExamBlox!', 'success');
+      } else {
+        showNotification(createResult.error || 'Failed to create account', 'error');
+      }
+    } else {
+      showNotification(verifyResult.message || 'Invalid or expired code', 'error');
+    }
+  } catch (error) {
+    console.error('Error verifying OTP:', error);
+    showNotification('Network error. Please try again.', 'error');
+  }
 }
 
-// ADMIN PANEL
+function closeSignupOTPModal() {
+  const modal = document.getElementById('signup-otp-modal');
+  if (modal) document.body.removeChild(modal);
+}
+
+// ===== FILE UPLOAD - ✅ FIXED =====
+let selectedFiles = [];
+let extractedTexts = [];
+let totalExtractedText = '';
+
+function initializeEnhancedFileUpload() {
+  const uploadArea = document.querySelector('.upload-area');
+  const browseBtn = document.querySelector('.btn-browse');
+  const generateBtn = document.querySelector('.btn-generate');
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = '.pdf,.doc,.docx,.txt,.jpg,.jpeg,.png';
+  fileInput.multiple = true;
+  fileInput.style.display = 'none';
+  document.body.appendChild(fileInput);
+  
+  if (browseBtn) {
+    browseBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      fileInput.click();
+    });
+  }
+  
+  if (uploadArea) {
+    uploadArea.addEventListener('click', function(e) {
+      e.preventDefault();
+      fileInput.click();
+    });
+    
+    uploadArea.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      uploadArea.classList.add('dragover');
+    });
+    
+    uploadArea.addEventListener('dragleave', function(e) {
+      e.preventDefault();
+      uploadArea.classList.remove('dragover');
+    });
+    
+    uploadArea.addEventListener('drop', function(e) {
+      e.preventDefault();
+      uploadArea.classList.remove('dragover');
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length > 0) handleMultipleFileSelection(files);
+    });
+  }
+  
+  fileInput.addEventListener('change', function(e) {
+    if (e.target.files.length > 0) handleMultipleFileSelection(Array.from(e.target.files));
+  });
+  
+  if (generateBtn) {
+    generateBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      handleGenerateQuestions();
+    });
+  }
+}
+
+function handleMultipleFileSelection(files) {
+  const validFiles = [];
+  const validExts = ['.pdf', '.doc', '.docx', '.txt', '.jpg', '.jpeg', '.png'];
+  
+  const maxFileSize = (currentUser && currentUser.plan === 'premium') ? 25 * 1024 * 1024 : 5 * 1024 * 1024;
+  const maxFileSizeText = (currentUser && currentUser.plan === 'premium') ? '25MB' : '5MB';
+  
+  for (const file of files) {
+    const fileName = file.name.toLowerCase();
+    if (!validExts.some(ext => fileName.endsWith(ext))) {
+      showNotification(`Invalid file: ${file.name}`, 'error');
+      continue;
+    }
+    if (file.size > maxFileSize) {
+      showNotification(`File too large: ${file.name}. Max size is ${maxFileSizeText}`, 'error');
+      continue;
+    }
+    validFiles.push(file);
+  }
+  
+  if (validFiles.length === 0) {
+    showNotification('No valid files selected', 'error');
+    return;
+  }
+  
+  selectedFiles = validFiles;
+  extractedTexts = [];
+  totalExtractedText = '';
+  updateEnhancedUploadUI(validFiles);
+  extractTextFromMultipleFiles(validFiles);
+}
+
+function updateEnhancedUploadUI(files) {
+  const uploadIcon = document.querySelector('.upload-icon');
+  const uploadTitle = document.querySelector('.upload-title');
+  const uploadSubtitle = document.querySelector('.upload-subtitle');
+  const browseBtn = document.querySelector('.btn-browse');
+  const uploadArea = document.querySelector('.upload-area');
+  
+  if (uploadIcon) uploadIcon.innerHTML = '<i class="fas fa-files"></i>';
+  
+  const fileCount = files.length;
+  const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+  
+  if (uploadTitle) {
+    uploadTitle.textContent = fileCount === 1 ? `Selected: ${files[0].name}` : `Selected ${fileCount} files`;
+  }
+  if (uploadSubtitle) uploadSubtitle.textContent = `Total size: ${formatFileSize(totalSize)}`;
+  if (browseBtn) browseBtn.textContent = 'Change Files';
+  if (uploadArea) uploadArea.style.borderColor = '#4dfff3';
+  
+  enableControls();
+  showNotification(`${fileCount} file(s) selected!`, 'success');
+}
+
+// ✅ FIXED FILE EXTRACTION
+function extractTextFromMultipleFiles(files) {
+  showNotification(`Processing ${files.length} files...`, 'info');
+  let processedCount = 0;
+  extractedTexts = [];
+  
+  files.forEach(file => {
+    const reader = new FileReader();
+    
+    reader.onload = async (e) => {
+      try {
+        let extractedText = '';
+        
+        // For text files - direct read
+        if (file.name.toLowerCase().endsWith('.txt')) {
+          extractedText = e.target.result;
+          console.log(`✅ Extracted ${extractedText.length} chars from ${file.name}`);
+        } 
+        // For other files - send to backend
+        else {
+          const fileData = e.target.result.split(',')[1]; // Get base64 data
+          const response = await fetch(`${BACKEND_URL}/api/extract-text`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+              fileData: fileData,
+              fileName: file.name,
+              mimeType: file.type
+            })
+          });
+          
+          const result = await response.json();
+          if (result.success) {
+            extractedText = result.text;
+            console.log(`✅ Backend extracted ${extractedText.length} chars from ${file.name}`);
+          } else {
+            extractedText = `[Error processing ${file.name}]`;
+            console.error(`❌ Backend error for ${file.name}`);
+          }
+        }
+        
+        extractedTexts.push({
+          fileName: file.name,
+          text: extractedText,
+          label: file.name
+        });
+        
+        processedCount++;
+        if (processedCount >= files.length) {
+          combineAllExtractedTexts();
+        }
+        
+      } catch (error) {
+        console.error(`❌ Error processing ${file.name}:`, error);
+        extractedTexts.push({
+          fileName: file.name,
+          text: `[Error reading ${file.name}]`,
+          label: file.name
+        });
+        processedCount++;
+        if (processedCount >= files.length) {
+          combineAllExtractedTexts();
+        }
+      }
+    };
+    
+    reader.onerror = () => {
+      console.error(`❌ FileReader error for ${file.name}`);
+      extractedTexts.push({
+        fileName: file.name,
+        text: `[Error reading ${file.name}]`,
+        label: file.name
+      });
+      processedCount++;
+      if (processedCount >= files.length) {
+        combineAllExtractedTexts();
+      }
+    };
+    
+    // Read as text for .txt, as data URL for others
+    if (file.name.toLowerCase().endsWith('.txt')) {
+      reader.readAsText(file);
+    } else {
+      reader.readAsDataURL(file);
+    }
+  });
+}
+
+function combineAllExtractedTexts() {
+  totalExtractedText = '';
+  extractedTexts.forEach(item => {
+    totalExtractedText += `\n\n=== ${item.label} ===\n${item.text}\n=== End of ${item.label} ===\n`;
+  });
+  console.log(`✅ Combined text length: ${totalExtractedText.length} characters`);
+  showNotification(`All ${selectedFiles.length} files processed!`, 'success');
+}
+
+function handleGenerateQuestions() {
+  if (!isUserLoggedIn) {
+    showNotification('Please sign in first', 'error');
+    showAuthModal('login');
+    return;
+  }
+  
+  if (!selectedFiles || selectedFiles.length === 0 || !totalExtractedText || totalExtractedText.trim().length < 50) {
+    showNotification('Please select valid files with text content', 'error');
+    return;
+  }
+  
+  const questionTypeSelect = document.querySelector('.upload-options select');
+  const numQuestionsRange = document.querySelector('.upload-options input[type="range"]');
+  const difficultySelects = document.querySelectorAll('.upload-options select');
+  const questionType = questionTypeSelect ? questionTypeSelect.value : 'Multiple Choice';
+  const numQuestions = numQuestionsRange ? numQuestionsRange.value : '10';
+  const difficulty = difficultySelects.length > 1 ? difficultySelects[1].value : 'Medium';
+  
+  showNotification('Connecting to backend...', 'info');
+  showProcessingProgress();
+  callBackendAPI(totalExtractedText, questionType, numQuestions, difficulty);
+}
+
+async function callBackendAPI(text, questionType, numQuestions, difficulty) {
+  try {
+    const userPlan = (currentUser && currentUser.plan) || 'free';
+    
+    const response = await fetch(`${BACKEND_URL}/api/generate-questions`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+      body: JSON.stringify({
+        text: text, 
+        questionType: questionType, 
+        numQuestions: parseInt(numQuestions), 
+        difficulty: difficulty,
+        userPlan: userPlan
+      })
+    });
+    
+    if (!response.ok) throw new Error(`API error: ${response.status}`);
+    const result = await response.json();
+    
+    const progressModal = document.getElementById('progress-modal');
+    if (progressModal) document.body.removeChild(progressModal);
+    
+    if (result.data && result.data.questions && result.data.questions.length > 0) {
+      const questionData = {
+        questions: result.data.questions,
+        metadata: {
+          fileName: selectedFiles.length === 1 ? selectedFiles[0].name : `${selectedFiles.length} files`,
+          fileCount: selectedFiles.length,
+          questionType: questionType,
+          difficulty: difficulty,
+          totalQuestions: result.data.questions.length,
+          generatedAt: new Date().toISOString()
+        }
+      };
+      
+      localStorage.setItem('examblox_questions', JSON.stringify(questionData));
+      saveActivityToDashboard(questionData, selectedFiles, questionType, numQuestions, difficulty);
+      showNotification('Questions generated! Redirecting...', 'success');
+      setTimeout(() => window.location.href = 'questions.html', 1500);
+    } else {
+      showNotification('No questions generated. Try again.', 'error');
+    }
+  } catch (error) {
+    console.error('API error:', error);
+    showNotification('Error: ' + error.message, 'error');
+    const progressModal = document.getElementById('progress-modal');
+    if (progressModal) document.body.removeChild(progressModal);
+  }
+}
+
+function saveActivityToDashboard(questionData, selectedFiles, questionType, numQuestions, difficulty) {
+  if (!isUserLoggedIn) return;
+  
+  const activities = JSON.parse(localStorage.getItem('examblox_activities') || '[]');
+  
+  const activity = {
+    id: Date.now(),
+    title: `Generated ${numQuestions} ${questionType} Questions`,
+    date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+    icon: 'fas fa-file-alt',
+    questions: questionData.questions,
+    details: {
+      files: selectedFiles.map(f => f.name),
+      questionType: questionType,
+      difficulty: difficulty,
+      totalQuestions: questionData.questions.length
+    }
+  };
+  
+  activities.unshift(activity);
+  if (activities.length > 50) activities.splice(50);
+  
+  localStorage.setItem('examblox_activities', JSON.stringify(activities));
+  
+  const userStats = JSON.parse(localStorage.getItem('examblox_user_stats') || '{}');
+  userStats.totalQuestions = (userStats.totalQuestions || 0) + questionData.questions.length;
+  userStats.filesProcessed = (userStats.filesProcessed || 0) + selectedFiles.length;
+  userStats.studySessions = (userStats.studySessions || 0) + 1;
+  userStats.monthlyQuestions = (userStats.monthlyQuestions || 0) + questionData.questions.length;
+  userStats.monthlyFiles = (userStats.monthlyFiles || 0) + selectedFiles.length;
+  
+  localStorage.setItem('examblox_user_stats', JSON.stringify(userStats));
+}
+
+function showProcessingProgress() {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'progress-modal';
+  modal.innerHTML = `<div class="modal-content" style="max-width: 500px;">
+    <h2>Generating Questions</h2>
+    <p style="text-align: center; color: var(--primary-light); margin-bottom: 20px;">Using AI Model</p>
+    <div class="progress-container">
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+      <div class="progress-text" id="progress-text">Processing... 0%</div>
+    </div>
+    <div class="progress-steps">
+      <div class="step-item active" id="step-1">Analyzing</div>
+      <div class="step-item" id="step-2">Generating</div>
+      <div class="step-item" id="step-3">Finalizing</div>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  
+  let progress = 0;
+  const interval = setInterval(() => {
+    progress += Math.random() * 15;
+    if (progress > 100) progress = 100;
+    const fill = document.getElementById('progress-fill');
+    const text = document.getElementById('progress-text');
+    if (fill) fill.style.width = progress + '%';
+    if (text) {
+      if (progress < 30) {
+        text.textContent = 'Analyzing... ' + Math.round(progress) + '%';
+      } else if (progress < 80) {
+        text.textContent = 'Generating questions... ' + Math.round(progress) + '%';
+        document.getElementById('step-1').classList.remove('active');
+        document.getElementById('step-2').classList.add('active');
+      } else {
+        text.textContent = 'Finalizing... ' + Math.round(progress) + '%';
+        document.getElementById('step-2').classList.remove('active');
+        document.getElementById('step-3').classList.add('active');
+      }
+    }
+    if (progress >= 100) clearInterval(interval);
+  }, 200);
+}
+
+function enableControls() {
+  document.querySelectorAll('.upload-options select').forEach(s => {
+    s.disabled = false;
+    s.style.opacity = '1';
+  });
+  const range = document.querySelector('.upload-options input[type="range"]');
+  if (range) {
+    range.disabled = false;
+    range.style.opacity = '1';
+    updateRangeDisplay();
+    range.addEventListener('input', updateRangeDisplay);
+  }
+  const btn = document.querySelector('.btn-generate');
+  if (btn) {
+    btn.disabled = false;
+    btn.classList.add('active');
+    btn.style.opacity = '1';
+  }
+}
+
+function updateRangeDisplay() {
+  const range = document.querySelector('.upload-options input[type="range"]');
+  if (range) {
+    const label = range.parentElement.querySelector('label');
+    if (label) label.textContent = 'Number of Questions: ' + range.value;
+  }
+}
+
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// ===== ADMIN PANEL =====
 async function showAdminPanel() {
   const modal = document.createElement('div');
   modal.className = 'admin-panel-modal';
@@ -454,663 +1319,32 @@ function exportUserData() {
   showNotification('User data exported!', 'success');
 }
 
-// AUTH MODALS
-function showAuthModal(type) {
-  const isLogin = type === 'login';
-  const modal = document.createElement('div');
-  modal.className = 'modal';
-  modal.id = 'auth-modal';
-  
-  modal.innerHTML = `
-    <div class="modal-content" style="max-width: 450px;">
-      <div class="close-modal" onclick="closeAuthModal()">&times;</div>
-      <h2>${isLogin ? 'Welcome Back' : 'Create Account'}</h2>
-      <p class="modal-subtitle">${isLogin ? 'Sign in to your ExamBlox account' : 'Join thousands of students using ExamBlox'}</p>
-      
-      <form id="auth-form" style="display: flex; flex-direction: column; gap: 20px;">
-        ${!isLogin ? '<input type="text" id="auth-username" placeholder="Username" required style="padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(21,19,32,0.8); color: var(--text);">' : ''}
-        ${!isLogin ? '<input type="text" id="auth-name" placeholder="Full Name" required style="padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(21,19,32,0.8); color: var(--text);">' : ''}
-        <input type="text" id="auth-email-username" placeholder="${isLogin ? 'Email or Username' : 'Email Address'}" required style="padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(21,19,32,0.8); color: var(--text);">
-        
-        <div style="position: relative;">
-          <input type="password" id="auth-password" placeholder="Password" required style="padding: 15px; padding-right: 50px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(21,19,32,0.8); color: var(--text); width: 100%;">
-          <button type="button" id="toggle-password" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--primary-light); cursor: pointer; font-size: 16px;">
-            <i class="fas fa-eye"></i>
-          </button>
-        </div>
-        
-        ${!isLogin ? `
-        <div style="position: relative;">
-          <input type="password" id="auth-confirm-password" placeholder="Confirm Password" required style="padding: 15px; padding-right: 50px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(21,19,32,0.8); color: var(--text); width: 100%;">
-          <button type="button" id="toggle-confirm-password" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--primary-light); cursor: pointer; font-size: 16px;">
-            <i class="fas fa-eye"></i>
-          </button>
-        </div>
-        ` : ''}
-        
-        <button type="submit" style="background: linear-gradient(90deg, var(--primary-light), var(--primary)); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: 600; cursor: pointer;">
-          ${isLogin ? 'Sign In' : 'Create Account'}
-        </button>
-      </form>
-      
-      <div style="text-align: center; margin-top: 20px; color: var(--text-secondary);">
-        ${isLogin ? "Don't have an account?" : "Already have an account?"}
-        <a href="#" id="auth-switch" style="color: var(--primary-light); text-decoration: none; margin-left: 5px;">
-          ${isLogin ? 'Sign up' : 'Sign in'}
-        </a>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(modal);
-
-  setupPasswordToggle('auth-password', 'toggle-password');
-  if (!isLogin) {
-    setupPasswordToggle('auth-confirm-password', 'toggle-confirm-password');
-  }
-
-  document.getElementById('auth-form').addEventListener('submit', function(e) {
-    e.preventDefault();
-    handleAuth(isLogin);
-  });
-
-  document.getElementById('auth-switch').addEventListener('click', function(e) {
-    e.preventDefault();
-    closeAuthModal();
-    showAuthModal(isLogin ? 'signup' : 'login');
-  });
-}
-
-function setupPasswordToggle(inputId, buttonId) {
-  const passwordInput = document.getElementById(inputId);
-  const toggleButton = document.getElementById(buttonId);
-  
-  if (passwordInput && toggleButton) {
-    toggleButton.addEventListener('click', function() {
-      const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-      passwordInput.setAttribute('type', type);
-      
-      const icon = toggleButton.querySelector('i');
-      icon.className = type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
-    });
-  }
-}
-
-async function handleAuth(isLogin) {
-  const emailUsername = document.getElementById('auth-email-username').value.trim();
-  const password = document.getElementById('auth-password').value;
-  const name = isLogin ? null : document.getElementById('auth-name').value.trim();
-  const username = isLogin ? null : document.getElementById('auth-username').value.trim();
-  const confirmPassword = isLogin ? null : document.getElementById('auth-confirm-password').value;
-
-  if (!emailUsername || !password) {
-    showNotification('Please fill in all fields', 'error');
-    return;
-  }
-
-  if (!isLogin) {
-    if (!name || !username) {
-      showNotification('Please enter your name and username', 'error');
-      return;
-    }
-    if (password !== confirmPassword) {
-      showNotification('Passwords do not match', 'error');
-      return;
-    }
-    if (password.length < 6) {
-      showNotification('Password must be at least 6 characters', 'error');
-      return;
-    }
-    
-    if (await checkUsernameExists(username)) {
-      showNotification('Username already exists. Please choose another one.', 'error');
-      return;
-    }
-    
-    if (await checkEmailExists(emailUsername)) {
-      showNotification('Email already exists. Please use a different email or sign in.', 'error');
-      return;
-    }
-    
-    // Send OTP
-    closeAuthModal();
-    showSignupOTPModal(username, name, emailUsername, password);
-  } else {
-    // Login
-    try {
-      const result = await apiCall('/api/login', 'POST', { 
-        emailOrUsername: emailUsername, 
-        password: password 
-      });
-      
-      if (result.success && result.user) {
-        loginUser(result.user);
-        closeAuthModal();
-        showNotification('Welcome back!', 'success');
-      } else {
-        showNotification(result.error || 'Invalid credentials', 'error');
-      }
-    } catch (error) {
-      showNotification('Login failed. Please try again.', 'error');
-    }
-  }
-}
-
-function closeAuthModal() {
-  const modal = document.getElementById('auth-modal');
-  if (modal) document.body.removeChild(modal);
-}
-
-// OTP MODAL - NO WELCOME EMAIL
-function showSignupOTPModal(username, name, email, password) {
-  const modal = document.createElement('div');
-  modal.className = 'modal';
-  modal.id = 'signup-otp-modal';
-  
-  modal.innerHTML = `
-    <div class="modal-content" style="max-width: 450px;">
-      <div class="close-modal" onclick="closeSignupOTPModal()">&times;</div>
-      <h2>Verify Your Email</h2>
-      <p class="modal-subtitle">We've sent a 6-digit code to ${email}</p>
-      
-      <form id="signup-otp-form" style="display: flex; flex-direction: column; gap: 20px;">
-        <input type="text" id="signup-otp" placeholder="Enter 6-digit code" maxlength="6" required style="padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(21,19,32,0.8); color: var(--text); text-align: center; font-size: 18px; letter-spacing: 2px;">
-        
-        <button type="submit" style="background: linear-gradient(90deg, var(--primary-light), var(--primary)); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: 600; cursor: pointer;">
-          Verify & Create Account
-        </button>
-      </form>
-      
-      <div style="text-align: center; margin-top: 20px; color: var(--text-secondary);">
-        <a href="#" id="resend-signup-code" style="color: var(--primary-light); text-decoration: none; margin-right: 15px;">
-          Resend Code
-        </a>
-        <a href="#" id="back-to-signup" style="color: var(--primary-light); text-decoration: none;">
-          Back to Sign Up
-        </a>
-      </div>
-      
-      <div style="background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); border-radius: 8px; padding: 10px; margin-top: 15px; text-align: center;">
-        <small style="color: var(--warning);">Code expires in 10 minutes</small>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(modal);
-  sendSignupOTP(email, name);
-
-  document.getElementById('signup-otp-form').addEventListener('submit', function(e) {
-    e.preventDefault();
-    verifySignupOTP(username, name, email, password);
-  });
-
-  document.getElementById('resend-signup-code').addEventListener('click', function(e) {
-    e.preventDefault();
-    sendSignupOTP(email, name);
-  });
-
-  document.getElementById('back-to-signup').addEventListener('click', function(e) {
-    e.preventDefault();
-    closeSignupOTPModal();
-    showAuthModal('signup');
-  });
-}
-
-async function sendSignupOTP(email, name) {
+async function getTotalUsers() {
   try {
-    showNotification('Sending verification code...', 'info');
-
-    const response = await fetch(`${BACKEND_URL}/api/send-otp`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        email: email,
-        name: name,
-        type: 'signup'
-      })
-    });
-
-    const result = await response.json();
-
-    if (result.success) {
-      showNotification('Verification code sent to your email!', 'success');
-    } else {
-      showNotification(result.message || 'Failed to send verification code. Please try again.', 'error');
-    }
+    const result = await apiCall('/api/users');
+    return result.users ? result.users.length : 0;
   } catch (error) {
-    console.error('Error sending OTP:', error);
-    showNotification('Network error. Please check your connection.', 'error');
+    return 0;
   }
 }
 
-async function verifySignupOTP(username, name, email, password) {
-  const otp = document.getElementById('signup-otp').value.trim();
-
-  if (!otp || otp.length !== 6) {
-    showNotification('Please enter a valid 6-digit code', 'error');
-    return;
-  }
-
-  try {
-    showNotification('Verifying code...', 'info');
-
-    const verifyResponse = await fetch(`${BACKEND_URL}/api/verify-otp`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({email: email, otp: otp})
-    });
-
-    const verifyResult = await verifyResponse.json();
-
-    if (verifyResult.success) {
-      // Create user in Supabase via backend
-      const createResult = await apiCall('/api/users', 'POST', {
-        username, name, email, password, plan: 'free', role: 'user'
-      });
-      
-      if (createResult.success) {
-        closeSignupOTPModal();
-        loginUser(createResult.user);
-        showNotification('Account created successfully! Welcome to ExamBlox!', 'success');
-      } else {
-        showNotification(createResult.error || 'Failed to create account', 'error');
-      }
-    } else {
-      showNotification(verifyResult.message || 'Invalid or expired code', 'error');
-    }
-  } catch (error) {
-    console.error('Error verifying OTP:', error);
-    showNotification('Network error. Please try again.', 'error');
-  }
+async function getTotalActivities() {
+  return JSON.parse(localStorage.getItem('examblox_activities') || '[]').length;
 }
 
-function closeSignupOTPModal() {
-  const modal = document.getElementById('signup-otp-modal');
-  if (modal) document.body.removeChild(modal);
+function getSystemStats() {
+  let totalSize = 0;
+  for (let key in localStorage) {
+    if (localStorage.hasOwnProperty(key)) totalSize += localStorage[key].length;
+  }
+  return {storageUsed: Math.round(totalSize / 1024)};
 }
 
-// FILE UPLOAD
-let selectedFiles = [];
-let extractedTexts = [];
-let totalExtractedText = '';
-
-function initializeEnhancedFileUpload() {
-  const uploadArea = document.querySelector('.upload-area');
-  const browseBtn = document.querySelector('.btn-browse');
-  const generateBtn = document.querySelector('.btn-generate');
-  const fileInput = document.createElement('input');
-  fileInput.type = 'file';
-  fileInput.accept = '.pdf,.doc,.docx,.txt,.jpg,.jpeg,.png';
-  fileInput.multiple = true;
-  fileInput.style.display = 'none';
-  document.body.appendChild(fileInput);
-  
-  if (browseBtn) {
-    browseBtn.addEventListener('click', function(e) {
-      e.preventDefault();
-      fileInput.click();
-    });
-  }
-  
-  if (uploadArea) {
-    uploadArea.addEventListener('click', function(e) {
-      e.preventDefault();
-      fileInput.click();
-    });
-    
-    uploadArea.addEventListener('dragover', function(e) {
-      e.preventDefault();
-      uploadArea.classList.add('dragover');
-    });
-    
-    uploadArea.addEventListener('dragleave', function(e) {
-      e.preventDefault();
-      uploadArea.classList.remove('dragover');
-    });
-    
-    uploadArea.addEventListener('drop', function(e) {
-      e.preventDefault();
-      uploadArea.classList.remove('dragover');
-      const files = Array.from(e.dataTransfer.files);
-      if (files.length > 0) handleMultipleFileSelection(files);
-    });
-  }
-  
-  fileInput.addEventListener('change', function(e) {
-    if (e.target.files.length > 0) handleMultipleFileSelection(Array.from(e.target.files));
-  });
-  
-  if (generateBtn) {
-    generateBtn.addEventListener('click', function(e) {
-      e.preventDefault();
-      handleGenerateQuestions();
-    });
-  }
-}
-
-function handleMultipleFileSelection(files) {
-  const validFiles = [];
-  const validExts = ['.pdf', '.doc', '.docx', '.txt', '.jpg', '.jpeg', '.png'];
-  
-  const maxFileSize = (currentUser && currentUser.plan === 'premium') ? 25 * 1024 * 1024 : 5 * 1024 * 1024;
-  const maxFileSizeText = (currentUser && currentUser.plan === 'premium') ? '25MB' : '5MB';
-  
-  for (const file of files) {
-    const fileName = file.name.toLowerCase();
-    if (!validExts.some(ext => fileName.endsWith(ext))) {
-      showNotification(`Invalid file: ${file.name}`, 'error');
-      continue;
-    }
-    if (file.size > maxFileSize) {
-      showNotification(`File too large: ${file.name}. Max size is ${maxFileSizeText}`, 'error');
-      continue;
-    }
-    validFiles.push(file);
-  }
-  
-  if (validFiles.length === 0) {
-    showNotification('No valid files selected', 'error');
-    return;
-  }
-  
-  selectedFiles = validFiles;
-  extractedTexts = [];
-  totalExtractedText = '';
-  updateEnhancedUploadUI(validFiles);
-  extractTextFromMultipleFiles(validFiles);
-}
-
-function updateEnhancedUploadUI(files) {
-  const uploadIcon = document.querySelector('.upload-icon');
-  const uploadTitle = document.querySelector('.upload-title');
-  const uploadSubtitle = document.querySelector('.upload-subtitle');
-  const browseBtn = document.querySelector('.btn-browse');
-  const uploadArea = document.querySelector('.upload-area');
-  
-  if (uploadIcon) uploadIcon.innerHTML = '<i class="fas fa-files"></i>';
-  
-  const fileCount = files.length;
-  const totalSize = files.reduce((sum, f) => sum + f.size, 0);
-  
-  if (uploadTitle) {
-    uploadTitle.textContent = fileCount === 1 ? `Selected: ${files[0].name}` : `Selected ${fileCount} files`;
-  }
-  if (uploadSubtitle) uploadSubtitle.textContent = `Total size: ${formatFileSize(totalSize)}`;
-  if (browseBtn) browseBtn.textContent = 'Change Files';
-  if (uploadArea) uploadArea.style.borderColor = '#4dfff3';
-  
-  enableControls();
-  showNotification(`${fileCount} file(s) selected!`, 'success');
-}
-
-function extractTextFromMultipleFiles(files) {
-  showNotification(`Processing ${files.length} files...`, 'info');
-  let processedCount = 0;
-  extractedTexts = [];
-  
-  files.forEach(file => {
-    const processFile = (text) => {
-      // ✅ FIXED: Store actual extracted text, not placeholder
-      extractedTexts.push({
-        fileName: file.name, 
-        text: text || `[Unable to extract text from ${file.name}]`, 
-        label: file.name
-      });
-      processedCount++;
-      if (processedCount >= files.length) combineAllExtractedTexts();
-    };
-    
-    const ext = '.' + file.name.split('.').pop().toLowerCase();
-    
-    if (ext === '.txt') {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const extractedText = e.target.result;
-        console.log(`✅ Extracted ${extractedText.length} chars from ${file.name}`);
-        processFile(extractedText);
-      };
-      reader.onerror = () => {
-        console.error(`❌ Error reading ${file.name}`);
-        processFile(`Error reading ${file.name}`);
-      };
-      reader.readAsText(file);
-    } else if (ext === '.pdf') {
-      // For PDF files (requires PDF.js or backend processing)
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const arrayBuffer = e.target.result;
-          const uint8Array = new Uint8Array(arrayBuffer);
-          const text = await extractPDFText(uint8Array);
-          console.log(`✅ Extracted ${text.length} chars from PDF: ${file.name}`);
-          processFile(text);
-        } catch (error) {
-          console.error(`❌ PDF extraction error for ${file.name}:`, error);
-          processFile(`[PDF extraction not available - please use .txt files for best results]`);
-        }
-      };
-      reader.onerror = () => processFile(`Error reading PDF ${file.name}`);
-      reader.readAsArrayBuffer(file);
-    } else if (['.jpg', '.jpeg', '.png'].includes(ext)) {
-      // For images (would need OCR - fallback message)
-      processFile(`[Image file ${file.name} - OCR not available. Please convert to text first]`);
-    } else if (['.doc', '.docx'].includes(ext)) {
-      // For Word docs (would need mammoth.js or backend)
-      processFile(`[Word document ${file.name} - please save as .txt for best results]`);
-    } else {
-      processFile(`[Unsupported file type: ${file.name}]`);
-    }
-  });
-}
-function combineAllExtractedTexts() {
-  totalExtractedText = '';
-  extractedTexts.forEach(item => {
-    totalExtractedText += `\n\n=== ${item.label} ===\n${item.text}\n=== End of ${item.label} ===\n`;
-  });
-  showNotification(`All ${selectedFiles.length} files processed!`, 'success');
-}
-
-function handleGenerateQuestions() {
-  if (!isUserLoggedIn) {
-    showNotification('Please sign in first', 'error');
-    showAuthModal('login');
-    return;
-  }
-  
-  if (!selectedFiles || selectedFiles.length === 0 || !totalExtractedText) {
-    showNotification('Please select files first', 'error');
-    return;
-  }
-  
-  const questionTypeSelect = document.querySelector('.upload-options select');
-  const numQuestionsRange = document.querySelector('.upload-options input[type="range"]');
-  const difficultySelects = document.querySelectorAll('.upload-options select');
-  const questionType = questionTypeSelect ? questionTypeSelect.value : 'Multiple Choice';
-  const numQuestions = numQuestionsRange ? numQuestionsRange.value : '10';
-  const difficulty = difficultySelects.length > 1 ? difficultySelects[1].value : 'Medium';
-  
-  showNotification('Connecting to backend...', 'info');
-  showProcessingProgress();
-  callBackendAPI(totalExtractedText, questionType, numQuestions, difficulty);
-}
-
-async function callBackendAPI(text, questionType, numQuestions, difficulty) {
-  try {
-    const userPlan = (currentUser && currentUser.plan) || 'free';
-    
-    const response = await fetch(`${BACKEND_URL}/api/generate-questions`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
-      body: JSON.stringify({
-        text: text, 
-        questionType: questionType, 
-        numQuestions: parseInt(numQuestions), 
-        difficulty: difficulty,
-        userPlan: userPlan
-      })
-    });
-    
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
-    const result = await response.json();
-    
-    const progressModal = document.getElementById('progress-modal');
-    if (progressModal) document.body.removeChild(progressModal);
-    
-    if (result.data && result.data.questions && result.data.questions.length > 0) {
-      const questionData = {
-        questions: result.data.questions,
-        metadata: {
-          fileName: selectedFiles.length === 1 ? selectedFiles[0].name : `${selectedFiles.length} files`,
-          fileCount: selectedFiles.length,
-          questionType: questionType,
-          difficulty: difficulty,
-          totalQuestions: result.data.questions.length,
-          generatedAt: new Date().toISOString()
-        }
-      };
-      
-      localStorage.setItem('examblox_questions', JSON.stringify(questionData));
-      saveActivityToDashboard(questionData, selectedFiles, questionType, numQuestions, difficulty);
-      showNotification('Questions generated! Redirecting...', 'success');
-      setTimeout(() => window.location.href = 'questions.html', 1500);
-    } else {
-      showNotification('No questions generated. Try again.', 'error');
-    }
-  } catch (error) {
-    console.error('API error:', error);
-    showNotification('Error: ' + error.message, 'error');
-    const progressModal = document.getElementById('progress-modal');
-    if (progressModal) document.body.removeChild(progressModal);
-  }
-}
-
-// ADD THIS FUNCTION to your script.js (after the callBackendAPI function)
-
-function saveActivityToDashboard(questionData, selectedFiles, questionType, numQuestions, difficulty) {
-  if (!isUserLoggedIn) return;
-  
-  const activities = JSON.parse(localStorage.getItem('examblox_activities') || '[]');
-  
-  const activity = {
-    id: Date.now(),
-    title: `Generated ${numQuestions} ${questionType} Questions`,
-    date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-    icon: 'fas fa-file-alt',
-    questions: questionData.questions,
-    details: {
-      files: selectedFiles.map(f => f.name),
-      questionType: questionType,
-      difficulty: difficulty,
-      totalQuestions: questionData.questions.length
-    }
-  };
-  
-  activities.unshift(activity);
-  
-  if (activities.length > 50) {
-    activities.splice(50);
-  }
-  
-  localStorage.setItem('examblox_activities', JSON.stringify(activities));
-  
-  const userStats = JSON.parse(localStorage.getItem('examblox_user_stats') || '{}');
-  userStats.totalQuestions = (userStats.totalQuestions || 0) + questionData.questions.length;
-  userStats.filesProcessed = (userStats.filesProcessed || 0) + selectedFiles.length;
-  userStats.studySessions = (userStats.studySessions || 0) + 1;
-  userStats.monthlyQuestions = (userStats.monthlyQuestions || 0) + questionData.questions.length;
-  userStats.monthlyFiles = (userStats.monthlyFiles || 0) + selectedFiles.length;
-  
-  localStorage.setItem('examblox_user_stats', JSON.stringify(userStats));
-  
-  console.log('Activity saved to dashboard');
-}
-
-function showProcessingProgress() {
-  const modal = document.createElement('div');
-  modal.className = 'modal';
-  modal.id = 'progress-modal';
-  modal.innerHTML = `<div class="modal-content" style="max-width: 500px;">
-    <h2>Generating Questions</h2>
-    <p style="text-align: center; color: var(--primary-light); margin-bottom: 20px;">Using Deepseek AI</p>
-    <div class="progress-container">
-      <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
-      <div class="progress-text" id="progress-text">Processing... 0%</div>
-    </div>
-    <div class="progress-steps">
-      <div class="step-item active" id="step-1">Analyzing</div>
-      <div class="step-item" id="step-2">Generating</div>
-      <div class="step-item" id="step-3">Finalizing</div>
-    </div>
-  </div>`;
-  document.body.appendChild(modal);
-  
-  let progress = 0;
-  const interval = setInterval(() => {
-    progress += Math.random() * 15;
-    if (progress > 100) progress = 100;
-    const fill = document.getElementById('progress-fill');
-    const text = document.getElementById('progress-text');
-    if (fill) fill.style.width = progress + '%';
-    if (text) {
-      if (progress < 30) {
-        text.textContent = 'Analyzing... ' + Math.round(progress) + '%';
-      } else if (progress < 80) {
-        text.textContent = 'Generating questions... ' + Math.round(progress) + '%';
-        document.getElementById('step-1').classList.remove('active');
-        document.getElementById('step-2').classList.add('active');
-      } else {
-        text.textContent = 'Finalizing... ' + Math.round(progress) + '%';
-        document.getElementById('step-2').classList.remove('active');
-        document.getElementById('step-3').classList.add('active');
-      }
-    }
-    if (progress >= 100) clearInterval(interval);
-  }, 200);
-}
-
-function enableControls() {
-  document.querySelectorAll('.upload-options select').forEach(s => {
-    s.disabled = false;
-    s.style.opacity = '1';
-  });
-  const range = document.querySelector('.upload-options input[type="range"]');
-  if (range) {
-    range.disabled = false;
-    range.style.opacity = '1';
-    updateRangeDisplay();
-    range.addEventListener('input', updateRangeDisplay);
-  }
-  const btn = document.querySelector('.btn-generate');
-  if (btn) {
-    btn.disabled = false;
-    btn.classList.add('active');
-    btn.style.opacity = '1';
-  }
-}
-
-function updateRangeDisplay() {
-  const range = document.querySelector('.upload-options input[type="range"]');
-  if (range) {
-    const label = range.parentElement.querySelector('label');
-    if (label) label.textContent = 'Number of Questions: ' + range.value;
-  }
-}
-
-function formatFileSize(bytes) {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
-// NOTIFICATION SYSTEM
+// ===== NOTIFICATION SYSTEM =====
 function showNotification(message, type) {
   const existingNotifs = document.querySelectorAll('.notification');
   existingNotifs.forEach(n => {
-    if (n && n.parentNode) {
-      n.parentNode.removeChild(n);
-    }
+    if (n && n.parentNode) n.parentNode.removeChild(n);
   });
   
   const notif = document.createElement('div');
@@ -1195,7 +1429,7 @@ function showNotification(message, type) {
   }
 }
 
-// UTILITY FUNCTIONS
+// ===== UTILITY FUNCTIONS =====
 function goToHomepage() {
   window.location.href = 'index.html';
 }
@@ -1258,6 +1492,8 @@ function initializeFooterLinks() {
   });
 }
 
-console.log('ExamBlox Complete - Supabase Backend Integration Active');
-console.log('Cloud Database: Users sync across all devices');
-console.log('Desktop & Mobile Dropdowns: Fixed');
+console.log('ExamBlox Complete - All Issues Fixed ✅');
+console.log('✅ Protected Admin Password: Fixed');
+console.log('✅ Forgot Password: Restored');
+console.log('✅ File Processing: Fixed (PDF/DOCX/TXT/Images)');
+console.log('🚀 Ready for PayPal Integration');
