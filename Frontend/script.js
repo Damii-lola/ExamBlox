@@ -1,6 +1,8 @@
-// script.js - COMPLETE FRONTEND with Forgot Password + File Upload Fix
+// script.js - COMPLETE FRONTEND WITH YOUR WORKING TEXT EXTRACTION
 let isUserLoggedIn = false;
 let currentUser = null;
+let currentFile = null;
+let extractedText = '';
 
 const BACKEND_URL = 'https://examblox-production.up.railway.app';
 
@@ -29,10 +31,10 @@ async function apiCall(endpoint, method = 'GET', body = null) {
 
 // INITIALIZATION
 document.addEventListener('DOMContentLoaded', function() {
-  console.log('ExamBlox initialized - Backend with File Upload Active');
+  console.log('ExamBlox initialized - Text Extraction Active');
   checkAuthState();
   initializeAuth();
-  initializeEnhancedFileUpload();
+  initializeFileUpload(); // YOUR WORKING CODE
   initializeStarsBackground();
   initializeMobileNav();
   initializeFAQ();
@@ -78,169 +80,568 @@ function initializeAuth() {
   }
 }
 
-// USER DROPDOWN
-function updateAuthUI() {
-  const loginBtn = document.querySelector('.btn-login');
-  const signupBtn = document.querySelector('.btn-signup');
-  const navLinks = document.querySelector('.nav-links');
+// ========== YOUR WORKING FILE UPLOAD CODE ==========
+function initializeFileUpload() {
+    console.log('Initializing file upload...');
+    
+    const uploadArea = document.querySelector('.upload-area');
+    const browseBtn = document.querySelector('.btn-browse');
+    const generateBtn = document.querySelector('.btn-generate');
 
-  if (isUserLoggedIn && currentUser) {
-    if (loginBtn) loginBtn.style.display = 'none';
-    if (signupBtn) signupBtn.style.display = 'none';
+    // Create hidden file input
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.ppt,.pptx';
+    fileInput.style.display = 'none';
+    document.body.appendChild(fileInput);
+
+    // Browse button click
+    if (browseBtn) {
+        browseBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Browse button clicked');
+            fileInput.click();
+        });
+    }
+
+    // Upload area click
+    if (uploadArea) {
+        uploadArea.addEventListener('click', function() {
+            console.log('Upload area clicked');
+            fileInput.click();
+        });
+    }
+
+    // File selection
+    fileInput.addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            console.log('File selected:', e.target.files[0].name);
+            handleFileSelection(e.target.files[0]);
+        }
+    });
+
+    // Generate button
+    if (generateBtn) {
+        generateBtn.addEventListener('click', function() {
+            console.log('Generate button clicked');
+            handleGenerateQuestions();
+        });
+    }
+
+    console.log('File upload initialized');
+}
+
+function handleFileSelection(file) {
+    console.log('Processing file:', file.name);
     
-    const existingDropdown = document.querySelector('.user-dropdown');
-    if (existingDropdown) existingDropdown.remove();
+    // Validate file
+    const validExtensions = ['.pdf', '.doc', '.docx', '.txt', '.jpg', '.jpeg', '.png', '.ppt', '.pptx'];
+    const fileName = file.name.toLowerCase();
+    const isValid = validExtensions.some(ext => fileName.endsWith(ext));
+
+    if (!isValid) {
+        showNotification('Please select a valid file format', 'error');
+        return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+        showNotification('File size must be less than 10MB', 'error');
+        return;
+    }
+
+    currentFile = file;
+    updateUploadUI(file);
+    extractTextFromFile(file);
+}
+
+function updateUploadUI(file) {
+    const uploadIcon = document.querySelector('.upload-icon');
+    const uploadTitle = document.querySelector('.upload-title');
+    const uploadSubtitle = document.querySelector('.upload-subtitle');
+    const browseBtn = document.querySelector('.btn-browse');
+    const uploadArea = document.querySelector('.upload-area');
+
+    if (uploadIcon) uploadIcon.innerHTML = '<i class="fas fa-file-check"></i>';
+    if (uploadTitle) uploadTitle.textContent = 'File selected: ' + file.name;
+    if (uploadSubtitle) uploadSubtitle.textContent = 'Size: ' + formatFileSize(file.size);
+    if (browseBtn) browseBtn.textContent = 'Change File';
+    if (uploadArea) uploadArea.style.borderColor = '#4dfff3';
+
+    enableControls();
+    showNotification('File selected successfully!', 'success');
+}
+
+function enableControls() {
+    const selects = document.querySelectorAll('.upload-options select');
+    const rangeInput = document.querySelector('.upload-options input[type="range"]');
+    const generateBtn = document.querySelector('.btn-generate');
+
+    selects.forEach(function(select) {
+        select.disabled = false;
+        select.style.opacity = '1';
+    });
+
+    if (rangeInput) {
+        rangeInput.disabled = false;
+        rangeInput.style.opacity = '1';
+        updateRangeDisplay();
+        rangeInput.addEventListener('input', updateRangeDisplay);
+    }
+
+    if (generateBtn) {
+        generateBtn.disabled = false;
+        generateBtn.classList.add('active');
+        generateBtn.style.opacity = '1';
+    }
+}
+
+function updateRangeDisplay() {
+    const rangeInput = document.querySelector('.upload-options input[type="range"]');
+    if (rangeInput) {
+        const label = rangeInput.parentElement.querySelector('label');
+        if (label) {
+            label.textContent = 'Number of Questions: ' + rangeInput.value;
+        }
+    }
+}
+
+function extractTextFromFile(file) {
+    showNotification('Processing file...', 'info');
+    console.log('Starting text extraction for:', file.name, 'Type:', file.type);
     
-    const userDropdown = document.createElement('li');
-    userDropdown.className = 'user-dropdown';
+    const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
     
-    const displayName = currentUser.username || currentUser.name || currentUser.email;
-    const firstLetter = displayName.charAt(0).toUpperCase();
+    // Extract text based on file type
+    if (fileExtension === '.txt') {
+        extractTextFromTxt(file);
+    } else if (fileExtension === '.pdf') {
+        extractTextFromPdf(file);
+    } else if (fileExtension === '.doc' || fileExtension === '.docx') {
+        extractTextFromDoc(file);
+    } else if (fileExtension === '.jpg' || fileExtension === '.jpeg' || fileExtension === '.png') {
+        extractTextFromImage(file);
+    } else if (fileExtension === '.ppt' || fileExtension === '.pptx') {
+        extractTextFromPpt(file);
+    } else {
+        extractedText = 'Unsupported file type: ' + fileExtension;
+        console.log('❌ Unsupported file type:', fileExtension);
+        showNotification('Unsupported file type', 'error');
+    }
+}
+
+function extractTextFromTxt(file) {
+    console.log('📄 Extracting text from TXT file...');
+    const reader = new FileReader();
     
-    userDropdown.innerHTML = `
-      <div class="user-avatar" id="user-avatar-btn">
-        <span>${firstLetter}</span>
-      </div>
-      <div class="user-dropdown-content hidden" id="user-dropdown-menu">
-        <div class="dropdown-menu">
-          <button class="dropdown-item" id="dropdown-dashboard">
-            <i class="fas fa-tachometer-alt"></i>
-            Dashboard
-          </button>
-          <button class="dropdown-item" id="dropdown-settings">
-            <i class="fas fa-cog"></i>
-            Settings
-          </button>
-          ${currentUser.role === 'admin' ? `
-          <button class="dropdown-item" id="dropdown-admin-panel">
-            <i class="fas fa-crown"></i>
-            Admin Panel
-          </button>
-          ` : ''}
-          <button class="dropdown-item danger" id="dropdown-logout">
-            <i class="fas fa-sign-out-alt"></i>
-            Sign Out
-          </button>
-        </div>
-      </div>
-    `;
+    reader.onload = function(e) {
+        extractedText = e.target.result;
+        console.log('✅ TXT extraction successful!');
+        console.log('📝 EXTRACTED TEXT:');
+        console.log('---START OF TEXT---');
+        console.log(extractedText);
+        console.log('---END OF TEXT---');
+        console.log('📊 Text length:', extractedText.length, 'characters');
+        console.log('📊 Word count (approx):', extractedText.split(/\s+/).length);
+        
+        showNotification('Text file processed successfully!', 'success');
+    };
     
-    if (navLinks) navLinks.appendChild(userDropdown);
-    setTimeout(() => bindDropdownEvents(), 100);
+    reader.onerror = function(e) {
+        console.error('❌ Error reading TXT file:', e);
+        showNotification('Error reading text file', 'error');
+    };
     
-  } else {
-    if (loginBtn) loginBtn.style.display = 'inline-block';
-    if (signupBtn) signupBtn.style.display = 'inline-block';
+    reader.readAsText(file);
+}
+
+function extractTextFromPdf(file) {
+    console.log('📄 Attempting PDF text extraction...');
     
-    const userDropdown = document.querySelector('.user-dropdown');
-    if (userDropdown) userDropdown.remove();
+    // Try to load PDF.js dynamically
+    if (typeof pdfjsLib === 'undefined') {
+        console.log('📦 Loading PDF.js library...');
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        script.onload = function() {
+            console.log('✅ PDF.js loaded successfully');
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            processPdfFile(file);
+        };
+        script.onerror = function() {
+            console.error('❌ Failed to load PDF.js, using fallback method');
+            extractTextFromPdfFallback(file);
+        };
+        document.head.appendChild(script);
+    } else {
+        processPdfFile(file);
+    }
+}
+
+function processPdfFile(file) {
+    console.log('🔄 Processing PDF with PDF.js...');
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        const typedarray = new Uint8Array(e.target.result);
+        
+        pdfjsLib.getDocument(typedarray).promise.then(function(pdf) {
+            console.log('📖 PDF loaded, pages:', pdf.numPages);
+            extractedText = '';
+            let processedPages = 0;
+            
+            for (let i = 1; i <= pdf.numPages; i++) {
+                pdf.getPage(i).then(function(page) {
+                    console.log('📑 Processing page', i);
+                    return page.getTextContent();
+                }).then(function(textContent) {
+                    const pageText = textContent.items.map(function(item) {
+                        return item.str;
+                    }).join(' ');
+                    
+                    extractedText += 'PAGE ' + (processedPages + 1) + ':\n' + pageText + '\n\n';
+                    processedPages++;
+                    
+                    console.log('📝 Page', processedPages, 'text length:', pageText.length);
+                    
+                    if (processedPages === pdf.numPages) {
+                        console.log('✅ PDF extraction completed!');
+                        console.log('📝 FULL EXTRACTED TEXT:');
+                        console.log('---START OF PDF TEXT---');
+                        console.log(extractedText);
+                        console.log('---END OF PDF TEXT---');
+                        console.log('📊 Total text length:', extractedText.length, 'characters');
+                        console.log('📊 Total pages processed:', processedPages);
+                        
+                        showNotification('PDF processed successfully! Check console for extracted text.', 'success');
+                    }
+                });
+            }
+        }).catch(function(error) {
+            console.error('❌ Error processing PDF:', error);
+            extractTextFromPdfFallback(file);
+        });
+    };
+    
+    reader.readAsArrayBuffer(file);
+}
+
+function extractTextFromPdfFallback(file) {
+    console.log('⚠️ Using PDF fallback method...');
+    extractedText = 'PDF TEXT EXTRACTION (Fallback Method)\n\nFile: ' + file.name + '\nSize: ' + formatFileSize(file.size) + '\n\nNote: This is a fallback method. For full PDF text extraction, PDF.js library is required.\n\nIn a production environment, this would contain the actual extracted text from your PDF file.';
+    
+    console.log('📝 FALLBACK PDF TEXT:');
+    console.log('---START OF FALLBACK TEXT---');
+    console.log(extractedText);
+    console.log('---END OF FALLBACK TEXT---');
+    
+    showNotification('PDF processed with fallback method. Check console.', 'info');
+}
+
+function extractTextFromDoc(file) {
+    console.log('📄 Attempting Word document extraction...');
+    
+    // Try to load mammoth.js for proper DOC/DOCX extraction
+    if (typeof mammoth === 'undefined') {
+        console.log('📦 Loading mammoth.js library...');
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';
+        script.onload = function() {
+            console.log('✅ Mammoth.js loaded successfully');
+            processDocFile(file);
+        };
+        script.onerror = function() {
+            console.error('❌ Failed to load mammoth.js, using fallback');
+            extractTextFromDocFallback(file);
+        };
+        document.head.appendChild(script);
+    } else {
+        processDocFile(file);
+    }
+}
+
+function processDocFile(file) {
+    console.log('🔄 Processing Word document with mammoth.js...');
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        mammoth.extractRawText({arrayBuffer: e.target.result}).then(function(result) {
+            extractedText = result.value;
+            
+            console.log('✅ Word document extraction successful!');
+            console.log('📝 EXTRACTED WORD TEXT:');
+            console.log('---START OF WORD TEXT---');
+            console.log(extractedText);
+            console.log('---END OF WORD TEXT---');
+            console.log('📊 Text length:', extractedText.length, 'characters');
+            console.log('📊 Word count (approx):', extractedText.split(/\s+/).length);
+            
+            if (result.messages.length > 0) {
+                console.log('⚠️ Extraction messages:', result.messages);
+            }
+            
+            showNotification('Word document processed successfully! Check console.', 'success');
+        }).catch(function(error) {
+            console.error('❌ Error extracting from Word document:', error);
+            extractTextFromDocFallback(file);
+        });
+    };
+    
+    reader.readAsArrayBuffer(file);
+}
+
+function extractTextFromDocFallback(file) {
+    console.log('⚠️ Using Word document fallback method...');
+    extractedText = 'WORD DOCUMENT TEXT EXTRACTION (Fallback Method)\n\nFile: ' + file.name + '\nSize: ' + formatFileSize(file.size) + '\n\nNote: This is a fallback method. For full Word document text extraction, mammoth.js library is required.\n\nIn a production environment, this would contain the actual extracted text from your Word document.';
+    
+    console.log('📝 FALLBACK WORD TEXT:');
+    console.log('---START OF FALLBACK TEXT---');
+    console.log(extractedText);
+    console.log('---END OF FALLBACK TEXT---');
+    
+    showNotification('Word document processed with fallback method. Check console.', 'info');
+}
+
+function extractTextFromImage(file) {
+    console.log('🖼️ Attempting image OCR extraction...');
+    
+    // Try to load Tesseract.js for OCR
+    if (typeof Tesseract === 'undefined') {
+        console.log('📦 Loading Tesseract.js for OCR...');
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js';
+        script.onload = function() {
+            console.log('✅ Tesseract.js loaded successfully');
+            processImageFile(file);
+        };
+        script.onerror = function() {
+            console.error('❌ Failed to load Tesseract.js, using fallback');
+            extractTextFromImageFallback(file);
+        };
+        document.head.appendChild(script);
+    } else {
+        processImageFile(file);
+    }
+}
+
+function processImageFile(file) {
+    console.log('🔄 Processing image with OCR...');
+    showNotification('Extracting text from image... This may take a moment.', 'info');
+    
+    Tesseract.recognize(file, 'eng', {
+        logger: function(m) {
+            if (m.status === 'recognizing text') {
+                const progress = Math.round(m.progress * 100);
+                console.log('🔄 OCR Progress:', progress + '%');
+            }
+        }
+    }).then(function(result) {
+        extractedText = result.data.text;
+        
+        console.log('✅ Image OCR extraction completed!');
+        console.log('📝 EXTRACTED IMAGE TEXT:');
+        console.log('---START OF OCR TEXT---');
+        console.log(extractedText);
+        console.log('---END OF OCR TEXT---');
+        console.log('📊 Text length:', extractedText.length, 'characters');
+        console.log('📊 Confidence:', result.data.confidence + '%');
+        
+        showNotification('Image OCR completed! Check console for extracted text.', 'success');
+    }).catch(function(error) {
+        console.error('❌ OCR extraction failed:', error);
+        extractTextFromImageFallback(file);
+    });
+}
+
+function extractTextFromImageFallback(file) {
+    console.log('⚠️ Using image fallback method...');
+    extractedText = 'IMAGE TEXT EXTRACTION (Fallback Method)\n\nFile: ' + file.name + '\nSize: ' + formatFileSize(file.size) + '\n\nNote: This is a fallback method. For actual OCR text extraction from images, Tesseract.js library is required.\n\nIn a production environment, this would contain the actual text extracted from your image using OCR technology.';
+    
+    console.log('📝 FALLBACK IMAGE TEXT:');
+    console.log('---START OF FALLBACK TEXT---');
+    console.log(extractedText);
+    console.log('---END OF FALLBACK TEXT---');
+    
+    showNotification('Image processed with fallback method. Check console.', 'info');
+}
+
+function extractTextFromPpt(file) {
+    console.log('📊 PowerPoint text extraction...');
+    console.log('⚠️ PowerPoint extraction has limited support');
+    
+    extractedText = 'POWERPOINT TEXT EXTRACTION\n\nFile: ' + file.name + '\nSize: ' + formatFileSize(file.size) + '\n\nNote: PowerPoint files require specialized libraries for full text extraction.\nFor better results, consider converting your PowerPoint to PDF format.\n\nThis is a placeholder for PowerPoint text extraction functionality.';
+    
+    console.log('📝 POWERPOINT TEXT:');
+    console.log('---START OF PPT TEXT---');
+    console.log(extractedText);
+    console.log('---END OF PPT TEXT---');
+    
+    showNotification('PowerPoint processed. For better extraction, convert to PDF.', 'info');
+}
+
+function handleGenerateQuestions() {
+    if (!isUserLoggedIn) {
+        showNotification('Please sign in first', 'error');
+        showAuthModal('login');
+        return;
+    }
+
+    if (!currentFile || !extractedText) {
+        showNotification('Please select a file first', 'error');
+        return;
+    }
+
+    const questionType = document.querySelector('.upload-options select').value || 'Multiple Choice';
+    const numQuestions = document.querySelector('.upload-options input[type="range"]').value || '10';
+    const difficultySelects = document.querySelectorAll('.upload-options select');
+    const difficulty = difficultySelects.length > 1 ? difficultySelects[1].value : 'Medium';
+
+    showNotification('Generating questions...', 'info');
+    showProcessingProgress();
+    
+    // Call backend with extracted text
+    callBackendAPI(extractedText, questionType, numQuestions, difficulty);
+}
+
+async function callBackendAPI(text, questionType, numQuestions, difficulty) {
+  try {
+    const userPlan = (currentUser && currentUser.plan) || 'free';
+    
+    const response = await fetch(`${BACKEND_URL}/api/generate-questions`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+      body: JSON.stringify({
+        text: text, 
+        questionType: questionType, 
+        numQuestions: parseInt(numQuestions), 
+        difficulty: difficulty,
+        userPlan: userPlan
+      })
+    });
+    
+    if (!response.ok) throw new Error(`API error: ${response.status}`);
+    const result = await response.json();
+    
+    const progressModal = document.getElementById('progress-modal');
+    if (progressModal) document.body.removeChild(progressModal);
+    
+    if (result.data && result.data.questions && result.data.questions.length > 0) {
+      const questionData = {
+        questions: result.data.questions,
+        metadata: {
+          fileName: currentFile.name,
+          questionType: questionType,
+          difficulty: difficulty,
+          totalQuestions: result.data.questions.length,
+          generatedAt: new Date().toISOString()
+        }
+      };
+      
+      localStorage.setItem('examblox_questions', JSON.stringify(questionData));
+      saveActivityToDashboard(questionData, [currentFile], questionType, numQuestions, difficulty);
+      showNotification('Questions generated! Redirecting...', 'success');
+      setTimeout(() => window.location.href = 'questions.html', 1500);
+    } else {
+      showNotification('No questions generated. Try again.', 'error');
+    }
+  } catch (error) {
+    console.error('API error:', error);
+    showNotification('Error: ' + error.message, 'error');
+    const progressModal = document.getElementById('progress-modal');
+    if (progressModal) document.body.removeChild(progressModal);
   }
 }
 
-function bindDropdownEvents() {
-  const avatarBtn = document.getElementById('user-avatar-btn');
-  if (avatarBtn) {
-    avatarBtn.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      toggleDropdown();
-    });
-  }
+function saveActivityToDashboard(questionData, selectedFiles, questionType, numQuestions, difficulty) {
+  if (!isUserLoggedIn) return;
   
-  const dashboardBtn = document.getElementById('dropdown-dashboard');
-  if (dashboardBtn) {
-    dashboardBtn.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      closeDropdown();
-      window.location.href = 'dashboard.html';
-    });
-  }
+  const activities = JSON.parse(localStorage.getItem('examblox_activities') || '[]');
   
-  const settingsBtn = document.getElementById('dropdown-settings');
-  if (settingsBtn) {
-    settingsBtn.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      closeDropdown();
-      window.location.href = 'settings.html';
-    });
-  }
-  
-  const adminBtn = document.getElementById('dropdown-admin-panel');
-  if (adminBtn) {
-    adminBtn.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      closeDropdown();
-      showAdminPanel();
-    });
-  }
-  
-  const logoutBtn = document.getElementById('dropdown-logout');
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      closeDropdown();
-      confirmLogout();
-    });
-  }
-}
-
-function toggleDropdown() {
-  const dropdown = document.getElementById('user-dropdown-menu');
-  if (dropdown) dropdown.classList.toggle('hidden');
-}
-
-function closeDropdown() {
-  const dropdown = document.getElementById('user-dropdown-menu');
-  if (dropdown) dropdown.classList.add('hidden');
-}
-
-document.addEventListener('click', function(event) {
-  const dropdown = document.querySelector('.user-dropdown');
-  const dropdownMenu = document.getElementById('user-dropdown-menu');
-  if (dropdown && dropdownMenu && !dropdown.contains(event.target)) {
-    dropdownMenu.classList.add('hidden');
-  }
-});
-
-function confirmLogout() {
-  if (currentUser && currentUser.username === PROTECTED_ADMIN.username) {
-    const confirmLogout = confirm('You are logging out of the PROTECTED ADMIN account.\n\nYour admin account and all data will remain permanently saved.\n\nProceed with logout?');
-    if (confirmLogout) logout();
-  } else {
-    logout();
-  }
-}
-
-function loginUser(userData) {
-  currentUser = {
-    username: userData.username,
-    name: userData.name,
-    email: userData.email,
-    plan: userData.plan || 'free',
-    role: userData.role || 'user',
-    loginTime: new Date().toISOString()
+  const activity = {
+    id: Date.now(),
+    title: `Generated ${numQuestions} ${questionType} Questions`,
+    date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+    icon: 'fas fa-file-alt',
+    questions: questionData.questions,
+    details: {
+      files: selectedFiles.map(f => f.name),
+      questionType: questionType,
+      difficulty: difficulty,
+      totalQuestions: questionData.questions.length
+    }
   };
-  if (currentUser.username === PROTECTED_ADMIN.username) {
-    currentUser = {...PROTECTED_ADMIN};
+  
+  activities.unshift(activity);
+  
+  if (activities.length > 50) {
+    activities.splice(50);
   }
-  isUserLoggedIn = true;
-  localStorage.setItem('examblox_user', JSON.stringify(currentUser));
-  updateAuthUI();
+  
+  localStorage.setItem('examblox_activities', JSON.stringify(activities));
+  
+  const userStats = JSON.parse(localStorage.getItem('examblox_user_stats') || '{}');
+  userStats.totalQuestions = (userStats.totalQuestions || 0) + questionData.questions.length;
+  userStats.filesProcessed = (userStats.filesProcessed || 0) + selectedFiles.length;
+  userStats.studySessions = (userStats.studySessions || 0) + 1;
+  userStats.monthlyQuestions = (userStats.monthlyQuestions || 0) + questionData.questions.length;
+  userStats.monthlyFiles = (userStats.monthlyFiles || 0) + selectedFiles.length;
+  
+  localStorage.setItem('examblox_user_stats', JSON.stringify(userStats));
+  
+  console.log('Activity saved to dashboard');
 }
 
-function logout() {
-  isUserLoggedIn = false;
-  currentUser = null;
-  localStorage.removeItem('examblox_user');
-  updateAuthUI();
-  showNotification('Logged out successfully', 'success');
+function showProcessingProgress() {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'progress-modal';
+  modal.innerHTML = `<div class="modal-content" style="max-width: 500px;">
+    <h2>Generating Questions</h2>
+    <p style="text-align: center; color: var(--primary-light); margin-bottom: 20px;">Using Groq AI</p>
+    <div class="progress-container">
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+      <div class="progress-text" id="progress-text">Processing... 0%</div>
+    </div>
+    <div class="progress-steps">
+      <div class="step-item active" id="step-1">Analyzing</div>
+      <div class="step-item" id="step-2">Generating</div>
+      <div class="step-item" id="step-3">Finalizing</div>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  
+  let progress = 0;
+  const interval = setInterval(() => {
+    progress += Math.random() * 15;
+    if (progress > 100) progress = 100;
+    const fill = document.getElementById('progress-fill');
+    const text = document.getElementById('progress-text');
+    if (fill) fill.style.width = progress + '%';
+    if (text) {
+      if (progress < 30) {
+        text.textContent = 'Analyzing... ' + Math.round(progress) + '%';
+      } else if (progress < 80) {
+        text.textContent = 'Generating questions... ' + Math.round(progress) + '%';
+        document.getElementById('step-1').classList.remove('active');
+        document.getElementById('step-2').classList.add('active');
+      } else {
+        text.textContent = 'Finalizing... ' + Math.round(progress) + '%';
+        document.getElementById('step-2').classList.remove('active');
+        document.getElementById('step-3').classList.add('active');
+      }
+    }
+    if (progress >= 100) clearInterval(interval);
+  }, 200);
 }
 
-// AUTH MODALS WITH FORGOT PASSWORD
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// ========== AUTH MODALS (Keep from previous version) ==========
 function showAuthModal(type) {
   const isLogin = type === 'login';
   const modal = document.createElement('div');
@@ -368,11 +769,9 @@ async function handleAuth(isLogin) {
       return;
     }
     
-    // Send OTP
     closeAuthModal();
     showSignupOTPModal(username, name, emailUsername, password);
   } else {
-    // Login
     try {
       const result = await apiCall('/api/login', 'POST', { 
         emailOrUsername: emailUsername, 
@@ -397,7 +796,7 @@ function closeAuthModal() {
   if (modal) document.body.removeChild(modal);
 }
 
-// ===== FORGOT PASSWORD MODAL =====
+// ===== FORGOT PASSWORD =====
 function showForgotPasswordModal() {
   const modal = document.createElement('div');
   modal.className = 'modal';
@@ -476,7 +875,6 @@ function closeForgotPasswordModal() {
   if (modal) document.body.removeChild(modal);
 }
 
-// ===== RESET PASSWORD OTP MODAL =====
 function showResetPasswordOTPModal(email) {
   const modal = document.createElement('div');
   modal.className = 'modal';
@@ -517,10 +915,6 @@ function showResetPasswordOTPModal(email) {
         <a href="#" id="back-to-login-reset" style="color: var(--primary-light); text-decoration: none;">
           Back to Login
         </a>
-      </div>
-      
-      <div style="background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); border-radius: 8px; padding: 10px; margin-top: 15px; text-align: center;">
-        <small style="color: var(--warning);">Code expires in 10 minutes</small>
       </div>
     </div>
   `;
@@ -601,7 +995,7 @@ function closeResetOTPModal() {
   if (modal) document.body.removeChild(modal);
 }
 
-// OTP MODAL - SIGNUP
+// ===== SIGNUP OTP =====
 function showSignupOTPModal(username, name, email, password) {
   const modal = document.createElement('div');
   modal.className = 'modal';
@@ -628,10 +1022,6 @@ function showSignupOTPModal(username, name, email, password) {
         <a href="#" id="back-to-signup" style="color: var(--primary-light); text-decoration: none;">
           Back to Sign Up
         </a>
-      </div>
-      
-      <div style="background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); border-radius: 8px; padding: 10px; margin-top: 15px; text-align: center;">
-        <small style="color: var(--warning);">Code expires in 10 minutes</small>
       </div>
     </div>
   `;
@@ -675,7 +1065,7 @@ async function sendSignupOTP(email, name) {
     if (result.success) {
       showNotification('Verification code sent to your email!', 'success');
     } else {
-      showNotification(result.message || 'Failed to send verification code. Please try again.', 'error');
+      showNotification(result.message || 'Failed to send verification code', 'error');
     }
   } catch (error) {
     console.error('Error sending OTP:', error);
@@ -728,689 +1118,227 @@ function closeSignupOTPModal() {
   if (modal) document.body.removeChild(modal);
 }
 
-// ===== FILE UPLOAD WITH BACKEND PROCESSING =====
-let selectedFiles = [];
-let extractedTexts = [];
-let totalExtractedText = '';
+// ===== USER DROPDOWN =====
+function updateAuthUI() {
+  const loginBtn = document.querySelector('.btn-login');
+  const signupBtn = document.querySelector('.btn-signup');
+  const navLinks = document.querySelector('.nav-links');
 
-function initializeEnhancedFileUpload() {
-  const uploadArea = document.querySelector('.upload-area');
-  const browseBtn = document.querySelector('.btn-browse');
-  const generateBtn = document.querySelector('.btn-generate');
-  const fileInput = document.createElement('input');
-  fileInput.type = 'file';
-  fileInput.accept = '.pdf,.doc,.docx,.txt,.jpg,.jpeg,.png';
-  fileInput.multiple = true;
-  fileInput.style.display = 'none';
-  document.body.appendChild(fileInput);
-  
-  if (browseBtn) {
-    browseBtn.addEventListener('click', function(e) {
-      e.preventDefault();
-      fileInput.click();
-    });
-  }
-  
-  if (uploadArea) {
-    uploadArea.addEventListener('click', function(e) {
-      e.preventDefault();
-      fileInput.click();
-    });
+  if (isUserLoggedIn && currentUser) {
+    if (loginBtn) loginBtn.style.display = 'none';
+    if (signupBtn) signupBtn.style.display = 'none';
     
-    uploadArea.addEventListener('dragover', function(e) {
-      e.preventDefault();
-      uploadArea.classList.add('dragover');
-    });
+    const existingDropdown = document.querySelector('.user-dropdown');
+    if (existingDropdown) existingDropdown.remove();
     
-    uploadArea.addEventListener('dragleave', function(e) {
-      e.preventDefault();
-      uploadArea.classList.remove('dragover');
-    });
+    const userDropdown = document.createElement('li');
+    userDropdown.className = 'user-dropdown';
     
-    uploadArea.addEventListener('drop', function(e) {
-      e.preventDefault();
-      uploadArea.classList.remove('dragover');
-      const files = Array.from(e.dataTransfer.files);
-      if (files.length > 0) handleMultipleFileSelection(files);
-    });
-  }
-  
-  fileInput.addEventListener('change', function(e) {
-    if (e.target.files.length > 0) handleMultipleFileSelection(Array.from(e.target.files));
-  });
-  
-  if (generateBtn) {
-    generateBtn.addEventListener('click', function(e) {
-      e.preventDefault();
-      handleGenerateQuestions();
-    });
-  }
-}
-
-async function handleMultipleFileSelection(files) {
-  const validFiles = [];
-  const validExts = ['.pdf', '.doc', '.docx', '.txt', '.jpg', '.jpeg', '.png'];
-  
-  const maxFileSize = (currentUser && currentUser.plan === 'premium') ? 25 * 1024 * 1024 : 5 * 1024 * 1024;
-  const maxFileSizeText = (currentUser && currentUser.plan === 'premium') ? '25MB' : '5MB';
-  
-  for (const file of files) {
-    const fileName = file.name.toLowerCase();
-    if (!validExts.some(ext => fileName.endsWith(ext))) {
-      showNotification(`Invalid file: ${file.name}`, 'error');
-      continue;
-    }
-    if (file.size > maxFileSize) {
-      showNotification(`File too large: ${file.name}. Max size is ${maxFileSizeText}`, 'error');
-      continue;
-    }
-    validFiles.push(file);
-  }
-  
-  if (validFiles.length === 0) {
-    showNotification('No valid files selected', 'error');
-    return;
-  }
-  
-  selectedFiles = validFiles;
-  extractedTexts = [];
-  totalExtractedText = '';
-  updateEnhancedUploadUI(validFiles);
-  
-  // FIXED: Process files through backend
-  await extractTextFromFilesViaBackend(validFiles);
-}
-
-async function extractTextFromFilesViaBackend(files) {
-  showNotification(`Processing ${files.length} file(s)...`, 'info');
-  extractedTexts = [];
-  
-  for (const file of files) {
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      console.log(`📤 Uploading ${file.name} to backend...`);
-      
-      const response = await fetch(`${BACKEND_URL}/api/extract-text`, {
-        method: 'POST',
-        body: formData
-      });
-      
-      const result = await response.json();
-      
-      if (result.success && result.text) {
-        console.log(`✅ Extracted ${result.extractedLength} chars from ${file.name}`);
-        extractedTexts.push({
-          fileName: file.name,
-          text: result.text,
-          label: file.name
-        });
-      } else {
-        console.error(`❌ Failed to extract from ${file.name}`);
-        extractedTexts.push({
-          fileName: file.name,
-          text: `[Could not extract text from ${file.name}]`,
-          label: file.name
-        });
-      }
-    } catch (error) {
-      console.error(`❌ Error processing ${file.name}:`, error);
-      extractedTexts.push({
-        fileName: file.name,
-        text: `[Error processing ${file.name}]`,
-        label: file.name
-      });
-    }
-  }
-  
-  combineAllExtractedTexts();
-}
-
-function combineAllExtractedTexts() {
-  totalExtractedText = '';
-  extractedTexts.forEach(item => {
-    totalExtractedText += `\n\n=== ${item.label} ===\n${item.text}\n=== End of ${item.label} ===\n`;
-  });
-  showNotification(`All ${selectedFiles.length} file(s) processed successfully!`, 'success');
-}
-
-function updateEnhancedUploadUI(files) {
-  const uploadIcon = document.querySelector('.upload-icon');
-  const uploadTitle = document.querySelector('.upload-title');
-  const uploadSubtitle = document.querySelector('.upload-subtitle');
-  const browseBtn = document.querySelector('.btn-browse');
-  const uploadArea = document.querySelector('.upload-area');
-  
-  if (uploadIcon) uploadIcon.innerHTML = '<i class="fas fa-files"></i>';
-  
-  const fileCount = files.length;
-  const totalSize = files.reduce((sum, f) => sum + f.size, 0);
-  
-  if (uploadTitle) {
-    uploadTitle.textContent = fileCount === 1 ? `Selected: ${files[0].name}` : `Selected ${fileCount} files`;
-  }
-  if (uploadSubtitle) uploadSubtitle.textContent = `Total size: ${formatFileSize(totalSize)}`;
-  if (browseBtn) browseBtn.textContent = 'Change Files';
-  if (uploadArea) uploadArea.style.borderColor = '#4dfff3';
-  
-  enableControls();
-  showNotification(`${fileCount} file(s) selected!`, 'success');
-}
-
-function handleGenerateQuestions() {
-  if (!isUserLoggedIn) {
-    showNotification('Please sign in first', 'error');
-    showAuthModal('login');
-    return;
-  }
-  
-  if (!selectedFiles || selectedFiles.length === 0 || !totalExtractedText) {
-    showNotification('Please select files first', 'error');
-    return;
-  }
-  
-  const questionTypeSelect = document.querySelector('.upload-options select');
-  const numQuestionsRange = document.querySelector('.upload-options input[type="range"]');
-  const difficultySelects = document.querySelectorAll('.upload-options select');
-  const questionType = questionTypeSelect ? questionTypeSelect.value : 'Multiple Choice';
-  const numQuestions = numQuestionsRange ? numQuestionsRange.value : '10';
-  const difficulty = difficultySelects.length > 1 ? difficultySelects[1].value : 'Medium';
-  
-  showNotification('Generating questions...', 'info');
-  showProcessingProgress();
-  callBackendAPI(totalExtractedText, questionType, numQuestions, difficulty);
-}
-
-async function callBackendAPI(text, questionType, numQuestions, difficulty) {
-  try {
-    const userPlan = (currentUser && currentUser.plan) || 'free';
+    const displayName = currentUser.username || currentUser.name || currentUser.email;
+    const firstLetter = displayName.charAt(0).toUpperCase();
     
-    const response = await fetch(`${BACKEND_URL}/api/generate-questions`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
-      body: JSON.stringify({
-        text: text, 
-        questionType: questionType, 
-        numQuestions: parseInt(numQuestions), 
-        difficulty: difficulty,
-        userPlan: userPlan
-      })
-    });
+    userDropdown.innerHTML = `
+      <div class="user-avatar" id="user-avatar-btn">
+        <span>${firstLetter}</span>
+      </div>
+      <div class="user-dropdown-content hidden" id="user-dropdown-menu">
+        <div class="dropdown-menu">
+          <button class="dropdown-item" id="dropdown-dashboard">
+            <i class="fas fa-tachometer-alt"></i>
+            Dashboard
+          </button>
+          <button class="dropdown-item" id="dropdown-settings">
+            <i class="fas fa-cog"></i>
+            Settings
+          </button>
+          ${currentUser.role === 'admin' ? `
+          <button class="dropdown-item" id="dropdown-admin-panel">
+            <i class="fas fa-crown"></i>
+            Admin Panel
+          </button>
+          ` : ''}
+          <button class="dropdown-item danger" id="dropdown-logout">
+            <i class="fas fa-sign-out-alt"></i>
+            Sign Out
+          </button>
+        </div>
+      </div>
+    `;
     
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
-    const result = await response.json();
+    if (navLinks) navLinks.appendChild(userDropdown);
+    setTimeout(() => bindDropdownEvents(), 100);
     
-    const progressModal = document.getElementById('progress-modal');
-    if (progressModal) document.body.removeChild(progressModal);
-    
-    if (result.data && result.data.questions && result.data.questions.length > 0) {
-      const questionData = {
-        questions: result.data.questions,
-        metadata: {
-          fileName: selectedFiles.length === 1 ? selectedFiles[0].name : `${selectedFiles.length} files`,
-          fileCount: selectedFiles.length,
-          questionType: questionType,
-          difficulty: difficulty,
-          totalQuestions: result.data.questions.length,
-          generatedAt: new Date().toISOString()
-        }
-      };
-      
-      localStorage.setItem('examblox_questions', JSON.stringify(questionData));
-      saveActivityToDashboard(questionData, selectedFiles, questionType, numQuestions, difficulty);
-      showNotification('Questions generated! Redirecting...', 'success');
-      setTimeout(() => window.location.href = 'questions.html', 1500);
-    } else {
-      showNotification('No questions generated. Try again.', 'error');
-    }
-  } catch (error) {
-    console.error('API error:', error);
-    showNotification('Error: ' + error.message, 'error');
-    const progressModal = document.getElementById('progress-modal');
-    if (progressModal) document.body.removeChild(progressModal);
-  }
-}
-
-function saveActivityToDashboard(questionData, selectedFiles, questionType, numQuestions, difficulty) {
-  if (!isUserLoggedIn) return;
-  
-  const activities = JSON.parse(localStorage.getItem('examblox_activities') || '[]');
-  
-  const activity = {
-    id: Date.now(),
-    title: `Generated ${numQuestions} ${questionType} Questions`,
-    date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-    icon: 'fas fa-file-alt',
-    questions: questionData.questions,
-    details: {
-      files: selectedFiles.map(f => f.name),
-      questionType: questionType,
-      difficulty: difficulty,
-      totalQuestions: questionData.questions.length
-    }
-  };
-  
-  activities.unshift(activity);
-  
-  if (activities.length > 50) {
-    activities.splice(50);
-  }
-  
-  localStorage.setItem('examblox_activities', JSON.stringify(activities));
-  
-  const userStats = JSON.parse(localStorage.getItem('examblox_user_stats') || '{}');
-  userStats.totalQuestions = (userStats.totalQuestions || 0) + questionData.questions.length;
-  userStats.filesProcessed = (userStats.filesProcessed || 0) + selectedFiles.length;
-  userStats.studySessions = (userStats.studySessions || 0) + 1;
-  userStats.monthlyQuestions = (userStats.monthlyQuestions || 0) + questionData.questions.length;
-  userStats.monthlyFiles = (userStats.monthlyFiles || 0) + selectedFiles.length;
-  
-  localStorage.setItem('examblox_user_stats', JSON.stringify(userStats));
-  
-  console.log('Activity saved to dashboard');
-}
-
-function showProcessingProgress() {
-  const modal = document.createElement('div');
-  modal.className = 'modal';
-  modal.id = 'progress-modal';
-  modal.innerHTML = `<div class="modal-content" style="max-width: 500px;">
-    <h2>Generating Questions</h2>
-    <p style="text-align: center; color: var(--primary-light); margin-bottom: 20px;">Using Groq AI</p>
-    <div class="progress-container">
-      <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
-      <div class="progress-text" id="progress-text">Processing... 0%</div>
-    </div>
-    <div class="progress-steps">
-      <div class="step-item active" id="step-1">Analyzing</div>
-      <div class="step-item" id="step-2">Generating</div>
-      <div class="step-item" id="step-3">Finalizing</div>
-    </div>
-  </div>`;
-  document.body.appendChild(modal);
-  
-  let progress = 0;
-  const interval = setInterval(() => {
-    progress += Math.random() * 15;
-    if (progress > 100) progress = 100;
-    const fill = document.getElementById('progress-fill');
-    const text = document.getElementById('progress-text');
-    if (fill) fill.style.width = progress + '%';
-    if (text) {
-      if (progress < 30) {
-        text.textContent = 'Analyzing... ' + Math.round(progress) + '%';
-      } else if (progress < 80) {
-        text.textContent = 'Generating questions... ' + Math.round(progress) + '%';
-        document.getElementById('step-1').classList.remove('active');
-        document.getElementById('step-2').classList.add('active');
-      } else {
-        text.textContent = 'Finalizing... ' + Math.round(progress) + '%';
-        document.getElementById('step-2').classList.remove('active');
-        document.getElementById('step-3').classList.add('active');
-      }
-    }
-    if (progress >= 100) clearInterval(interval);
-  }, 200);
-}
-
-function enableControls() {
-  document.querySelectorAll('.upload-options select').forEach(s => {
-    s.disabled = false;
-    s.style.opacity = '1';
-  });
-  const range = document.querySelector('.upload-options input[type="range"]');
-  if (range) {
-    range.disabled = false;
-    range.style.opacity = '1';
-    updateRangeDisplay();
-    range.addEventListener('input', updateRangeDisplay);
-  }
-  const btn = document.querySelector('.btn-generate');
-  if (btn) {
-    btn.disabled = false;
-    btn.classList.add('active');
-    btn.style.opacity = '1';
-  }
-}
-
-function updateRangeDisplay() {
-  const range = document.querySelector('.upload-options input[type="range"]');
-  if (range) {
-    const label = range.parentElement.querySelector('label');
-    if (label) label.textContent = 'Number of Questions: ' + range.value;
-  }
-}
-
-function formatFileSize(bytes) {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
-// NOTIFICATION SYSTEM
-function showNotification(message, type) {
-  const existingNotifs = document.querySelectorAll('.notification');
-  existingNotifs.forEach(n => {
-    if (n && n.parentNode) {
-      n.parentNode.removeChild(n);
-    }
-  });
-  
-  const notif = document.createElement('div');
-  notif.className = 'notification notification-' + type;
-  
-  let bgColor = '';
-  if (type === 'success') {
-    bgColor = 'linear-gradient(135deg, #4CAF50, #45a049)';
-  } else if (type === 'error') {
-    bgColor = 'linear-gradient(135deg, #f44336, #d32f2f)';
-  } else if (type === 'info') {
-    bgColor = 'linear-gradient(135deg, #2196F3, #1976D2)';
   } else {
-    bgColor = 'linear-gradient(135deg, #ff9800, #f57c00)';
-  }
-  
-  notif.style.cssText = `
-    position: fixed;
-    top: 100px;
-    right: 20px;
-    min-width: 300px;
-    max-width: 400px;
-    padding: 15px 20px;
-    border-radius: 10px;
-    background: ${bgColor};
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 15px;
-    z-index: 10000;
-    font-size: 14px;
-    font-weight: 500;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.3);
-    transform: translateX(500px);
-    opacity: 0;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  `;
-  
-  notif.innerHTML = `
-    <span style="flex: 1; line-height: 1.4;">${message}</span>
-    <button style="background: none; border: none; color: white; font-size: 22px; cursor: pointer; padding: 0; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; opacity: 0.8; transition: opacity 0.2s; flex-shrink: 0;">&times;</button>
-  `;
-  
-  document.body.appendChild(notif);
-  
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      notif.style.transform = 'translateX(0)';
-      notif.style.opacity = '1';
-    });
-  });
-  
-  const autoRemoveTimer = setTimeout(() => {
-    if (notif && notif.parentNode) {
-      notif.style.transform = 'translateX(500px)';
-      notif.style.opacity = '0';
-      setTimeout(() => {
-        if (notif && notif.parentNode) {
-          notif.parentNode.removeChild(notif);
-        }
-      }, 300);
-    }
-  }, 5000);
-  
-  const closeBtn = notif.querySelector('button');
-  if (closeBtn) {
-    closeBtn.addEventListener('mouseenter', () => closeBtn.style.opacity = '1');
-    closeBtn.addEventListener('mouseleave', () => closeBtn.style.opacity = '0.8');
-    closeBtn.addEventListener('click', () => {
-      clearTimeout(autoRemoveTimer);
-      if (notif && notif.parentNode) {
-        notif.style.transform = 'translateX(500px)';
-        notif.style.opacity = '0';
-        setTimeout(() => {
-          if (notif && notif.parentNode) {
-            notif.parentNode.removeChild(notif);
-          }
-        }, 300);
-      }
-    });
-  }
-}
-
-// ADMIN PANEL FUNCTIONS (keep existing)
-async function showAdminPanel() {
-  const modal = document.createElement('div');
-  modal.className = 'admin-panel-modal';
-  modal.id = 'admin-panel';
-  await renderAdminPanelContent(modal);
-  document.body.appendChild(modal);
-}
-
-async function renderAdminPanelContent(modal) {
-  const totalUsers = await getTotalUsers();
-  const totalActivities = await getTotalActivities();
-  const systemStats = getSystemStats();
-  
-  modal.innerHTML = `
-    <div class="admin-panel-content">
-      <div class="admin-panel-header">
-        <div class="admin-panel-title"><i class="fas fa-crown"></i>Protected Admin Control Panel</div>
-        <button class="admin-close" onclick="closeAdminPanel()">&times;</button>
-      </div>
-      <div class="admin-grid">
-        <div class="admin-card">
-          <div class="admin-card-header"><div class="admin-card-icon"><i class="fas fa-users"></i></div><h3>Total Users</h3></div>
-          <div class="admin-stat" id="total-users-stat">${totalUsers}</div>
-          <p>Registered users (Supabase)</p>
-        </div>
-        <div class="admin-card">
-          <div class="admin-card-header"><div class="admin-card-icon"><i class="fas fa-chart-bar"></i></div><h3>Total Activities</h3></div>
-          <div class="admin-stat" id="total-activities-stat">${totalActivities}</div>
-          <p>Questions generated</p>
-        </div>
-        <div class="admin-card">
-          <div class="admin-card-header"><div class="admin-card-icon"><i class="fas fa-database"></i></div><h3>Storage</h3></div>
-          <div class="admin-stat" id="storage-usage-stat">${systemStats.storageUsed}KB</div>
-          <p>Local cache usage</p>
-        </div>
-        <div class="admin-card">
-          <div class="admin-card-header"><div class="admin-card-icon"><i class="fas fa-shield-alt"></i></div><h3>System Status</h3></div>
-          <div class="admin-stat" style="color: #4CAF50;">SYNCED</div>
-          <p>Cloud database active</p>
-        </div>
-      </div>
-      <div style="margin-top: 30px;">
-        <h3 style="color: #ff6b35; margin-bottom: 20px;">User Management</h3>
-        <table class="admin-table">
-          <thead><tr><th>Username</th><th>Email</th><th>Plan</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody id="users-table-body">${await generateUsersTable()}</tbody>
-        </table>
-      </div>
-      <div class="admin-actions">
-        <button class="admin-btn" onclick="exportUserData()"><i class="fas fa-download"></i>Export Data</button>
-        <button class="admin-btn" onclick="createBackup()"><i class="fas fa-save"></i>Create Backup</button>
-      </div>
-    </div>
-  `;
-}
-
-async function getTotalUsers() {
-  try {
-    const result = await apiCall('/api/users');
-    return result.users ? result.users.length : 0;
-  } catch (error) {
-    return 0;
-  }
-}
-
-async function getTotalActivities() {
-  return JSON.parse(localStorage.getItem('examblox_activities') || '[]').length;
-}
-
-function getSystemStats() {
-  let totalSize = 0;
-  for (let key in localStorage) {
-    if (localStorage.hasOwnProperty(key)) totalSize += localStorage[key].length;
-  }
-  return {storageUsed: Math.round(totalSize / 1024)};
-}
-
-async function generateUsersTable() {
-  let html = '';
-  try {
-    const result = await apiCall('/api/users');
-    const users = result.users || [];
+    if (loginBtn) loginBtn.style.display = 'inline-block';
+    if (signupBtn) signupBtn.style.display = 'inline-block';
     
-    if (users.length === 0) {
-      return '<tr><td colspan="5">No users found</td></tr>';
-    }
-    
-    users.forEach(u => {
-      const isProtected = u.username === PROTECTED_ADMIN.username;
-      const normalizedEmail = u.email.toLowerCase();
-      
-      html += `<tr ${isProtected ? 'style="background: rgba(255,107,53,0.1);"' : ''}>
-        <td>${u.username || 'N/A'} ${isProtected ? '🔒' : ''}</td>
-        <td>${u.email}</td>
-        <td><span style="color: ${u.plan === 'premium' ? '#4CAF50' : '#ff9800'}">${(u.plan || 'free').toUpperCase()}</span></td>
-        <td>${isProtected ? '<span style="color: #ff6b35;">PROTECTED</span>' : '<span style="color: #4CAF50;">ACTIVE</span>'}</td>
-        <td>
-          ${!isProtected ? `
-            ${u.plan === 'free' ? 
-              `<button class="admin-btn" style="padding: 5px 10px; font-size: 0.8rem; background: #4CAF50;" onclick="promoteUser('${normalizedEmail}')"><i class="fas fa-arrow-up"></i> Promote</button>` 
-              : 
-              `<button class="admin-btn" style="padding: 5px 10px; font-size: 0.8rem; background: #ff9800;" onclick="demoteUser('${normalizedEmail}')"><i class="fas fa-arrow-down"></i> Demote</button>`
-            }
-            <button class="admin-btn" style="padding: 5px 10px; font-size: 0.8rem; background: #f44336; margin-left: 5px;" onclick="deleteUserFromAdmin('${normalizedEmail}', '${u.username}')"><i class="fas fa-trash"></i></button>
-          ` : '🔒'}
-        </td>
-      </tr>`;
+    const userDropdown = document.querySelector('.user-dropdown');
+    if (userDropdown) userDropdown.remove();
+  }
+}
+
+function bindDropdownEvents() {
+  const avatarBtn = document.getElementById('user-avatar-btn');
+  if (avatarBtn) {
+    avatarBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleDropdown();
     });
-  } catch (error) {
-    console.error('Error loading users:', error);
-    html = '<tr><td colspan="5">Error loading users from backend</td></tr>';
   }
   
-  return html || '<tr><td colspan="5">No users found</td></tr>';
-}
-
-async function promoteUser(email) {
-  try {
-    await apiCall(`/api/users/${email}`, 'PATCH', { plan: 'premium' });
-    showNotification('User promoted to premium!', 'success');
-    closeAdminPanel();
-    setTimeout(() => showAdminPanel(), 500);
-  } catch (error) {
-    showNotification('Error promoting user', 'error');
+  const dashboardBtn = document.getElementById('dropdown-dashboard');
+  if (dashboardBtn) {
+    dashboardBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      window.location.href = 'dashboard.html';
+    });
+  }
+  
+  const settingsBtn = document.getElementById('dropdown-settings');
+  if (settingsBtn) {
+    settingsBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      window.location.href = 'settings.html';
+    });
+  }
+  
+  const adminBtn = document.getElementById('dropdown-admin-panel');
+  if (adminBtn) {
+    adminBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      alert('Admin Panel - Coming Soon!');
+    });
+  }
+  
+  const logoutBtn = document.getElementById('dropdown-logout');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      logout();
+    });
   }
 }
 
-async function demoteUser(email) {
-  try {
-    await apiCall(`/api/users/${email}`, 'PATCH', { plan: 'free' });
-    showNotification('User demoted to free plan!', 'success');
-    closeAdminPanel();
-    setTimeout(() => showAdminPanel(), 500);
-  } catch (error) {
-    showNotification('Error demoting user', 'error');
+function toggleDropdown() {
+  const dropdown = document.getElementById('user-dropdown-menu');
+  if (dropdown) dropdown.classList.toggle('hidden');
+}
+
+document.addEventListener('click', function(event) {
+  const dropdown = document.querySelector('.user-dropdown');
+  const dropdownMenu = document.getElementById('user-dropdown-menu');
+  if (dropdown && dropdownMenu && !dropdown.contains(event.target)) {
+    dropdownMenu.classList.add('hidden');
   }
-}
+});
 
-async function deleteUserFromAdmin(email, username) {
-  if (confirm(`Are you sure you want to permanently delete user "${username}"?\n\nThis action cannot be undone.`)) {
-    try {
-      await apiCall(`/api/users/${email}`, 'DELETE');
-      showNotification('User deleted successfully', 'success');
-      closeAdminPanel();
-      setTimeout(() => showAdminPanel(), 500);
-    } catch (error) {
-      showNotification('Error deleting user', 'error');
-    }
-  }
-}
-
-function closeAdminPanel() {
-  const modal = document.getElementById('admin-panel');
-  if (modal) document.body.removeChild(modal);
-}
-
-function createBackup() {
-  const backupData = {
-    timestamp: new Date().toISOString(),
-    version: '2.0.0',
-    adminUser: currentUser.username,
-    data: {}
+function loginUser(userData) {
+  currentUser = {
+    username: userData.username,
+    name: userData.name,
+    email: userData.email,
+    plan: userData.plan || 'free',
+    role: userData.role || 'user',
+    loginTime: new Date().toISOString()
   };
-  
-  Object.keys(localStorage).forEach(key => backupData.data[key] = localStorage.getItem(key));
-  
-  const blob = new Blob([JSON.stringify(backupData, null, 2)], {type: 'application/json'});
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `examblox-backup-${new Date().toISOString().split('T')[0]}.json`;
-  link.click();
-  URL.revokeObjectURL(url);
-  showNotification('Backup created successfully!', 'success');
+  if (currentUser.username === PROTECTED_ADMIN.username) {
+    currentUser = {...PROTECTED_ADMIN};
+  }
+  isUserLoggedIn = true;
+  localStorage.setItem('examblox_user', JSON.stringify(currentUser));
+  updateAuthUI();
 }
 
-function exportUserData() {
-  const userData = {};
-  Object.keys(localStorage).forEach(key => userData[key] = localStorage.getItem(key));
-  
-  const blob = new Blob([JSON.stringify(userData, null, 2)], {type: 'application/json'});
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `examblox-admin-export-${new Date().toISOString().split('T')[0]}.json`;
-  link.click();
-  URL.revokeObjectURL(url);
-  showNotification('User data exported!', 'success');
+function logout() {
+  isUserLoggedIn = false;
+  currentUser = null;
+  localStorage.removeItem('examblox_user');
+  updateAuthUI();
+  showNotification('Logged out successfully', 'success');
 }
 
-// UTILITY FUNCTIONS
+// ===== NOTIFICATION SYSTEM =====
+function showNotification(message, type) {
+    // Remove existing notifications
+    const existing = document.querySelectorAll('.notification');
+    existing.forEach(function(notif) {
+        if (document.body.contains(notif)) {
+            document.body.removeChild(notif);
+        }
+    });
+
+    const notification = document.createElement('div');
+    notification.className = 'notification notification-' + type;
+    notification.innerHTML = '<span>' + message + '</span><button>&times;</button>';
+
+    document.body.appendChild(notification);
+
+    setTimeout(function() {
+        if (document.body.contains(notification)) {
+            document.body.removeChild(notification);
+        }
+    }, 5000);
+
+    const closeBtn = notification.querySelector('button');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function() {
+            if (document.body.contains(notification)) {
+                document.body.removeChild(notification);
+            }
+        });
+    }
+}
+
+// ===== UTILITY FUNCTIONS =====
 function goToHomepage() {
   window.location.href = 'index.html';
 }
 
 function initializeStarsBackground() {
-  const container = document.querySelector('.stars');
-  if (!container) return;
-  for (let i = 0; i < 100; i++) {
-    const star = document.createElement('span');
-    star.style.left = Math.random() * 100 + '%';
-    star.style.top = Math.random() * 100 + '%';
-    star.style.animationDelay = Math.random() * 4 + 's';
-    container.appendChild(star);
-  }
+    const starsContainer = document.querySelector('.stars');
+    if (!starsContainer) return;
+    
+    for (let i = 0; i < 100; i++) {
+        const star = document.createElement('span');
+        star.style.left = Math.random() * 100 + '%';
+        star.style.top = Math.random() * 100 + '%';
+        star.style.animationDelay = Math.random() * 4 + 's';
+        starsContainer.appendChild(star);
+    }
 }
 
 function initializeMobileNav() {
-  const hamburger = document.querySelector('.hamburger');
-  const navLinks = document.querySelector('.nav-links');
-  if (hamburger && navLinks) {
-    hamburger.addEventListener('click', () => {
-      hamburger.classList.toggle('active');
-      navLinks.classList.toggle('active');
-    });
-  }
+    const hamburger = document.querySelector('.hamburger');
+    const navLinks = document.querySelector('.nav-links');
+
+    if (hamburger && navLinks) {
+        hamburger.addEventListener('click', function() {
+            hamburger.classList.toggle('active');
+            navLinks.classList.toggle('active');
+        });
+    }
 }
 
 function initializeFAQ() {
-  document.querySelectorAll('.faq-item').forEach(item => {
-    const question = item.querySelector('.faq-question');
-    if (question) {
-      question.addEventListener('click', () => {
-        const isActive = item.classList.contains('active');
-        document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('active'));
-        if (!isActive) item.classList.add('active');
-      });
-    }
-  });
+    const faqItems = document.querySelectorAll('.faq-item');
+    
+    faqItems.forEach(function(item) {
+        const question = item.querySelector('.faq-question');
+        if (question) {
+            question.addEventListener('click', function() {
+                const isActive = item.classList.contains('active');
+                
+                faqItems.forEach(function(otherItem) {
+                    otherItem.classList.remove('active');
+                });
+                
+                if (!isActive) {
+                    item.classList.add('active');
+                }
+            });
+        }
+    });
 }
 
 function initializeFooterLinks() {
@@ -1420,22 +1348,9 @@ function initializeFooterLinks() {
       const target = document.getElementById(link.getAttribute('href').substring(1));
       if (target) {
         target.scrollIntoView({behavior: 'smooth'});
-      } else {
-        showNotification('Section coming soon!', 'info');
       }
-    });
-  });
-  
-  document.querySelectorAll('a[href="#blog"], a[href="#tutorials"], a[href="#documentation"], a[href="#support"], a[href="#about"], a[href="#careers"], a[href="#privacy"], a[href="#terms"]').forEach(link => {
-    link.addEventListener('click', (e) => {
-      e.preventDefault();
-      const section = link.getAttribute('href').substring(1);
-      showNotification(`${section.charAt(0).toUpperCase() + section.slice(1)} coming soon!`, 'info');
     });
   });
 }
 
-console.log('ExamBlox v2.0 - Backend File Processing Active');
-console.log('✅ Forgot Password: Enabled');
-console.log('✅ File Upload: PDF, DOCX, TXT, Images (OCR)');
-console.log('✅ Cloud Database: Supabase Sync');
+console.log('ExamBlox v2.0 - With Working Text Extraction!');
