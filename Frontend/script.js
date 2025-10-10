@@ -279,47 +279,115 @@ function extractTextFromPdf(file) {
 
 function processPdfFile(file) {
     console.log('🔄 Processing PDF with PDF.js...');
+    showNotification('Extracting text from PDF... Please wait.', 'info');
+    
     const reader = new FileReader();
     
     reader.onload = function(e) {
         const typedarray = new Uint8Array(e.target.result);
         
-        pdfjsLib.getDocument(typedarray).promise.then(function(pdf) {
+        pdfjsLib.getDocument({
+            data: typedarray,
+            // ADDED: Better error handling for corrupted PDFs
+            stopAtErrors: false,
+            disableFontFace: true,
+            isEvalSupported: false,
+            maxImageSize: -1
+        }).promise.then(function(pdf) {
             console.log('📖 PDF loaded, pages:', pdf.numPages);
             extractedText = '';
             let processedPages = 0;
+            let failedPages = 0;
+            const totalPages = pdf.numPages;
             
-            for (let i = 1; i <= pdf.numPages; i++) {
-                pdf.getPage(i).then(function(page) {
-                    console.log('📑 Processing page', i);
+            // Function to process pages with error handling
+            const processPage = function(pageNum) {
+                return pdf.getPage(pageNum).then(function(page) {
+                    console.log('📑 Processing page', pageNum);
                     return page.getTextContent();
                 }).then(function(textContent) {
                     const pageText = textContent.items.map(function(item) {
                         return item.str;
                     }).join(' ');
                     
-                    extractedText += 'PAGE ' + (processedPages + 1) + ':\n' + pageText + '\n\n';
+                    if (pageText.trim().length > 0) {
+                        extractedText += 'PAGE ' + pageNum + ':\n' + pageText + '\n\n';
+                        console.log('✅ Page', pageNum, 'extracted:', pageText.length, 'chars');
+                    } else {
+                        console.log('⚠️ Page', pageNum, 'is empty or unreadable');
+                        failedPages++;
+                    }
+                    
                     processedPages++;
                     
-                    console.log('📝 Page', processedPages, 'text length:', pageText.length);
+                    // Update progress notification
+                    const progress = Math.round((processedPages / totalPages) * 100);
+                    showNotification(`Processing PDF: ${progress}% (${processedPages}/${totalPages} pages)`, 'info');
                     
-                    if (processedPages === pdf.numPages) {
-                        console.log('✅ PDF extraction completed!');
-                        console.log('📝 FULL EXTRACTED TEXT:');
-                        console.log('---START OF PDF TEXT---');
-                        console.log(extractedText);
-                        console.log('---END OF PDF TEXT---');
-                        console.log('📊 Total text length:', extractedText.length, 'characters');
-                        console.log('📊 Total pages processed:', processedPages);
-                        
-                        showNotification('PDF processed successfully! Check console for extracted text.', 'success');
-                    }
+                }).catch(function(pageError) {
+                    console.error('❌ Error on page', pageNum, ':', pageError.message);
+                    failedPages++;
+                    processedPages++;
+                    extractedText += 'PAGE ' + pageNum + ': [Could not extract - corrupted or image-based]\n\n';
                 });
+            };
+            
+            // Process all pages sequentially
+            let pagePromises = [];
+            for (let i = 1; i <= totalPages; i++) {
+                pagePromises.push(processPage(i));
             }
+            
+            Promise.all(pagePromises).then(function() {
+                console.log('✅ PDF extraction completed!');
+                console.log('📊 Total pages:', totalPages);
+                console.log('📊 Processed:', processedPages);
+                console.log('📊 Failed/Empty:', failedPages);
+                console.log('📝 FULL EXTRACTED TEXT:');
+                console.log('---START OF PDF TEXT---');
+                console.log(extractedText);
+                console.log('---END OF PDF TEXT---');
+                console.log('📊 Total text length:', extractedText.length, 'characters');
+                
+                if (extractedText.trim().length < 100) {
+                    console.warn('⚠️ Very little text extracted. PDF may be:');
+                    console.warn('   - Image-based (scanned document)');
+                    console.warn('   - Corrupted');
+                    console.warn('   - Password protected');
+                    showNotification('PDF processed but extracted very little text. May be image-based or corrupted.', 'warning');
+                } else if (failedPages > totalPages / 2) {
+                    showNotification(`PDF processed: ${processedPages - failedPages}/${totalPages} pages readable. Some pages may be corrupted.`, 'warning');
+                } else {
+                    showNotification(`PDF processed successfully! Extracted from ${processedPages - failedPages}/${totalPages} pages.`, 'success');
+                }
+            });
+            
         }).catch(function(error) {
-            console.error('❌ Error processing PDF:', error);
-            extractTextFromPdfFallback(file);
+            console.error('❌ Error loading PDF:', error);
+            console.error('Error details:', error.message);
+            
+            if (error.message.includes('Invalid PDF')) {
+                showNotification('This PDF file is corrupted or invalid. Try re-saving it.', 'error');
+                extractedText = 'ERROR: Invalid or corrupted PDF file.\n\nFile: ' + file.name + '\nSize: ' + formatFileSize(file.size) + '\n\nSuggestions:\n- Re-save the PDF from its source\n- Try converting to a different format\n- Use a PDF repair tool\n- The file may be password protected';
+            } else if (error.message.includes('password')) {
+                showNotification('This PDF is password protected.', 'error');
+                extractedText = 'ERROR: Password protected PDF.\n\nFile: ' + file.name + '\n\nPlease remove password protection and try again.';
+            } else {
+                showNotification('Failed to process PDF. File may be corrupted.', 'error');
+                extractedText = 'ERROR: Could not process PDF.\n\nFile: ' + file.name + '\nSize: ' + formatFileSize(file.size) + '\nError: ' + error.message + '\n\nThis file may be:\n- Corrupted\n- Image-based (needs OCR)\n- In an unsupported PDF version';
+            }
+            
+            console.log('📝 ERROR TEXT SET:');
+            console.log('---START OF ERROR TEXT---');
+            console.log(extractedText);
+            console.log('---END OF ERROR TEXT---');
         });
+    };
+    
+    reader.onerror = function(error) {
+        console.error('❌ FileReader error:', error);
+        showNotification('Error reading PDF file', 'error');
+        extractedText = 'ERROR: Could not read PDF file.\n\nFile: ' + file.name + '\n\nThe file may be corrupted or access was denied.';
     };
     
     reader.readAsArrayBuffer(file);
@@ -361,6 +429,8 @@ function extractTextFromDoc(file) {
 
 function processDocFile(file) {
     console.log('🔄 Processing Word document with mammoth.js...');
+    showNotification('Extracting text from Word document...', 'info');
+    
     const reader = new FileReader();
     
     reader.onload = function(e) {
@@ -379,11 +449,33 @@ function processDocFile(file) {
                 console.log('⚠️ Extraction messages:', result.messages);
             }
             
-            showNotification('Word document processed successfully! Check console.', 'success');
+            // Check if extraction was successful
+            if (extractedText.trim().length < 50) {
+                console.warn('⚠️ Very little text extracted from Word document');
+                showNotification('Word document processed but extracted very little text. File may be corrupted.', 'warning');
+                extractedText += '\n\n[Warning: Very little text was extracted. The document may be:\n- Corrupted\n- Mostly images/graphics\n- In an unsupported format\n- Empty]';
+            } else {
+                showNotification('Word document processed successfully!', 'success');
+            }
         }).catch(function(error) {
             console.error('❌ Error extracting from Word document:', error);
-            extractTextFromDocFallback(file);
+            console.error('Error details:', error.message);
+            
+            showNotification('Failed to process Word document. File may be corrupted.', 'error');
+            
+            extractedText = 'ERROR: Could not process Word document.\n\nFile: ' + file.name + '\nSize: ' + formatFileSize(file.size) + '\nError: ' + error.message + '\n\nThis file may be:\n- Corrupted\n- In an old format (.doc instead of .docx)\n- Password protected\n- Not a valid Word document\n\nTry:\n- Re-saving as .docx format\n- Converting to PDF first\n- Copying text to a new document';
+            
+            console.log('📝 ERROR TEXT SET:');
+            console.log('---START OF ERROR TEXT---');
+            console.log(extractedText);
+            console.log('---END OF ERROR TEXT---');
         });
+    };
+    
+    reader.onerror = function(error) {
+        console.error('❌ FileReader error:', error);
+        showNotification('Error reading Word document', 'error');
+        extractedText = 'ERROR: Could not read Word document.\n\nFile: ' + file.name + '\n\nThe file may be corrupted or access was denied.';
     };
     
     reader.readAsArrayBuffer(file);
@@ -425,13 +517,18 @@ function extractTextFromImage(file) {
 
 function processImageFile(file) {
     console.log('🔄 Processing image with OCR...');
-    showNotification('Extracting text from image... This may take a moment.', 'info');
+    showNotification('Extracting text from image... This may take 1-2 minutes.', 'info');
     
     Tesseract.recognize(file, 'eng', {
         logger: function(m) {
             if (m.status === 'recognizing text') {
                 const progress = Math.round(m.progress * 100);
                 console.log('🔄 OCR Progress:', progress + '%');
+                
+                // Update notification every 10%
+                if (progress % 10 === 0 || progress === 100) {
+                    showNotification(`OCR Progress: ${progress}% - Please wait...`, 'info');
+                }
             }
         }
     }).then(function(result) {
@@ -443,12 +540,29 @@ function processImageFile(file) {
         console.log(extractedText);
         console.log('---END OF OCR TEXT---');
         console.log('📊 Text length:', extractedText.length, 'characters');
-        console.log('📊 Confidence:', result.data.confidence + '%');
+        console.log('📊 Confidence:', Math.round(result.data.confidence) + '%');
         
-        showNotification('Image OCR completed! Check console for extracted text.', 'success');
+        if (extractedText.trim().length < 20) {
+            console.warn('⚠️ Very little text detected in image');
+            showNotification(`OCR complete but detected very little text. Confidence: ${Math.round(result.data.confidence)}%`, 'warning');
+            extractedText += '\n\n[Warning: Very little text detected. The image may be:\n- Low quality/blurry\n- Handwritten (not supported)\n- Not contain much text\n- Too small/large]';
+        } else if (result.data.confidence < 60) {
+            showNotification(`OCR complete but confidence is low (${Math.round(result.data.confidence)}%). Text may be inaccurate.`, 'warning');
+        } else {
+            showNotification(`OCR completed successfully! Confidence: ${Math.round(result.data.confidence)}%`, 'success');
+        }
     }).catch(function(error) {
         console.error('❌ OCR extraction failed:', error);
-        extractTextFromImageFallback(file);
+        console.error('Error details:', error.message);
+        
+        showNotification('Failed to extract text from image.', 'error');
+        
+        extractedText = 'ERROR: Could not extract text from image.\n\nFile: ' + file.name + '\nSize: ' + formatFileSize(file.size) + '\nError: ' + error.message + '\n\nPossible reasons:\n- Image quality too low\n- Handwritten text (not supported)\n- No text in image\n- File corrupted\n\nTry:\n- Using a higher quality image\n- Converting to PDF first\n- Ensuring text is clear and typed';
+        
+        console.log('📝 ERROR TEXT SET:');
+        console.log('---START OF ERROR TEXT---');
+        console.log(extractedText);
+        console.log('---END OF ERROR TEXT---');
     });
 }
 
@@ -485,8 +599,44 @@ function handleGenerateQuestions() {
         return;
     }
 
-    if (!currentFile || !extractedText) {
+    if (!currentFile) {
         showNotification('Please select a file first', 'error');
+        return;
+    }
+    
+    if (!extractedText || extractedText.trim().length < 50) {
+        showNotification('Not enough text extracted from file. Please try a different file or format.', 'error');
+        console.error('❌ Insufficient text for question generation');
+        console.error('Extracted text length:', extractedText ? extractedText.length : 0);
+        
+        // Show helpful message
+        const helpModal = document.createElement('div');
+        helpModal.className = 'modal';
+        helpModal.innerHTML = `
+            <div class="modal-content" style="max-width: 500px;">
+                <span class="close-modal" onclick="this.parentElement.parentElement.remove()">&times;</span>
+                <h2 style="color: var(--error);">⚠️ Insufficient Text</h2>
+                <p>We couldn't extract enough text from your file to generate questions.</p>
+                <h3 style="margin-top: 20px;">Possible reasons:</h3>
+                <ul style="text-align: left; line-height: 1.8;">
+                    <li>📄 PDF is image-based (scanned) - needs OCR</li>
+                    <li>🔒 File is corrupted or password protected</li>
+                    <li>🖼️ Document contains mostly images</li>
+                    <li>❌ File format not fully supported</li>
+                </ul>
+                <h3 style="margin-top: 20px;">Try this:</h3>
+                <ul style="text-align: left; line-height: 1.8;">
+                    <li>✅ Use a text-based PDF (not scanned)</li>
+                    <li>✅ Convert to .txt or .docx format</li>
+                    <li>✅ Re-save the file from its original source</li>
+                    <li>✅ Check console logs for more details</li>
+                </ul>
+                <button onclick="this.parentElement.parentElement.remove()" style="background: var(--primary); color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; margin-top: 20px;">
+                    Got it
+                </button>
+            </div>
+        `;
+        document.body.appendChild(helpModal);
         return;
     }
 
@@ -495,6 +645,10 @@ function handleGenerateQuestions() {
     const difficultySelects = document.querySelectorAll('.upload-options select');
     const difficulty = difficultySelects.length > 1 ? difficultySelects[1].value : 'Medium';
 
+    console.log('✅ Starting question generation...');
+    console.log('📊 Text length:', extractedText.length, 'characters');
+    console.log('📊 Settings:', questionType, numQuestions, difficulty);
+    
     showNotification('Generating questions...', 'info');
     showProcessingProgress();
     
@@ -1258,33 +1412,83 @@ function logout() {
   showNotification('Logged out successfully', 'success');
 }
 
-// ===== NOTIFICATION SYSTEM =====
+// ===== FIXED NOTIFICATION SYSTEM =====
 function showNotification(message, type) {
     // Remove existing notifications
     const existing = document.querySelectorAll('.notification');
     existing.forEach(function(notif) {
-        if (document.body.contains(notif)) {
-            document.body.removeChild(notif);
+        if (notif.parentNode) {
+            notif.parentNode.removeChild(notif);
         }
     });
 
     const notification = document.createElement('div');
     notification.className = 'notification notification-' + type;
-    notification.innerHTML = '<span>' + message + '</span><button>&times;</button>';
+    
+    // Fixed styling
+    let bgColor = '';
+    if (type === 'success') {
+        bgColor = 'linear-gradient(135deg, #4CAF50, #45a049)';
+    } else if (type === 'error') {
+        bgColor = 'linear-gradient(135deg, #f44336, #d32f2f)';
+    } else if (type === 'info') {
+        bgColor = 'linear-gradient(135deg, #2196F3, #1976D2)';
+    } else {
+        bgColor = 'linear-gradient(135deg, #ff9800, #f57c00)';
+    }
+    
+    notification.style.cssText = `
+        position: fixed;
+        top: 100px;
+        right: 20px;
+        min-width: 300px;
+        max-width: 400px;
+        padding: 15px 20px;
+        border-radius: 10px;
+        background: ${bgColor};
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 15px;
+        z-index: 10000;
+        font-size: 14px;
+        font-weight: 500;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        animation: slideInRight 0.3s ease-out;
+    `;
+    
+    notification.innerHTML = `
+        <span style="flex: 1; line-height: 1.4;">${message}</span>
+        <button style="background: none; border: none; color: white; font-size: 22px; cursor: pointer; padding: 0; width: 24px; height: 24px; opacity: 0.8; transition: opacity 0.2s;">&times;</button>
+    `;
 
     document.body.appendChild(notification);
 
-    setTimeout(function() {
-        if (document.body.contains(notification)) {
-            document.body.removeChild(notification);
+    const autoRemove = setTimeout(function() {
+        if (notification.parentNode) {
+            notification.style.animation = 'slideOutRight 0.3s ease-out';
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 300);
         }
     }, 5000);
 
     const closeBtn = notification.querySelector('button');
     if (closeBtn) {
+        closeBtn.addEventListener('mouseenter', () => closeBtn.style.opacity = '1');
+        closeBtn.addEventListener('mouseleave', () => closeBtn.style.opacity = '0.8');
         closeBtn.addEventListener('click', function() {
-            if (document.body.contains(notification)) {
-                document.body.removeChild(notification);
+            clearTimeout(autoRemove);
+            if (notification.parentNode) {
+                notification.style.animation = 'slideOutRight 0.3s ease-out';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
             }
         });
     }
@@ -1306,6 +1510,50 @@ function initializeStarsBackground() {
         star.style.animationDelay = Math.random() * 4 + 's';
         starsContainer.appendChild(star);
     }
+    
+    // Add notification animations to page
+    addNotificationAnimations();
+}
+
+function addNotificationAnimations() {
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(400px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        @keyframes slideOutRight {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(400px);
+            }
+        }
+        
+        .notification {
+            animation: slideInRight 0.3s ease-out;
+        }
+        
+        @media (max-width: 768px) {
+            .notification {
+                right: 10px !important;
+                left: 10px !important;
+                max-width: calc(100% - 20px) !important;
+                min-width: auto !important;
+            }
+        }
+    `;
+    document.head.appendChild(style);
 }
 
 function initializeMobileNav() {
