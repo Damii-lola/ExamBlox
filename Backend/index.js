@@ -1,13 +1,18 @@
-// index.js - FIXED VERSION with Password & File Processing
+// index.js - COMPLETE BACKEND with Forgot Password + File Processing
 const express = require('express');
 const cors = require('cors');
 const sgMail = require('@sendgrid/mail');
 const { createClient } = require('@supabase/supabase-js');
+const multer = require('multer');
+const pdfParse = require('pdf-parse');
+const mammoth = require('mammoth');
+const Tesseract = require('tesseract.js');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ===== CORS CONFIGURATION =====
 const corsOptions = {
   origin: [
     'https://damii-lola.github.io',
@@ -21,13 +26,21 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '30mb' }));
-app.use(express.text({ limit: '30mb' }));
 
+// ===== MULTER CONFIGURATION (File Upload) =====
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 25 * 1024 * 1024 } // 25MB limit
+});
+
+// ===== DATABASE CONNECTION =====
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
 
+// ===== EMAIL CONFIGURATION =====
 let emailConfigured = false;
 let verifiedSender = null;
 
@@ -38,49 +51,16 @@ if (process.env.SENDGRID_API_KEY && process.env.SENDGRID_VERIFIED_SENDER) {
   console.log('✅ SendGrid configured');
 }
 
+// ===== OTP STORAGE =====
 const otpStorage = new Map();
 
-// PROTECTED ADMIN - Ensure this account always exists
-const PROTECTED_ADMIN = {
-  username: 'damii-lola',
-  name: 'Damilola',
-  email: 'examblox.team@gmail.com',
-  password: 'God_G1ve_M3_P0wer', // ✅ FIXED: Password is now here
-  plan: 'premium',
-  role: 'admin'
-};
-
-// Initialize protected admin on startup
-async function initializeProtectedAdmin() {
-  try {
-    const { data: existing } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', PROTECTED_ADMIN.email)
-      .limit(1);
-    
-    if (!existing || existing.length === 0) {
-      await supabase.from('users').insert([PROTECTED_ADMIN]);
-      console.log('✅ Protected admin account created');
-    } else {
-      // Update to ensure password is correct
-      await supabase
-        .from('users')
-        .update({ password: PROTECTED_ADMIN.password, role: 'admin', plan: 'premium' })
-        .eq('email', PROTECTED_ADMIN.email);
-      console.log('✅ Protected admin account verified');
-    }
-  } catch (error) {
-    console.error('Error initializing admin:', error);
-  }
-}
-
+// ===== ROOT ENDPOINT =====
 app.get('/', (req, res) => {
   res.json({ 
     message: 'ExamBlox Backend API',
     status: 'active',
-    model: 'llama-3.1-8b-instant',
-    features: ['User Auth', 'OTP', 'Question Generation', 'File Processing']
+    features: ['User Auth', 'OTP', 'File Upload', 'Question Generation'],
+    model: 'llama-3.1-8b-instant'
   });
 });
 
@@ -129,14 +109,6 @@ app.post('/api/login', async (req, res) => {
     if (!emailOrUsername || !password) {
       return res.status(400).json({ success: false, error: 'Credentials required' });
     }
-    
-    // ✅ FIX: Check protected admin first
-    if ((emailOrUsername.toLowerCase() === PROTECTED_ADMIN.email.toLowerCase() || 
-         emailOrUsername.toLowerCase() === PROTECTED_ADMIN.username.toLowerCase()) &&
-        password === PROTECTED_ADMIN.password) {
-      return res.json({ success: true, user: PROTECTED_ADMIN });
-    }
-    
     const { data, error } = await supabase
       .from('users')
       .select('*')
@@ -378,104 +350,191 @@ app.post('/api/verify-otp', (req, res) => {
   }
 });
 
-// ===== PASSWORD RESET ENDPOINT =====
-app.post('/api/reset-password', async (req, res) => {
+// ===== FORGOT PASSWORD ENDPOINTS =====
+app.post('/api/forgot-password', async (req, res) => {
   try {
-    const { email, newPassword } = req.body;
+    const { email } = req.body;
     
-    if (!email || !newPassword) {
-      return res.status(400).json({ success: false, error: 'Email and new password required' });
+    if (!email) {
+      return res.status(400).json({ success: false, error: 'Email required' });
     }
     
-    if (newPassword.length < 6) {
-      return res.status(400).json({ success: false, error: 'Password must be at least 6 characters' });
-    }
-    
-    const { data, error } = await supabase
+    // Check if user exists
+    const { data: user } = await supabase
       .from('users')
-      .update({ password: newPassword })
+      .select('name, email')
       .eq('email', email)
-      .select();
+      .single();
     
-    if (error) throw error;
-    
-    if (!data || data.length === 0) {
+    if (!user) {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
     
-    res.json({ success: true, message: 'Password reset successfully' });
+    // Send OTP for password reset
+    const name = user.name || 'User';
+    
+    if (!emailConfigured) {
+      return res.status(503).json({ success: false, error: 'Email service not configured' });
+    }
+    
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpData = {
+      otp: otp,
+      email: email,
+      name: name,
+      type: 'forgot_password',
+      createdAt: new Date(),
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000)
+    };
+    
+    otpStorage.set(email.toLowerCase(), otpData);
+    
+    const msg = {
+      to: email,
+      from: {
+        email: verifiedSender,
+        name: 'ExamBlox'
+      },
+      subject: 'ExamBlox Password Reset Code',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <body style="font-family: Arial, sans-serif; background: #f4f4f4; padding: 20px;">
+          <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 10px; padding: 40px; text-align: center;">
+            <h1 style="color: #ff6b35;">Password Reset</h1>
+            <p>Hello <strong>${name}</strong>,</p>
+            <p>Your password reset code is:</p>
+            <div style="background: #ff6b35; color: white; padding: 20px; border-radius: 8px; font-size: 36px; font-weight: bold; letter-spacing: 10px; margin: 20px 0;">
+              ${otp}
+            </div>
+            <p style="background: #fff3cd; padding: 15px; border-radius: 8px; color: #856404;">
+              ⏰ This code expires in 10 minutes
+            </p>
+          </div>
+        </body>
+        </html>
+      `
+    };
+    
+    await sgMail.send(msg);
+    
+    res.json({
+      success: true,
+      message: 'Password reset code sent to your email',
+      email: email
+    });
+    
   } catch (error) {
+    console.error('Forgot password error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// ===== FILE PROCESSING ENDPOINT - ✅ SUPER FIXED =====
-app.post('/api/extract-text', express.json({ limit: '30mb' }), (req, res) => {
+app.post('/api/reset-password', async (req, res) => {
   try {
-    const { fileData, fileName, mimeType } = req.body;
+    const { email, otp, newPassword } = req.body;
     
-    if (!fileData || !fileName) {
-      return res.status(400).json({ success: false, error: 'File data required' });
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ success: false, error: 'All fields required' });
     }
     
-    console.log(`📄 Processing: ${fileName} (${mimeType})`);
+    // Verify OTP
+    const otpData = otpStorage.get(email.toLowerCase());
+    if (!otpData) {
+      return res.status(400).json({ success: false, error: 'OTP not found' });
+    }
+    if (new Date() > otpData.expiresAt) {
+      otpStorage.delete(email.toLowerCase());
+      return res.status(400).json({ success: false, error: 'OTP expired' });
+    }
+    if (otpData.otp !== otp.trim()) {
+      return res.status(400).json({ success: false, error: 'Invalid OTP' });
+    }
     
+    // Update password
+    const { error } = await supabase
+      .from('users')
+      .update({ password: newPassword })
+      .eq('email', email);
+    
+    if (error) throw error;
+    
+    otpStorage.delete(email.toLowerCase());
+    
+    res.json({
+      success: true,
+      message: 'Password reset successful'
+    });
+    
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ===== FILE UPLOAD & TEXT EXTRACTION =====
+app.post('/api/extract-text', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No file uploaded' });
+    }
+    
+    const file = req.file;
+    const fileName = file.originalname.toLowerCase();
     let extractedText = '';
     
-    // Text files - IMPROVED ENCODING HANDLING
-    if (mimeType === 'text/plain' || fileName.endsWith('.txt')) {
-      try {
-        const buffer = Buffer.from(fileData, 'base64');
-        // Try UTF-8 first, then fallback to latin1 for special characters
-        extractedText = buffer.toString('utf-8');
-        
-        // Clean and normalize text
-        extractedText = extractedText
-          .replace(/\r\n/g, '\n') // Normalize line endings
-          .replace(/\r/g, '\n')
-          .replace(/\u0000/g, '') // Remove null bytes
-          .trim();
-        
-        console.log(`✅ Extracted ${extractedText.length} characters from TXT`);
-        console.log(`📊 Preview: ${extractedText.substring(0, 200)}...`);
-      } catch (e) {
-        console.error('Text extraction error:', e);
-        extractedText = `[Error reading text file: ${e.message}]`;
-      }
+    console.log(`📄 Processing file: ${fileName} (${file.size} bytes)`);
+    
+    // TXT Files
+    if (fileName.endsWith('.txt')) {
+      extractedText = file.buffer.toString('utf-8');
+      console.log(`✅ Extracted ${extractedText.length} chars from TXT`);
     }
-    // PDF files - basic extraction
-    else if (mimeType === 'application/pdf' || fileName.endsWith('.pdf')) {
-      extractedText = `[PDF file detected: ${fileName}. Please use .txt format for best results. PDF parsing requires additional libraries.]`;
+    
+    // PDF Files
+    else if (fileName.endsWith('.pdf')) {
+      const pdfData = await pdfParse(file.buffer);
+      extractedText = pdfData.text;
+      console.log(`✅ Extracted ${extractedText.length} chars from PDF`);
     }
-    // Word documents
-    else if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || fileName.endsWith('.docx')) {
-      extractedText = `[Word document detected: ${fileName}. Please save as .txt for best results.]`;
+    
+    // DOCX Files
+    else if (fileName.endsWith('.docx')) {
+      const result = await mammoth.extractRawText({ buffer: file.buffer });
+      extractedText = result.value;
+      console.log(`✅ Extracted ${extractedText.length} chars from DOCX`);
     }
-    else if (mimeType === 'application/msword' || fileName.endsWith('.doc')) {
-      extractedText = `[Word document detected: ${fileName}. Please save as .txt for best results.]`;
+    
+    // Image Files (OCR)
+    else if (fileName.match(/\.(jpg|jpeg|png)$/)) {
+      const { data: { text } } = await Tesseract.recognize(file.buffer, 'eng');
+      extractedText = text;
+      console.log(`✅ Extracted ${extractedText.length} chars from IMAGE (OCR)`);
     }
-    // Images
-    else if (mimeType && mimeType.startsWith('image/')) {
-      extractedText = `[Image file detected: ${fileName}. OCR not available. Please convert to text first.]`;
-    }
+    
     else {
-      extractedText = `[Unsupported file type: ${fileName}]`;
+      return res.status(400).json({ success: false, error: 'Unsupported file type' });
+    }
+    
+    if (!extractedText || extractedText.trim().length < 10) {
+      return res.status(400).json({ success: false, error: 'Could not extract text from file' });
     }
     
     res.json({
       success: true,
       text: extractedText,
-      fileName: fileName,
-      length: extractedText.length
+      fileName: file.originalname,
+      fileSize: file.size,
+      extractedLength: extractedText.length
     });
     
   } catch (error) {
-    console.error('File processing error:', error);
+    console.error('❌ File extraction error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// ===== QUESTION GENERATION - ✅ FORCE TEXT USAGE =====
+// ===== QUESTION GENERATION =====
 app.post('/api/generate-questions', async (req, res) => {
   try {
     const { text, questionType, numQuestions, difficulty } = req.body;
@@ -483,13 +542,6 @@ app.post('/api/generate-questions', async (req, res) => {
     if (!text || text.trim().length === 0) {
       return res.status(400).json({ error: 'Text required' });
     }
-
-    // ✅ CRITICAL: Log the text being sent to AI
-    console.log('=== QUESTION GENERATION ===');
-    console.log('Type:', questionType, '| Qty:', numQuestions, '| Difficulty:', difficulty);
-    console.log('Text Length:', text.length, 'characters');
-    console.log('Text Preview (first 500 chars):', text.substring(0, 500));
-    console.log('Text Preview (last 500 chars):', text.substring(Math.max(0, text.length - 500)));
 
     const difficultyMapping = {
       'Easy': 'Medium',
@@ -500,8 +552,10 @@ app.post('/api/generate-questions', async (req, res) => {
 
     const actualDifficulty = difficultyMapping[difficulty] || 'Hard';
 
-    // ✅ Use MORE of the text - increase from 18000 to 25000
-    const cleanedText = text.substring(0, 25000);
+    console.log('=== QUESTION GENERATION ===');
+    console.log('Type:', questionType, '| Qty:', numQuestions, '| Difficulty:', actualDifficulty);
+
+    const cleanedText = text.substring(0, 18000);
     const response = await generateQuestionsWithGroq(cleanedText, questionType, numQuestions, actualDifficulty);
 
     res.json({
@@ -511,7 +565,6 @@ app.post('/api/generate-questions', async (req, res) => {
         questionType,
         numQuestions,
         actualDifficulty,
-        textLengthUsed: cleanedText.length,
         model: 'llama-3.1-8b-instant'
       }
     });
@@ -522,6 +575,7 @@ app.post('/api/generate-questions', async (req, res) => {
   }
 });
 
+// ===== CORE GENERATION FUNCTION =====
 async function generateQuestionsWithGroq(text, questionType, numQuestions, difficulty) {
   const API_KEY = process.env.GROQ_API_KEY;
   
@@ -599,7 +653,7 @@ async function generateBatchWithDelay(text, questionType, numQuestions, difficul
         messages: [
           {
             role: "system",
-            content: `You are an expert exam creator. Generate high-quality, challenging questions based STRICTLY on the provided text.`
+            content: `You are an expert exam creator. Generate realistic, high-quality exam questions based ONLY on the provided text.`
           },
           {
             role: "user",
@@ -805,12 +859,9 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
-// Initialize and start server
-initializeProtectedAdmin().then(() => {
-  app.listen(PORT, () => {
-    console.log(`✅ Server running on port ${PORT}`);
-    console.log('🤖 Model: llama-3.1-8b-instant');
-    console.log('📧 Email:', emailConfigured ? 'Ready' : 'Check .env');
-    console.log('🔐 Protected admin initialized');
-  });
+app.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log('🤖 Model: llama-3.1-8b-instant');
+  console.log('📧 Email:', emailConfigured ? 'Ready' : 'Check .env');
+  console.log('📄 File Upload: Ready (PDF, DOCX, TXT, Images)');
 });
