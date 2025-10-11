@@ -288,7 +288,6 @@ function processPdfFile(file) {
         
         pdfjsLib.getDocument({
             data: typedarray,
-            // ADDED: Better error handling for corrupted PDFs
             stopAtErrors: false,
             disableFontFace: true,
             isEvalSupported: false,
@@ -300,7 +299,6 @@ function processPdfFile(file) {
             let failedPages = 0;
             const totalPages = pdf.numPages;
             
-            // Function to process pages with error handling
             const processPage = function(pageNum) {
                 return pdf.getPage(pageNum).then(function(page) {
                     console.log('📑 Processing page', pageNum);
@@ -320,7 +318,6 @@ function processPdfFile(file) {
                     
                     processedPages++;
                     
-                    // Update progress notification
                     const progress = Math.round((processedPages / totalPages) * 100);
                     showNotification(`Processing PDF: ${progress}% (${processedPages}/${totalPages} pages)`, 'info');
                     
@@ -332,7 +329,6 @@ function processPdfFile(file) {
                 });
             };
             
-            // Process all pages sequentially
             let pagePromises = [];
             for (let i = 1; i <= totalPages; i++) {
                 pagePromises.push(processPage(i));
@@ -349,14 +345,15 @@ function processPdfFile(file) {
                 console.log('---END OF PDF TEXT---');
                 console.log('📊 Total text length:', extractedText.length, 'characters');
                 
-                if (extractedText.trim().length < 100) {
-                    console.warn('⚠️ Very little text extracted. PDF may be:');
-                    console.warn('   - Image-based (scanned document)');
-                    console.warn('   - Corrupted');
-                    console.warn('   - Password protected');
-                    showNotification('PDF processed but extracted very little text. May be image-based or corrupted.', 'warning');
-                } else if (failedPages > totalPages / 2) {
-                    showNotification(`PDF processed: ${processedPages - failedPages}/${totalPages} pages readable. Some pages may be corrupted.`, 'warning');
+                // CHECK IF SCANNED PDF (image-based)
+                if (extractedText.trim().length < 100 || failedPages > totalPages / 2) {
+                    console.warn('⚠️ SCANNED/IMAGE-BASED PDF DETECTED!');
+                    console.warn('📸 Attempting OCR extraction as fallback...');
+                    
+                    showNotification('This appears to be a scanned PDF. Attempting OCR extraction...', 'warning');
+                    
+                    // Use OCR as fallback for scanned PDFs
+                    extractTextFromScannedPdf(file, pdf, totalPages);
                 } else {
                     showNotification(`PDF processed successfully! Extracted from ${processedPages - failedPages}/${totalPages} pages.`, 'success');
                 }
@@ -391,6 +388,110 @@ function processPdfFile(file) {
     };
     
     reader.readAsArrayBuffer(file);
+}
+
+// NEW FUNCTION: Extract text from scanned PDFs using OCR
+function extractTextFromScannedPdf(file, pdf, totalPages) {
+    console.log('🖼️ Starting OCR extraction for scanned PDF...');
+    
+    // Check if Tesseract is loaded
+    if (typeof Tesseract === 'undefined') {
+        console.log('📦 Loading Tesseract.js for OCR...');
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js';
+        script.onload = function() {
+            console.log('✅ Tesseract.js loaded successfully');
+            performPdfOcr(pdf, totalPages);
+        };
+        script.onerror = function() {
+            console.error('❌ Failed to load Tesseract.js');
+            showNotification('Cannot perform OCR on scanned PDF. Please convert to images first.', 'error');
+            extractedText = 'SCANNED PDF DETECTED\n\nThis is an image-based/scanned PDF.\n\nTo extract text:\n1. Convert PDF to images (PNG/JPG)\n2. Upload images individually for OCR\n3. Or use a PDF OCR tool first\n\nFile: ' + file.name;
+        };
+        document.head.appendChild(script);
+    } else {
+        performPdfOcr(pdf, totalPages);
+    }
+}
+
+function performPdfOcr(pdf, totalPages) {
+    console.log('🔄 Performing OCR on', totalPages, 'pages...');
+    showNotification(`Starting OCR on ${totalPages} pages. This will take several minutes...`, 'info');
+    
+    extractedText = '';
+    let completedPages = 0;
+    
+    const processPageOcr = function(pageNum) {
+        return pdf.getPage(pageNum).then(function(page) {
+            const scale = 2.0;
+            const viewport = page.getViewport({ scale: scale });
+            
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+            
+            return page.render({
+                canvasContext: context,
+                viewport: viewport
+            }).promise.then(function() {
+                // Convert canvas to blob for Tesseract
+                return new Promise(function(resolve) {
+                    canvas.toBlob(function(blob) {
+                        console.log('📸 Rendered page', pageNum, 'to image');
+                        
+                        Tesseract.recognize(blob, 'eng', {
+                            logger: function(m) {
+                                if (m.status === 'recognizing text') {
+                                    const progress = Math.round(m.progress * 100);
+                                    if (progress % 20 === 0) {
+                                        console.log(`🔄 Page ${pageNum} OCR: ${progress}%`);
+                                    }
+                                }
+                            }
+                        }).then(function(result) {
+                            const pageText = result.data.text;
+                            extractedText += `PAGE ${pageNum} (OCR - Confidence: ${Math.round(result.data.confidence)}%):\n${pageText}\n\n`;
+                            
+                            completedPages++;
+                            const totalProgress = Math.round((completedPages / totalPages) * 100);
+                            showNotification(`OCR Progress: ${totalProgress}% (${completedPages}/${totalPages} pages)`, 'info');
+                            
+                            console.log(`✅ Page ${pageNum} OCR complete:`, pageText.length, 'chars');
+                            
+                            resolve();
+                        }).catch(function(error) {
+                            console.error(`❌ OCR failed on page ${pageNum}:`, error);
+                            extractedText += `PAGE ${pageNum}: [OCR extraction failed]\n\n`;
+                            completedPages++;
+                            resolve();
+                        });
+                    });
+                });
+            });
+        });
+    };
+    
+    // Process pages sequentially (to avoid overwhelming system)
+    let ocrPromise = Promise.resolve();
+    for (let i = 1; i <= Math.min(totalPages, 50); i++) { // Limit to 50 pages
+        ocrPromise = ocrPromise.then(() => processPageOcr(i));
+    }
+    
+    ocrPromise.then(function() {
+        console.log('✅ OCR extraction completed!');
+        console.log('📝 FINAL OCR TEXT:');
+        console.log('---START OF OCR TEXT---');
+        console.log(extractedText);
+        console.log('---END OF OCR TEXT---');
+        console.log('📊 Total text length:', extractedText.length, 'characters');
+        
+        if (extractedText.trim().length > 100) {
+            showNotification(`OCR completed! Extracted text from ${completedPages} pages.`, 'success');
+        } else {
+            showNotification('OCR completed but extracted very little text. Image quality may be too low.', 'warning');
+        }
+    });
 }
 
 function extractTextFromPdfFallback(file) {
@@ -1412,86 +1513,80 @@ function logout() {
   showNotification('Logged out successfully', 'success');
 }
 
-// ===== FIXED NOTIFICATION SYSTEM =====
+// ===== SUPER FIXED NOTIFICATION SYSTEM - NO MORE TRIPPING =====
+let currentNotification = null;
+
 function showNotification(message, type) {
-    // Remove existing notifications
-    const existing = document.querySelectorAll('.notification');
-    existing.forEach(function(notif) {
-        if (notif.parentNode) {
-            notif.parentNode.removeChild(notif);
-        }
-    });
+    // Remove any existing notification immediately
+    if (currentNotification && currentNotification.parentElement) {
+        currentNotification.parentElement.removeChild(currentNotification);
+        currentNotification = null;
+    }
 
     const notification = document.createElement('div');
-    notification.className = 'notification notification-' + type;
     
-    // Fixed styling
+    // Set styling directly
     let bgColor = '';
     if (type === 'success') {
-        bgColor = 'linear-gradient(135deg, #4CAF50, #45a049)';
+        bgColor = '#4CAF50';
     } else if (type === 'error') {
-        bgColor = 'linear-gradient(135deg, #f44336, #d32f2f)';
+        bgColor = '#f44336';
     } else if (type === 'info') {
-        bgColor = 'linear-gradient(135deg, #2196F3, #1976D2)';
+        bgColor = '#2196F3';
     } else {
-        bgColor = 'linear-gradient(135deg, #ff9800, #f57c00)';
+        bgColor = '#ff9800';
     }
     
-    notification.style.cssText = `
-        position: fixed;
-        top: 100px;
-        right: 20px;
-        min-width: 300px;
-        max-width: 400px;
-        padding: 15px 20px;
-        border-radius: 10px;
-        background: ${bgColor};
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 15px;
-        z-index: 10000;
-        font-size: 14px;
-        font-weight: 500;
-        box-shadow: 0 5px 20px rgba(0,0,0,0.3);
-        animation: slideInRight 0.3s ease-out;
-    `;
-    
     notification.innerHTML = `
-        <span style="flex: 1; line-height: 1.4;">${message}</span>
-        <button style="background: none; border: none; color: white; font-size: 22px; cursor: pointer; padding: 0; width: 24px; height: 24px; opacity: 0.8; transition: opacity 0.2s;">&times;</button>
+        <div style="
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            min-width: 300px;
+            max-width: 400px;
+            padding: 15px 20px;
+            border-radius: 10px;
+            background: ${bgColor};
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            z-index: 99999;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            font-family: 'Poppins', sans-serif;
+        ">
+            <span style="flex: 1; line-height: 1.4;">${message}</span>
+            <button onclick="this.parentElement.parentElement.removeChild(this.parentElement)" style="
+                background: none;
+                border: none;
+                color: white;
+                font-size: 22px;
+                cursor: pointer;
+                padding: 0;
+                width: 24px;
+                height: 24px;
+                opacity: 0.8;
+            ">&times;</button>
+        </div>
     `;
 
     document.body.appendChild(notification);
+    currentNotification = notification.firstElementChild;
 
-    const autoRemove = setTimeout(function() {
-        if (notification.parentNode) {
-            notification.style.animation = 'slideOutRight 0.3s ease-out';
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.parentNode.removeChild(notification);
-                }
-            }, 300);
-        }
-    }, 5000);
-
-    const closeBtn = notification.querySelector('button');
-    if (closeBtn) {
-        closeBtn.addEventListener('mouseenter', () => closeBtn.style.opacity = '1');
-        closeBtn.addEventListener('mouseleave', () => closeBtn.style.opacity = '0.8');
-        closeBtn.addEventListener('click', function() {
-            clearTimeout(autoRemove);
-            if (notification.parentNode) {
-                notification.style.animation = 'slideOutRight 0.3s ease-out';
-                setTimeout(() => {
-                    if (notification.parentNode) {
-                        notification.parentNode.removeChild(notification);
-                    }
-                }, 300);
+    // Auto remove after 5 seconds
+    setTimeout(function() {
+        try {
+            if (notification && notification.parentElement) {
+                notification.parentElement.removeChild(notification);
             }
-        });
-    }
+        } catch(e) {
+            // Silently ignore if already removed
+        }
+        currentNotification = null;
+    }, 5000);
 }
 
 // ===== UTILITY FUNCTIONS =====
@@ -1601,4 +1696,9 @@ function initializeFooterLinks() {
   });
 }
 
-console.log('ExamBlox v2.0 - With Working Text Extraction!');
+console.log('✅ ExamBlox v2.0 FULLY LOADED!');
+console.log('📄 Text Extraction: PDF, DOCX, TXT, Images (OCR)');
+console.log('🖼️ Scanned PDF Support: OCR Fallback Enabled');
+console.log('🔔 Notifications: Fixed & Stable');
+console.log('🔐 Auth: Login, Signup, Forgot Password');
+console.log('🚀 Ready to use!');
