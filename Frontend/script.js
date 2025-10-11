@@ -416,10 +416,12 @@ function extractTextFromScannedPdf(file, pdf, totalPages) {
 
 function performPdfOcr(pdf, totalPages) {
     console.log('🔄 Performing OCR on', totalPages, 'pages...');
-    showNotification(`Starting OCR on ${totalPages} pages. This will take several minutes...`, 'info');
+    showNotification(`Starting OCR on ${totalPages} pages. This will be much faster!`, 'info');
     
     extractedText = '';
     let completedPages = 0;
+    const BATCH_SIZE = 10; // Process 10 pages at once!
+    const MAX_PAGES = Math.min(totalPages, 100); // Limit to 100 pages
     
     const processPageOcr = function(pageNum) {
         return pdf.getPage(pageNum).then(function(page) {
@@ -435,7 +437,6 @@ function performPdfOcr(pdf, totalPages) {
                 canvasContext: context,
                 viewport: viewport
             }).promise.then(function() {
-                // Convert canvas to blob for Tesseract
                 return new Promise(function(resolve) {
                     canvas.toBlob(function(blob) {
                         console.log('📸 Rendered page', pageNum, 'to image');
@@ -444,27 +445,37 @@ function performPdfOcr(pdf, totalPages) {
                             logger: function(m) {
                                 if (m.status === 'recognizing text') {
                                     const progress = Math.round(m.progress * 100);
-                                    if (progress % 20 === 0) {
+                                    if (progress % 50 === 0) {
                                         console.log(`🔄 Page ${pageNum} OCR: ${progress}%`);
                                     }
                                 }
                             }
                         }).then(function(result) {
                             const pageText = result.data.text;
-                            extractedText += `PAGE ${pageNum} (OCR - Confidence: ${Math.round(result.data.confidence)}%):\n${pageText}\n\n`;
+                            const confidence = Math.round(result.data.confidence);
                             
+                            // Store with page number for correct ordering
                             completedPages++;
-                            const totalProgress = Math.round((completedPages / totalPages) * 100);
-                            showNotification(`OCR Progress: ${totalProgress}% (${completedPages}/${totalPages} pages)`, 'info');
+                            const totalProgress = Math.round((completedPages / MAX_PAGES) * 100);
                             
-                            console.log(`✅ Page ${pageNum} OCR complete:`, pageText.length, 'chars');
+                            console.log(`✅ Page ${pageNum} OCR complete: ${pageText.length} chars (${confidence}% confidence)`);
                             
-                            resolve();
+                            // Update notification every 10 pages
+                            if (completedPages % 10 === 0 || completedPages === MAX_PAGES) {
+                                showNotification(`OCR Progress: ${totalProgress}% (${completedPages}/${MAX_PAGES} pages done)`, 'info');
+                            }
+                            
+                            resolve({
+                                pageNum: pageNum,
+                                text: `PAGE ${pageNum} (OCR - Confidence: ${confidence}%):\n${pageText}\n\n`
+                            });
                         }).catch(function(error) {
                             console.error(`❌ OCR failed on page ${pageNum}:`, error);
-                            extractedText += `PAGE ${pageNum}: [OCR extraction failed]\n\n`;
                             completedPages++;
-                            resolve();
+                            resolve({
+                                pageNum: pageNum,
+                                text: `PAGE ${pageNum}: [OCR extraction failed]\n\n`
+                            });
                         });
                     });
                 });
@@ -472,14 +483,41 @@ function performPdfOcr(pdf, totalPages) {
         });
     };
     
-    // Process pages sequentially (to avoid overwhelming system)
-    let ocrPromise = Promise.resolve();
-    for (let i = 1; i <= Math.min(totalPages, 50); i++) { // Limit to 50 pages
-        ocrPromise = ocrPromise.then(() => processPageOcr(i));
+    // Process pages in batches of 10
+    const processBatch = function(startPage, endPage) {
+        console.log(`🚀 Processing batch: Pages ${startPage} to ${endPage}`);
+        
+        const batchPromises = [];
+        for (let i = startPage; i <= endPage && i <= MAX_PAGES; i++) {
+            batchPromises.push(processPageOcr(i));
+        }
+        
+        return Promise.all(batchPromises);
+    };
+    
+    // Process all batches sequentially
+    const allResults = [];
+    let batchPromise = Promise.resolve();
+    
+    for (let startPage = 1; startPage <= MAX_PAGES; startPage += BATCH_SIZE) {
+        const endPage = Math.min(startPage + BATCH_SIZE - 1, MAX_PAGES);
+        
+        batchPromise = batchPromise.then(() => {
+            return processBatch(startPage, endPage).then(function(batchResults) {
+                allResults.push(...batchResults);
+                console.log(`✅ Batch complete: ${allResults.length}/${MAX_PAGES} pages processed`);
+            });
+        });
     }
     
-    ocrPromise.then(function() {
-        console.log('✅ OCR extraction completed!');
+    batchPromise.then(function() {
+        console.log('✅ All OCR batches completed!');
+        console.log('📊 Total pages processed:', allResults.length);
+        
+        // Sort results by page number and combine
+        allResults.sort((a, b) => a.pageNum - b.pageNum);
+        extractedText = allResults.map(r => r.text).join('');
+        
         console.log('📝 FINAL OCR TEXT:');
         console.log('---START OF OCR TEXT---');
         console.log(extractedText);
@@ -487,10 +525,13 @@ function performPdfOcr(pdf, totalPages) {
         console.log('📊 Total text length:', extractedText.length, 'characters');
         
         if (extractedText.trim().length > 100) {
-            showNotification(`OCR completed! Extracted text from ${completedPages} pages.`, 'success');
+            showNotification(`🎉 OCR completed! Extracted text from ${allResults.length} pages.`, 'success');
         } else {
             showNotification('OCR completed but extracted very little text. Image quality may be too low.', 'warning');
         }
+    }).catch(function(error) {
+        console.error('❌ OCR processing error:', error);
+        showNotification('OCR processing encountered an error. Check console.', 'error');
     });
 }
 
@@ -1699,6 +1740,7 @@ function initializeFooterLinks() {
 console.log('✅ ExamBlox v2.0 FULLY LOADED!');
 console.log('📄 Text Extraction: PDF, DOCX, TXT, Images (OCR)');
 console.log('🖼️ Scanned PDF Support: OCR Fallback Enabled');
+console.log('⚡ OCR Performance: 10 pages processed simultaneously!');
 console.log('🔔 Notifications: Fixed & Stable');
 console.log('🔐 Auth: Login, Signup, Forgot Password');
-console.log('🚀 Ready to use!');
+console.log('🚀 Ready to use - MUCH FASTER NOW!');
